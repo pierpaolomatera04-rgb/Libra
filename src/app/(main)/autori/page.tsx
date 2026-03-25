@@ -44,7 +44,7 @@ export default function AuthorsPage() {
 
     if (data) {
       const authorsWithStats = await Promise.all(
-        data.map(async (author) => {
+        data.map(async (author: any) => {
           const [booksRes, followersRes] = await Promise.all([
             supabase
               .from('books')
@@ -61,13 +61,13 @@ export default function AuthorsPage() {
           return {
             ...author,
             totalBooks: books.length,
-            totalLikes: books.reduce((sum, b) => sum + (b.total_likes || 0), 0),
+            totalLikes: books.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0),
             totalFollowers: followersRes.count || 0,
-            genres: Array.from(new Set(books.map(b => b.genre).filter(Boolean))),
+            genres: Array.from(new Set(books.map((b: any) => b.genre).filter(Boolean))),
             avgBlocks: books.length > 0
-              ? Math.round(books.reduce((sum, b) => sum + (b.total_blocks || 0), 0) / books.length)
+              ? Math.round(books.reduce((sum: number, b: any) => sum + (b.total_blocks || 0), 0) / books.length)
               : 0,
-            hasOngoing: books.some(b => b.status === 'ongoing' || b.status === 'published'),
+            hasOngoing: books.some((b: any) => b.status === 'ongoing' || b.status === 'published'),
           }
         })
       )
@@ -81,7 +81,7 @@ export default function AuthorsPage() {
         .select('following_id')
         .eq('follower_id', user.id)
 
-      setFollowedIds(follows?.map(f => f.following_id) || [])
+      setFollowedIds(follows?.map((f: any) => f.following_id) || [])
     }
 
     setLoading(false)

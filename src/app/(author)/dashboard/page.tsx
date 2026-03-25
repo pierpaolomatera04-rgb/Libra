@@ -38,10 +38,10 @@ export default function DashboardPage() {
         setStats(prev => ({
           ...prev,
           totalBooks: books.length,
-          totalReads: books.reduce((sum, b) => sum + (b.total_reads || 0), 0),
-          totalLikes: books.reduce((sum, b) => sum + (b.total_likes || 0), 0),
-          totalEarnings: books.reduce((sum, b) => sum + Number(b.total_earnings || 0), 0),
-          totalComments: books.reduce((sum, b) => sum + (b.total_comments || 0), 0),
+          totalReads: books.reduce((sum: number, b: any) => sum + (b.total_reads || 0), 0),
+          totalLikes: books.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0),
+          totalEarnings: books.reduce((sum: number, b: any) => sum + Number(b.total_earnings || 0), 0),
+          totalComments: books.reduce((sum: number, b: any) => sum + (b.total_comments || 0), 0),
         }))
       }
 

@@ -27,7 +27,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     // Supabase gestisce automaticamente il token dall'URL
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event) => {
+      async (event: any) => {
         if (event === 'PASSWORD_RECOVERY') {
           // L'utente ha cliccato sul link di recupero, la sessione è attiva
         }

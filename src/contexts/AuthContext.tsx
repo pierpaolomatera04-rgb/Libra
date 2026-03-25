@@ -39,12 +39,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const supabase = createClient()
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null
     }
     return data as UserProfile
-  }, [supabase])
+  }, [])
 
   const refreshProfile = useCallback(async () => {
     if (user) {
@@ -83,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: any, session: any) => {
         setSession(session)
         setUser(session?.user ?? null)
 
@@ -98,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
 
     return () => subscription.unsubscribe()
-  }, [supabase, fetchProfile])
+  }, [fetchProfile])
 
   const signUp = async (email: string, password: string, name: string) => {
     // Prima controlla se l'email esiste già
