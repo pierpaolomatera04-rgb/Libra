@@ -249,7 +249,7 @@ export default function HomePage() {
             <div className="flex items-center gap-6 text-sm">
               <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
               <Link href="/piani" className="hover:text-white transition-colors">Piani</Link>
-              <Link href="/browse" className="hover:text-white transition-colors">Esplora</Link>
+              <Link href="/browse" className="hover:text-white transition-colors">Sfoglia</Link>
             </div>
             <p className="text-xs text-sage-400">
               &copy; 2025 Libra. Tutti i diritti riservati.

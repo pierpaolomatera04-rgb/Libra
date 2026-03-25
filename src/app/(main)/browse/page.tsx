@@ -3,14 +3,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import BookCard from '@/components/book/BookCard'
-import { Search, Filter, TrendingUp, Clock, Sparkles, X } from 'lucide-react'
+import { Search, Filter, TrendingUp, Clock, Sparkles, X, BookOpen, Timer } from 'lucide-react'
 
 const GENRES = [
   'Fantasy', 'Romanzo', 'Thriller', 'Horror', 'Sci-Fi',
   'Avventura', 'Giallo', 'Storico', 'Poesia', 'Biografia', 'Altro'
 ]
 
+const READING_TIMES = [
+  { label: 'Veloce (< 10 blocchi)', max: 10 },
+  { label: 'Medio (10-25 blocchi)', min: 10, max: 25 },
+  { label: 'Lungo (25+ blocchi)', min: 25 },
+]
+
 type SortOption = 'trending' | 'newest' | 'popular'
+type StatusFilter = 'all' | 'ongoing' | 'completed'
 
 export default function BrowsePage() {
   const [books, setBooks] = useState<any[]>([])
@@ -18,9 +25,13 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [genre, setGenre] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [readingTime, setReadingTime] = useState<number | null>(null)
   const [sort, setSort] = useState<SortOption>('trending')
   const [showFilters, setShowFilters] = useState(false)
   const supabase = createClient()
+
+  const hasActiveFilters = genre || statusFilter !== 'all' || readingTime !== null
 
   const fetchBooks = useCallback(async () => {
     setLoading(true)
@@ -31,7 +42,15 @@ export default function BrowsePage() {
         *,
         author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
       `)
-      .in('status', ['published', 'ongoing', 'completed'])
+
+    // Filtro stato
+    if (statusFilter === 'ongoing') {
+      query = query.in('status', ['published', 'ongoing'])
+    } else if (statusFilter === 'completed') {
+      query = query.eq('status', 'completed')
+    } else {
+      query = query.in('status', ['published', 'ongoing', 'completed'])
+    }
 
     if (search) {
       query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
@@ -39,6 +58,13 @@ export default function BrowsePage() {
 
     if (genre) {
       query = query.eq('genre', genre)
+    }
+
+    // Filtro tempo lettura (numero blocchi)
+    if (readingTime !== null) {
+      const rt = READING_TIMES[readingTime]
+      if (rt.min !== undefined) query = query.gte('total_blocks', rt.min)
+      if (rt.max !== undefined) query = query.lte('total_blocks', rt.max)
     }
 
     switch (sort) {
@@ -61,7 +87,7 @@ export default function BrowsePage() {
       setBooks(data)
     }
     setLoading(false)
-  }, [supabase, search, genre, sort])
+  }, [supabase, search, genre, sort, statusFilter, readingTime])
 
   const fetchTrending = useCallback(async () => {
     const { data } = await supabase
@@ -90,12 +116,18 @@ export default function BrowsePage() {
     return () => clearTimeout(timer)
   }, [search, fetchBooks])
 
+  const clearAllFilters = () => {
+    setGenre(null)
+    setStatusFilter('all')
+    setReadingTime(null)
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header + Search */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-sage-900">Esplora</h1>
+          <h1 className="text-2xl font-bold text-sage-900">Sfoglia</h1>
           <p className="text-sm text-bark-400 mt-1">Scopri la tua prossima storia preferita</p>
         </div>
 
@@ -106,8 +138,8 @@ export default function BrowsePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cerca titolo o autore..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm bg-white"
+              placeholder="Cerca titolo..."
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm bg-white"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -118,7 +150,7 @@ export default function BrowsePage() {
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`p-2.5 rounded-xl border transition-colors ${
-              showFilters || genre ? 'bg-sage-500 text-white border-sage-500' : 'border-sage-200 text-bark-500 hover:bg-sage-50'
+              showFilters || hasActiveFilters ? 'bg-sage-500 text-white border-sage-500' : 'border-sage-200 text-bark-500 hover:bg-sage-50'
             }`}
           >
             <Filter className="w-4 h-4" />
@@ -148,36 +180,102 @@ export default function BrowsePage() {
         ))}
       </div>
 
-      {/* Genre filters */}
+      {/* Filters panel */}
       {showFilters && (
-        <div className="mb-6 p-4 bg-white rounded-xl border border-sage-100 animate-fade-in">
-          <p className="text-xs font-medium text-bark-400 mb-3">GENERE</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setGenre(null)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                !genre ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
-              }`}
-            >
-              Tutti
-            </button>
-            {GENRES.map((g) => (
+        <div className="mb-6 p-5 bg-white rounded-xl border border-sage-100 animate-fade-in space-y-5">
+          {/* Header filtri */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-sage-800">Filtri</p>
+            {hasActiveFilters && (
               <button
-                key={g}
-                onClick={() => setGenre(genre === g ? null : g)}
+                onClick={clearAllFilters}
+                className="text-xs text-red-400 hover:text-red-500 font-medium"
+              >
+                Rimuovi tutti
+              </button>
+            )}
+          </div>
+
+          {/* Genere */}
+          <div>
+            <p className="text-xs font-medium text-bark-400 mb-2">GENERE</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setGenre(null)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  genre === g ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                  !genre ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
                 }`}
               >
-                {g}
+                Tutti
               </button>
-            ))}
+              {GENRES.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGenre(genre === g ? null : g)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    genre === g ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stato pubblicazione */}
+          <div>
+            <p className="text-xs font-medium text-bark-400 mb-2">STATO</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'all' as StatusFilter, label: 'Tutti', icon: BookOpen },
+                { key: 'ongoing' as StatusFilter, label: 'In uscita', icon: Clock },
+                { key: 'completed' as StatusFilter, label: 'Completati', icon: Sparkles },
+              ].map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilter(key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    statusFilter === key ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tempo di lettura */}
+          <div>
+            <p className="text-xs font-medium text-bark-400 mb-2">LUNGHEZZA</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setReadingTime(null)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  readingTime === null ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                }`}
+              >
+                Qualsiasi
+              </button>
+              {READING_TIMES.map((rt, i) => (
+                <button
+                  key={i}
+                  onClick={() => setReadingTime(readingTime === i ? null : i)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    readingTime === i ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                  }`}
+                >
+                  <Timer className="w-3 h-3" />
+                  {rt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* Trending section (solo se non ci sono filtri attivi) */}
-      {!search && !genre && sort === 'trending' && trendingBooks.length > 0 && (
+      {!search && !hasActiveFilters && sort === 'trending' && trendingBooks.length > 0 && (
         <div className="mb-12">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-red-500" />
@@ -206,30 +304,19 @@ export default function BrowsePage() {
         </div>
       ) : books.length === 0 ? (
         <div className="text-center py-20">
-          <BookCard
-            book={{
-              id: '',
-              title: '',
-              description: null,
-              cover_image_url: null,
-              genre: null,
-              total_blocks: 0,
-              total_likes: 0,
-              total_reads: 0,
-              trending_score: 0,
-              access_level: 'open',
-              first_block_free: true,
-              status: 'published',
-              published_at: null,
-              author: { id: '', name: null, author_pseudonym: null, avatar_url: null },
-            }}
-          />
-          <div className="mt-8">
-            <p className="text-bark-500 text-lg">Nessun libro trovato</p>
-            <p className="text-bark-400 text-sm mt-1">
-              {search ? 'Prova a cercare qualcos\'altro' : 'I primi libri stanno arrivando!'}
-            </p>
-          </div>
+          <BookOpen className="w-16 h-16 text-sage-200 mx-auto mb-4" />
+          <p className="text-bark-500 text-lg">Nessun libro trovato</p>
+          <p className="text-bark-400 text-sm mt-1">
+            {search || hasActiveFilters ? 'Prova a modificare i filtri' : 'I primi libri stanno arrivando!'}
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="mt-4 text-sm text-sage-600 font-medium hover:text-sage-700"
+            >
+              Rimuovi tutti i filtri
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
