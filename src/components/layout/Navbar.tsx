@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  BookOpen, Search, Library, Coins, User, Menu, X,
+  BookOpen, Search, Library, Coins, User, Menu, X, Users,
   LogOut, LayoutDashboard, PenTool, Settings, ChevronDown
 } from 'lucide-react'
 
@@ -39,6 +39,16 @@ export default function Navbar() {
               Esplora
             </Link>
 
+            <Link
+              href="/autori"
+              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                isActive('/autori') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Autori
+            </Link>
+
             {user && (
               <>
                 <Link
@@ -48,7 +58,7 @@ export default function Navbar() {
                   }`}
                 >
                   <Library className="w-4 h-4" />
-                  Libreria
+                  La mia libreria
                 </Link>
 
                 <Link
@@ -189,6 +199,15 @@ export default function Navbar() {
               <span className="font-medium">Esplora</span>
             </Link>
 
+            <Link
+              href="/autori"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50"
+            >
+              <Users className="w-5 h-5 text-sage-500" />
+              <span className="font-medium">Autori</span>
+            </Link>
+
             {user ? (
               <>
                 <Link
@@ -197,7 +216,7 @@ export default function Navbar() {
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50"
                 >
                   <Library className="w-5 h-5 text-sage-500" />
-                  <span className="font-medium">Libreria</span>
+                  <span className="font-medium">La mia libreria</span>
                 </Link>
                 <Link
                   href="/wallet"
