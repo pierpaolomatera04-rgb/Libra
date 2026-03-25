@@ -158,10 +158,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // Ignora errori di signOut
+    }
     setUser(null)
     setProfile(null)
     setSession(null)
+    // Forza redirect alla home dopo il logout
+    window.location.href = '/'
   }
 
   const resetPassword = async (email: string) => {

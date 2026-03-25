@@ -139,7 +139,7 @@ export default function HomePage() {
                 ))}
               </div>
               <Link
-                href="/signup"
+                href="/diventa-autore"
                 className="inline-flex items-center gap-2 mt-8 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
               >
                 Diventa autore
