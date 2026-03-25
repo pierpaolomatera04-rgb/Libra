@@ -171,7 +171,7 @@ export default function HomePage() {
       {/* Piani */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-sage-900 mb-4">Scegli il tuo piano</h2>
+          <h2 className="text-3xl font-bold text-sage-900 mb-4">Scegli il tuo piano VIP</h2>
           <p className="text-bark-500 mb-12 max-w-xl mx-auto">
             Inizia gratis e sblocca più contenuti con i piani premium
           </p>
@@ -179,24 +179,27 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {[
               {
-                name: 'Free',
+                name: 'Esploratore',
                 price: 'Gratis',
-                features: ['10 token di benvenuto', 'Accesso ai contenuti gratuiti', 'Primo blocco gratis', 'Commenti e like'],
+                period: '',
+                features: ['10 token di benvenuto', 'Accesso ai contenuti gratuiti', 'Primo blocco sempre gratis', 'Commenti e like illimitati', 'Salvataggio libri preferiti'],
                 cta: 'Inizia gratis',
                 highlighted: false,
               },
               {
                 name: 'Silver',
-                price: 'Da definire',
-                features: ['Token bonus mensili', 'Sconto 20% sui blocchi', 'Contenuti Silver esclusivi', 'Badge Silver sul profilo'],
-                cta: 'Prossimamente',
+                price: '€4,99',
+                period: '/mese',
+                features: ['50 token bonus al mese', 'Sconto 20% su tutti i blocchi', 'Contenuti Silver esclusivi', 'Badge Silver sul profilo', 'Accesso anticipato alle novità'],
+                cta: 'Scegli Silver',
                 highlighted: true,
               },
               {
                 name: 'Gold',
-                price: 'Da definire',
-                features: ['Token bonus mensili extra', 'Accesso a tutto il catalogo', 'Contenuti Gold esclusivi', 'Badge Gold + priorità commenti'],
-                cta: 'Prossimamente',
+                price: '€9,99',
+                period: '/mese',
+                features: ['120 token bonus al mese', 'Sconto 40% su tutti i blocchi', 'Accesso a tutto il catalogo', 'Badge Gold + priorità commenti', 'Supporto prioritario'],
+                cta: 'Scegli Gold',
                 highlighted: false,
               },
             ].map((plan) => (
@@ -211,9 +214,16 @@ export default function HomePage() {
                 <h3 className={`text-lg font-bold mb-1 ${plan.highlighted ? 'text-white' : 'text-sage-800'}`}>
                   {plan.name}
                 </h3>
-                <p className={`text-2xl font-bold mb-6 ${plan.highlighted ? 'text-sage-100' : 'text-sage-600'}`}>
-                  {plan.price}
-                </p>
+                <div className="mb-6">
+                  <span className={`text-2xl font-bold ${plan.highlighted ? 'text-sage-100' : 'text-sage-600'}`}>
+                    {plan.price}
+                  </span>
+                  {plan.period && (
+                    <span className={`text-sm ${plan.highlighted ? 'text-sage-200' : 'text-bark-400'}`}>
+                      {plan.period}
+                    </span>
+                  )}
+                </div>
                 <ul className="space-y-3 mb-8 text-left">
                   {plan.features.map((f) => (
                     <li key={f} className={`flex items-center gap-2 text-sm ${plan.highlighted ? 'text-sage-100' : 'text-bark-500'}`}>

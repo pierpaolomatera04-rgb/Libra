@@ -95,25 +95,75 @@ export default function WalletPage() {
         </div>
       </div>
 
-      {/* Acquista token (placeholder - Stripe verrà dopo) */}
-      <div className="bg-cream-200 rounded-2xl p-6 mb-8">
-        <h2 className="text-lg font-bold text-sage-900 mb-2">Acquista token</h2>
-        <p className="text-sm text-bark-500 mb-4">
-          I pacchetti token saranno disponibili presto. Per ora puoi usare i token bonus di benvenuto!
-        </p>
-        <div className="grid grid-cols-3 gap-3">
+      {/* Piani VIP */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold text-sage-900 mb-4">Piani VIP</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { amount: 50, price: 'Da definire' },
-            { amount: 150, price: 'Da definire' },
-            { amount: 500, price: 'Da definire' },
-          ].map((pack) => (
-            <div key={pack.amount} className="bg-white rounded-xl p-4 text-center border border-sage-100 opacity-60">
-              <p className="text-2xl font-bold text-sage-700">{pack.amount}</p>
-              <p className="text-xs text-bark-400">token</p>
-              <p className="text-sm font-medium text-sage-600 mt-2">{pack.price}</p>
+            {
+              name: 'Esploratore',
+              price: 'Gratis',
+              period: '',
+              current: profile?.subscription_plan === 'free',
+              features: ['10 token di benvenuto', 'Contenuti gratuiti', 'Primo blocco gratis', 'Commenti e like'],
+              color: 'border-sage-200',
+              badge: 'bg-sage-100 text-sage-700',
+            },
+            {
+              name: 'Silver',
+              price: '€4,99',
+              period: '/mese',
+              current: profile?.subscription_plan === 'silver',
+              features: ['50 token bonus/mese', 'Sconto 20% blocchi', 'Contenuti Silver', 'Badge Silver', 'Accesso anticipato'],
+              color: 'border-gray-300',
+              badge: 'bg-gray-100 text-gray-700',
+            },
+            {
+              name: 'Gold',
+              price: '€9,99',
+              period: '/mese',
+              current: profile?.subscription_plan === 'gold',
+              features: ['120 token bonus/mese', 'Sconto 40% blocchi', 'Tutto il catalogo', 'Badge Gold', 'Supporto prioritario'],
+              color: 'border-amber-300',
+              badge: 'bg-amber-50 text-amber-700',
+            },
+          ].map((plan) => (
+            <div key={plan.name} className={`bg-white rounded-2xl border-2 ${plan.current ? plan.color + ' ring-2 ring-sage-300' : 'border-sage-100'} p-5 relative`}>
+              {plan.current && (
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-0.5 bg-sage-500 text-white rounded-full">
+                  Piano attuale
+                </span>
+              )}
+              <div className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-3 ${plan.badge}`}>
+                {plan.name}
+              </div>
+              <div className="mb-4">
+                <span className="text-2xl font-bold text-sage-900">{plan.price}</span>
+                {plan.period && <span className="text-sm text-bark-400">{plan.period}</span>}
+              </div>
+              <ul className="space-y-2 mb-5">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-bark-500">
+                    <span className="text-sage-500 mt-0.5">✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              {plan.current ? (
+                <div className="w-full py-2 rounded-xl text-center text-sm font-medium bg-sage-50 text-sage-600">
+                  Attivo
+                </div>
+              ) : (
+                <button className="w-full py-2 rounded-xl text-sm font-medium bg-sage-500 text-white hover:bg-sage-600 transition-colors">
+                  {plan.price === 'Gratis' ? 'Downgrade' : 'Upgrade'}
+                </button>
+              )}
             </div>
           ))}
         </div>
+        <p className="text-xs text-bark-400 text-center mt-3">
+          I pagamenti saranno disponibili prossimamente tramite Stripe
+        </p>
       </div>
 
       {/* Transaction history */}

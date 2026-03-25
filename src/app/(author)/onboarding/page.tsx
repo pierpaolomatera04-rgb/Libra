@@ -3,15 +3,17 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { PenTool, ArrowRight, Loader2, BookOpen } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import { PenTool, ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function AuthorOnboardingPage() {
   const [pseudonym, setPseudonym] = useState('')
   const [bio, setBio] = useState('')
   const [loading, setLoading] = useState(false)
-  const { updateProfile, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const router = useRouter()
+  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,20 +22,45 @@ export default function AuthorOnboardingPage() {
       return
     }
 
-    setLoading(true)
-    const { error } = await updateProfile({
-      is_author: true,
-      author_pseudonym: pseudonym.trim(),
-      author_bio: bio.trim(),
-    } as any)
+    if (!user) {
+      toast.error('Devi effettuare il login')
+      router.push('/login')
+      return
+    }
 
-    if (error) {
-      toast.error(error)
-    } else {
+    setLoading(true)
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_author: true,
+          author_pseudonym: pseudonym.trim(),
+          author_bio: bio.trim() || null,
+        })
+        .eq('id', user.id)
+
+      if (error) {
+        console.error('Errore onboarding autore:', error)
+        toast.error('Errore durante la registrazione come autore: ' + error.message)
+        setLoading(false)
+        return
+      }
+
+      // Aggiorna il profilo nel context
+      try {
+        await refreshProfile()
+      } catch {
+        // Ignora errori di refresh, il profilo si aggiornerà al prossimo caricamento
+      }
+
       toast.success('Benvenuto come autore!')
       router.push('/dashboard')
+    } catch (err) {
+      console.error('Errore imprevisto:', err)
+      toast.error('Si è verificato un errore. Riprova.')
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   if (profile?.is_author) {
@@ -85,7 +112,10 @@ export default function AuthorOnboardingPage() {
           className="w-full py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
         >
           {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Registrazione in corso...
+            </>
           ) : (
             <>
               Inizia a pubblicare
