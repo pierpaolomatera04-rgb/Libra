@@ -339,21 +339,33 @@ export default function PublishPage() {
       }
 
       console.log('Inserimento libro con payload:', JSON.stringify(bookPayload, null, 2))
+      toast.loading('Creazione libro in corso...', { id: 'publish-progress' })
 
-      const { data: book, error: bookError } = await supabase
-        .from('books')
-        .insert(bookPayload)
-        .select()
-        .single()
+      let book: any = null
+      try {
+        const bookResult = await Promise.race([
+          supabase.from('books').insert(bookPayload).select().single(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout: il server non risponde dopo 30 secondi')), 30000))
+        ]) as any
 
-      if (bookError) {
-        console.error('Errore creazione libro:', bookError)
-        toast.error('Errore nella creazione del libro: ' + (bookError.message || bookError.code || 'Errore sconosciuto'))
+        if (bookResult.error) {
+          console.error('Errore creazione libro:', bookResult.error)
+          toast.dismiss('publish-progress')
+          toast.error('Errore DB libro: ' + (bookResult.error.message || bookResult.error.details || bookResult.error.hint || JSON.stringify(bookResult.error)))
+          setPublishing(false)
+          return
+        }
+        book = bookResult.data
+      } catch (raceErr: any) {
+        console.error('Errore/timeout creazione libro:', raceErr)
+        toast.dismiss('publish-progress')
+        toast.error(raceErr.message || 'Errore nella creazione del libro')
         setPublishing(false)
         return
       }
 
       console.log('Libro creato con ID:', book.id)
+      toast.loading('Inserimento blocchi...', { id: 'publish-progress' })
 
       // 4. Crea i blocchi
       const blocksToInsert = data.blocks.map((block, index) => ({
@@ -371,14 +383,24 @@ export default function PublishPage() {
 
       console.log(`Inserimento ${blocksToInsert.length} blocchi...`)
 
-      const { error: blocksError } = await supabase
-        .from('blocks')
-        .insert(blocksToInsert)
+      try {
+        const blocksResult = await Promise.race([
+          supabase.from('blocks').insert(blocksToInsert),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout: inserimento blocchi lento (30s)')), 30000))
+        ]) as any
 
-      if (blocksError) {
-        console.error('Errore creazione blocchi:', blocksError)
-        toast.error('Errore nella creazione dei blocchi: ' + (blocksError.message || blocksError.code || 'Errore sconosciuto'))
-        // Prova a eliminare il libro orfano
+        if (blocksResult.error) {
+          console.error('Errore creazione blocchi:', blocksResult.error)
+          toast.dismiss('publish-progress')
+          toast.error('Errore DB blocchi: ' + (blocksResult.error.message || blocksResult.error.details || JSON.stringify(blocksResult.error)))
+          await supabase.from('books').delete().eq('id', book.id)
+          setPublishing(false)
+          return
+        }
+      } catch (blocksErr: any) {
+        console.error('Errore/timeout blocchi:', blocksErr)
+        toast.dismiss('publish-progress')
+        toast.error(blocksErr.message || 'Errore inserimento blocchi')
         await supabase.from('books').delete().eq('id', book.id)
         setPublishing(false)
         return
@@ -397,10 +419,11 @@ export default function PublishPage() {
         }
       }
 
-      toast.success('Libro pubblicato con successo!')
+      toast.dismiss('publish-progress')
+      toast.success('Libro pubblicato con successo! 🎉')
       setTimeout(() => {
         window.location.href = '/dashboard/opere'
-      }, 500)
+      }, 800)
     } catch (error: any) {
       console.error('Errore imprevisto pubblicazione:', error)
       toast.error('Errore nella pubblicazione: ' + (error?.message || 'Errore sconosciuto. Controlla la console.'))
@@ -416,7 +439,7 @@ export default function PublishPage() {
       case 1: return data.blocks.length > 0
       case 2: return data.blocks.length >= 2
       case 3: return true
-      case 4: return data.title.length > 0 && data.genre.length > 0
+      case 4: return data.title.length > 0 && data.genre.length > 0 && data.description.trim().split(/\s+/).filter(Boolean).length >= 150 && data.coverImage !== null
       case 5: return data.scheduledDays.length === data.blocks.length
       case 6: return true
       default: return false
@@ -760,14 +783,25 @@ export default function PublishPage() {
 
               {/* Descrizione */}
               <div>
-                <label className="block text-sm font-medium text-sage-800 mb-1.5">Descrizione</label>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">Descrizione *</label>
                 <textarea
                   value={data.description}
                   onChange={(e) => setData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Di cosa parla il tuo libro? Cattura l'attenzione dei lettori..."
+                  placeholder="Di cosa parla il tuo libro? Cattura l'attenzione dei lettori... (minimo 150 parole)"
                   rows={4}
-                  className="w-full px-4 py-3 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none text-sm resize-y"
+                  className={`w-full px-4 py-3 rounded-xl border focus:ring-2 outline-none text-sm resize-y ${
+                    data.description.trim().split(/\s+/).filter(Boolean).length > 0 && data.description.trim().split(/\s+/).filter(Boolean).length < 150
+                      ? 'border-amber-300 focus:border-amber-400 focus:ring-amber-200'
+                      : 'border-sage-200 focus:border-sage-400 focus:ring-sage-200'
+                  }`}
                 />
+                <div className="flex justify-between mt-1.5">
+                  <p className={`text-xs ${
+                    data.description.trim().split(/\s+/).filter(Boolean).length >= 150 ? 'text-green-600' : 'text-bark-400'
+                  }`}>
+                    {data.description.trim().split(/\s+/).filter(Boolean).length >= 150 ? '✓' : '✎'} {data.description.trim().split(/\s+/).filter(Boolean).length}/150 parole {data.description.trim().split(/\s+/).filter(Boolean).length < 150 ? '(minimo)' : ''}
+                  </p>
+                </div>
               </div>
 
               {/* Genere */}
@@ -812,7 +846,7 @@ export default function PublishPage() {
 
               {/* Cover */}
               <div>
-                <label className="block text-sm font-medium text-sage-800 mb-1.5">Copertina</label>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">Copertina *</label>
                 <div className="flex items-start gap-4">
                   {data.coverPreview ? (
                     <div className="relative w-32 h-44 rounded-xl overflow-hidden border border-sage-200">
