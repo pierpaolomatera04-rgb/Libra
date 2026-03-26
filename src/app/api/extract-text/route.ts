@@ -28,12 +28,11 @@ export async function POST(request: NextRequest) {
       const result = await mammoth.extractRawText({ buffer })
       text = result.value
     } else if (fileName.endsWith('.pdf')) {
-      // Estrai testo da PDF
-      const buffer = Buffer.from(await file.arrayBuffer())
-      const pdfParseModule = await import('pdf-parse')
-      const pdfParse = (pdfParseModule as any).default || pdfParseModule
-      const result = await pdfParse(buffer)
-      text = result.text
+      // Estrai testo da PDF usando unpdf
+      const arrayBuffer = await file.arrayBuffer()
+      const { extractText } = await import('unpdf')
+      const { text: pdfText } = await extractText(arrayBuffer)
+      text = Array.isArray(pdfText) ? pdfText.join('\n\n') : String(pdfText)
     } else {
       return NextResponse.json(
         { error: 'Formato non supportato. Usa PDF, DOCX o TXT.' },
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (!text || text.length < 100) {
       return NextResponse.json(
-        { error: 'Il file non contiene abbastanza testo (minimo 100 caratteri).' },
+        { error: 'Il file non contiene abbastanza testo (minimo 100 caratteri). Assicurati che il PDF non sia un\'immagine scansionata.' },
         { status: 400 }
       )
     }
@@ -64,7 +63,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Errore estrazione testo:', error)
     return NextResponse.json(
-      { error: 'Errore durante l\'elaborazione del file. Riprova.' },
+      { error: 'Errore durante l\'elaborazione del file: ' + (error.message || 'Riprova.') },
       { status: 500 }
     )
   }
