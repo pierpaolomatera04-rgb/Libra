@@ -6,7 +6,7 @@ import Navbar from '@/components/layout/Navbar'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   LayoutDashboard, BookOpen, BarChart3, Coins,
-  MessageCircle, UserCircle, Plus, Settings
+  MessageCircle, UserCircle, Plus, Settings, ArrowLeft
 } from 'lucide-react'
 
 const studioLinks = [
@@ -21,10 +21,10 @@ const studioLinks = [
 
 export default function AuthorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { profile } = useAuth()
+  const { profile, loading } = useAuth()
 
-  // Non mostrare la sidebar nelle pagine onboarding e pubblica
-  const showSidebar = profile?.is_author && pathname !== '/onboarding' && pathname !== '/pubblica'
+  // Non mostrare la sidebar nelle pagine onboarding e pubblica, o durante il loading
+  const showSidebar = !loading && profile?.is_author && pathname !== '/onboarding' && pathname !== '/pubblica'
 
   return (
     <>
@@ -57,7 +57,7 @@ export default function AuthorLayout({ children }: { children: React.ReactNode }
               })}
             </nav>
 
-            <div className="mt-6 pt-4 border-t border-sage-100">
+            <div className="mt-4 pt-4 border-t border-sage-100 space-y-2">
               <Link
                 href="/pubblica"
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors"
@@ -65,11 +65,18 @@ export default function AuthorLayout({ children }: { children: React.ReactNode }
                 <Plus className="w-4 h-4" />
                 Pubblica libro
               </Link>
+              <Link
+                href="/browse"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2 text-bark-500 hover:text-sage-700 rounded-xl text-sm font-medium hover:bg-sage-50 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Torna al sito
+              </Link>
             </div>
           </aside>
 
           {/* Mobile bottom tabs */}
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-sage-100 px-2 py-1.5 flex justify-around">
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-sage-100 px-1 py-1.5 flex justify-around safe-area-bottom">
             {studioLinks.slice(0, 5).map((link) => {
               const isActive = pathname === link.href
               return (
@@ -85,6 +92,13 @@ export default function AuthorLayout({ children }: { children: React.ReactNode }
                 </Link>
               )
             })}
+            <Link
+              href="/browse"
+              className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] text-bark-400"
+            >
+              <ArrowLeft className="w-5 h-5 text-bark-400" />
+              Sito
+            </Link>
           </div>
 
           {/* Content */}
