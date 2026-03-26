@@ -368,7 +368,7 @@ export default function PublishPage() {
       }
 
       toast.success('Libro pubblicato con successo!')
-      router.push('/dashboard/opere')
+      window.location.href = '/dashboard/opere'
     } catch (error: any) {
       console.error('Errore pubblicazione:', error)
       toast.error('Errore nella pubblicazione: ' + error.message)
@@ -491,6 +491,19 @@ export default function PublishPage() {
               </p>
             </div>
 
+            {/* Blocchi consigliati */}
+            <div className="p-4 bg-sage-50 rounded-xl mb-6 flex items-center gap-3">
+              <Scissors className="w-5 h-5 text-sage-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-sage-700">
+                  Consigliati: <strong>{suggestBlockCount(data.extractedText.length)} blocchi</strong>
+                </p>
+                <p className="text-xs text-bark-400">
+                  Basato su {data.extractedText.split(/\s+/).length.toLocaleString()} parole totali (~4.000 caratteri/blocco)
+                </p>
+              </div>
+            </div>
+
             <div className="bg-white rounded-2xl border border-sage-100 p-8">
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-3">
@@ -511,32 +524,51 @@ export default function PublishPage() {
                 </div>
               </div>
 
+              {/* Tempo totale stimato */}
+              <div className="p-3 bg-cream-200 rounded-xl mb-6 text-center">
+                <p className="text-xs text-bark-400">Tempo di lettura totale stimato</p>
+                <p className="text-lg font-bold text-sage-700">
+                  ~{Math.ceil(data.extractedText.split(/\s+/).length / 200)} minuti
+                </p>
+                <p className="text-xs text-bark-400">
+                  (~{Math.ceil(data.extractedText.split(/\s+/).length / 200 / data.blocks.length)} min per blocco)
+                </p>
+              </div>
+
               <div className="space-y-3">
                 <p className="text-sm font-medium text-sage-800">Anteprima blocchi:</p>
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
-                  {data.blocks.map((block) => (
-                    <div
-                      key={block.number}
-                      className="flex items-center justify-between p-3 bg-sage-50 rounded-xl"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 bg-sage-200 rounded-lg flex items-center justify-center text-sm font-bold text-sage-700">
-                          {block.number}
-                        </span>
-                        <div>
-                          <p className="text-sm font-medium text-sage-800">{block.title}</p>
-                          <p className="text-xs text-bark-400">
-                            {block.wordCount.toLocaleString()} parole &bull; {block.characterCount.toLocaleString()} caratteri
-                          </p>
+                  {data.blocks.map((block) => {
+                    const readingMin = Math.max(1, Math.ceil(block.wordCount / 200))
+                    return (
+                      <div
+                        key={block.number}
+                        className="flex items-center justify-between p-3 bg-sage-50 rounded-xl"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 bg-sage-200 rounded-lg flex items-center justify-center text-sm font-bold text-sage-700">
+                            {block.number}
+                          </span>
+                          <div>
+                            <p className="text-sm font-medium text-sage-800">{block.title}</p>
+                            <p className="text-xs text-bark-400">
+                              {block.wordCount.toLocaleString()} parole &bull; ~{readingMin} min di lettura
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {block.startsAtChapter && (
+                            <span className="text-xs bg-sage-200 text-sage-700 px-2 py-0.5 rounded-full">
+                              Capitolo
+                            </span>
+                          )}
+                          <span className="text-[10px] text-bark-300">
+                            {block.characterCount.toLocaleString()} car.
+                          </span>
                         </div>
                       </div>
-                      {block.startsAtChapter && (
-                        <span className="text-xs bg-sage-200 text-sage-700 px-2 py-0.5 rounded-full">
-                          Capitolo
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -955,6 +987,20 @@ export default function PublishPage() {
                 <p className="text-lg font-bold text-sage-700 mt-1">
                   {((data.blocks.length - (data.firstBlockFree ? 1 : 0)) * data.tokenPricePerBlock)} token per lettore
                 </p>
+                <p className="text-sm text-sage-600 mt-1">
+                  ≈ €{(((data.blocks.length - (data.firstBlockFree ? 1 : 0)) * data.tokenPricePerBlock) * 0.10).toFixed(2)} per lettore
+                </p>
+                <p className="text-[11px] text-bark-400 mt-2">
+                  1 token = €0,10 · 10 token = €1,00
+                </p>
+              </div>
+
+              {/* Prezzo singolo blocco in € */}
+              <div className="p-3 bg-sage-50 rounded-xl flex items-center justify-between">
+                <span className="text-sm text-bark-500">Prezzo per blocco</span>
+                <span className="text-sm font-semibold text-sage-700">
+                  {data.tokenPricePerBlock} token = €{(data.tokenPricePerBlock * 0.10).toFixed(2)}
+                </span>
               </div>
             </div>
           </div>
@@ -1024,7 +1070,7 @@ export default function PublishPage() {
         )}
 
         {/* ---- NAVIGATION BUTTONS ---- */}
-        {step < 7 && (
+        {step < 7 ? (
           <div className="flex items-center justify-between mt-8 max-w-2xl mx-auto">
             <button
               onClick={() => setStep(Math.max(1, step - 1))}
@@ -1041,6 +1087,16 @@ export default function PublishPage() {
             >
               Avanti
               <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center mt-8 max-w-2xl mx-auto">
+            <button
+              onClick={() => setStep(6)}
+              className="flex items-center gap-1 px-4 py-2 text-sm text-bark-500 hover:text-sage-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Torna indietro per modificare
             </button>
           </div>
         )}
