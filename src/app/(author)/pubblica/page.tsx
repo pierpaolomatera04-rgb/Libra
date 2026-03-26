@@ -961,19 +961,63 @@ export default function PublishPage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="text-sm font-medium text-sage-800">Token per blocco</label>
-                  <span className="text-xl font-bold text-sage-600">{data.tokenPricePerBlock}</span>
+                  <div className="text-right">
+                    <span className="text-xl font-bold text-sage-600">{data.tokenPricePerBlock}</span>
+                    <span className="text-sm text-bark-400 ml-1">= €{(data.tokenPricePerBlock * 0.10).toFixed(2)}</span>
+                  </div>
                 </div>
                 <input
                   type="range"
                   min={1}
-                  max={20}
+                  max={50}
                   value={data.tokenPricePerBlock}
                   onChange={(e) => setData(prev => ({ ...prev, tokenPricePerBlock: parseInt(e.target.value) }))}
                   className="w-full accent-sage-500"
                 />
                 <div className="flex justify-between text-xs text-bark-400 mt-1">
-                  <span>1 token</span>
-                  <span>20 token</span>
+                  <span>1 token (€0,10)</span>
+                  <span>50 token (€5,00)</span>
+                </div>
+
+                {/* Messaggio consiglio dinamico */}
+                <div className={`mt-3 p-3 rounded-xl text-sm flex items-start gap-2 transition-all ${
+                  data.tokenPricePerBlock <= 5
+                    ? 'bg-green-50 text-green-700'
+                    : data.tokenPricePerBlock <= 10
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : data.tokenPricePerBlock <= 20
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-red-50 text-red-700'
+                }`}>
+                  <span className="text-base flex-shrink-0">
+                    {data.tokenPricePerBlock <= 5 ? '🎯' : data.tokenPricePerBlock <= 10 ? '👍' : data.tokenPricePerBlock <= 20 ? '⚠️' : '🚫'}
+                  </span>
+                  <div>
+                    {data.tokenPricePerBlock <= 5 && (
+                      <>
+                        <p className="font-medium">Prezzo ideale!</p>
+                        <p className="text-xs mt-0.5 opacity-80">Tra €0,10 e €0,50 a blocco è il range perfetto per attirare più lettori e ottenere più vendite.</p>
+                      </>
+                    )}
+                    {data.tokenPricePerBlock > 5 && data.tokenPricePerBlock <= 10 && (
+                      <>
+                        <p className="font-medium">Buon prezzo</p>
+                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco è ragionevole. Consigliamo di restare sotto €1,00 per massimizzare i lettori.</p>
+                      </>
+                    )}
+                    {data.tokenPricePerBlock > 10 && data.tokenPricePerBlock <= 20 && (
+                      <>
+                        <p className="font-medium">Prezzo alto</p>
+                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco potrebbe scoraggiare molti lettori. Ti consigliamo di restare tra 1 e 10 token (€0,10-€1,00).</p>
+                      </>
+                    )}
+                    {data.tokenPricePerBlock > 20 && (
+                      <>
+                        <p className="font-medium">Prezzo molto alto</p>
+                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco è ben oltre il consigliato. La maggior parte dei lettori preferisce blocchi tra €0,10 e €1,00. Rischi di perdere pubblico.</p>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
