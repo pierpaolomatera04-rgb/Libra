@@ -302,7 +302,10 @@ export default function PublishPage() {
           .from('covers')
           .upload(path, data.coverImage)
 
-        if (!uploadError) {
+        if (uploadError) {
+          console.error('Errore upload cover:', uploadError)
+          // Non bloccare la pubblicazione per la cover
+        } else {
           const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
           coverUrl = urlData.publicUrl
         }
@@ -317,62 +320,90 @@ export default function PublishPage() {
       })
 
       // 3. Crea il libro
+      const bookPayload = {
+        author_id: user.id,
+        title: data.title,
+        description: data.description || null,
+        cover_image_url: coverUrl,
+        genre: data.genre,
+        mood: data.mood || null,
+        total_blocks: data.blocks.length,
+        access_level: data.accessLevel,
+        token_price_per_block: data.tokenPricePerBlock,
+        first_block_free: data.firstBlockFree,
+        status: 'ongoing',
+        scheduled_releases: scheduledDates,
+        publication_start_date: scheduledDates[0],
+        publication_end_date: scheduledDates[scheduledDates.length - 1],
+        published_at: new Date().toISOString(),
+      }
+
+      console.log('Inserimento libro con payload:', JSON.stringify(bookPayload, null, 2))
+
       const { data: book, error: bookError } = await supabase
         .from('books')
-        .insert({
-          author_id: user.id,
-          title: data.title,
-          description: data.description,
-          cover_image_url: coverUrl,
-          genre: data.genre,
-          mood: data.mood,
-          total_blocks: data.blocks.length,
-          access_level: data.accessLevel,
-          token_price_per_block: data.tokenPricePerBlock,
-          first_block_free: data.firstBlockFree,
-          status: 'ongoing',
-          scheduled_releases: scheduledDates,
-          publication_start_date: scheduledDates[0],
-          publication_end_date: scheduledDates[scheduledDates.length - 1],
-          published_at: new Date().toISOString(),
-        })
+        .insert(bookPayload)
         .select()
         .single()
 
-      if (bookError) throw bookError
+      if (bookError) {
+        console.error('Errore creazione libro:', bookError)
+        toast.error('Errore nella creazione del libro: ' + (bookError.message || bookError.code || 'Errore sconosciuto'))
+        setPublishing(false)
+        return
+      }
+
+      console.log('Libro creato con ID:', book.id)
 
       // 4. Crea i blocchi
       const blocksToInsert = data.blocks.map((block, index) => ({
         book_id: book.id,
         block_number: block.number,
-        title: block.title,
+        title: block.title || `Blocco ${block.number}`,
         content: block.content,
         character_count: block.characterCount,
         word_count: block.wordCount,
         token_price: data.tokenPricePerBlock,
         scheduled_date: scheduledDates[index] || null,
-        is_released: index === 0, // Primo blocco rilasciato subito
+        is_released: index === 0,
         released_at: index === 0 ? new Date().toISOString() : null,
       }))
+
+      console.log(`Inserimento ${blocksToInsert.length} blocchi...`)
 
       const { error: blocksError } = await supabase
         .from('blocks')
         .insert(blocksToInsert)
 
-      if (blocksError) throw blocksError
+      if (blocksError) {
+        console.error('Errore creazione blocchi:', blocksError)
+        toast.error('Errore nella creazione dei blocchi: ' + (blocksError.message || blocksError.code || 'Errore sconosciuto'))
+        // Prova a eliminare il libro orfano
+        await supabase.from('books').delete().eq('id', book.id)
+        setPublishing(false)
+        return
+      }
 
-      // 5. Upload file originale nello storage
+      console.log('Blocchi creati con successo')
+
+      // 5. Upload file originale (non bloccante)
       if (data.file) {
-        const filePath = `${user.id}/${book.id}/${data.file.name}`
-        await supabase.storage.from('book-files').upload(filePath, data.file)
+        try {
+          const filePath = `${user.id}/${book.id}/${data.file.name}`
+          await supabase.storage.from('book-files').upload(filePath, data.file)
+          console.log('File originale caricato')
+        } catch (fileErr) {
+          console.error('Errore upload file originale (non bloccante):', fileErr)
+        }
       }
 
       toast.success('Libro pubblicato con successo!')
-      window.location.href = '/dashboard/opere'
+      setTimeout(() => {
+        window.location.href = '/dashboard/opere'
+      }, 500)
     } catch (error: any) {
-      console.error('Errore pubblicazione:', error)
-      toast.error('Errore nella pubblicazione: ' + error.message)
-    } finally {
+      console.error('Errore imprevisto pubblicazione:', error)
+      toast.error('Errore nella pubblicazione: ' + (error?.message || 'Errore sconosciuto. Controlla la console.'))
       setPublishing(false)
     }
   }
@@ -981,40 +1012,40 @@ export default function PublishPage() {
 
                 {/* Messaggio consiglio dinamico */}
                 <div className={`mt-3 p-3 rounded-xl text-sm flex items-start gap-2 transition-all ${
-                  data.tokenPricePerBlock <= 5
+                  data.tokenPricePerBlock <= 10
                     ? 'bg-green-50 text-green-700'
-                    : data.tokenPricePerBlock <= 10
+                    : data.tokenPricePerBlock <= 20
                       ? 'bg-emerald-50 text-emerald-700'
-                      : data.tokenPricePerBlock <= 20
+                      : data.tokenPricePerBlock <= 30
                         ? 'bg-amber-50 text-amber-700'
                         : 'bg-red-50 text-red-700'
                 }`}>
                   <span className="text-base flex-shrink-0">
-                    {data.tokenPricePerBlock <= 5 ? '🎯' : data.tokenPricePerBlock <= 10 ? '👍' : data.tokenPricePerBlock <= 20 ? '⚠️' : '🚫'}
+                    {data.tokenPricePerBlock <= 10 ? '🎯' : data.tokenPricePerBlock <= 20 ? '👍' : data.tokenPricePerBlock <= 30 ? '⚠️' : '🚫'}
                   </span>
                   <div>
-                    {data.tokenPricePerBlock <= 5 && (
+                    {data.tokenPricePerBlock <= 10 && (
                       <>
-                        <p className="font-medium">Prezzo ideale!</p>
-                        <p className="text-xs mt-0.5 opacity-80">Tra €0,10 e €0,50 a blocco è il range perfetto per attirare più lettori e ottenere più vendite.</p>
-                      </>
-                    )}
-                    {data.tokenPricePerBlock > 5 && data.tokenPricePerBlock <= 10 && (
-                      <>
-                        <p className="font-medium">Buon prezzo</p>
-                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco è ragionevole. Consigliamo di restare sotto €1,00 per massimizzare i lettori.</p>
+                        <p className="font-medium">Prezzo consigliato!</p>
+                        <p className="text-xs mt-0.5 opacity-80">Tra €0,10 e €1,00 a blocco è il range perfetto per attirare più lettori e ottenere più vendite.</p>
                       </>
                     )}
                     {data.tokenPricePerBlock > 10 && data.tokenPricePerBlock <= 20 && (
                       <>
-                        <p className="font-medium">Prezzo alto</p>
-                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco potrebbe scoraggiare molti lettori. Ti consigliamo di restare tra 1 e 10 token (€0,10-€1,00).</p>
+                        <p className="font-medium">Buon prezzo</p>
+                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco è un prezzo ragionevole. Per massimizzare i lettori consigliamo di restare sotto €1,00.</p>
                       </>
                     )}
-                    {data.tokenPricePerBlock > 20 && (
+                    {data.tokenPricePerBlock > 20 && data.tokenPricePerBlock <= 30 && (
+                      <>
+                        <p className="font-medium">Prezzo alto</p>
+                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco potrebbe scoraggiare molti lettori. Ti consigliamo di restare tra 1 e 20 token (€0,10-€2,00).</p>
+                      </>
+                    )}
+                    {data.tokenPricePerBlock > 30 && (
                       <>
                         <p className="font-medium">Prezzo molto alto</p>
-                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco è ben oltre il consigliato. La maggior parte dei lettori preferisce blocchi tra €0,10 e €1,00. Rischi di perdere pubblico.</p>
+                        <p className="text-xs mt-0.5 opacity-80">€{(data.tokenPricePerBlock * 0.10).toFixed(2)} a blocco è ben oltre il consigliato. La maggior parte dei lettori preferisce blocchi tra €0,10 e €2,00. Rischi di perdere pubblico.</p>
                       </>
                     )}
                   </div>
