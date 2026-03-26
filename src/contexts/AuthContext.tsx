@@ -71,46 +71,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchProfile])
 
   useEffect(() => {
-    const initAuth = async () => {
-      console.log('🔐 Inizio inizializzazione auth...')
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        console.log('🔐 Sessione ottenuta:', session ? 'SI' : 'NO', sessionError ? 'ERRORE: ' + sessionError.message : '')
-
-        if (sessionError) {
-          console.error('Errore sessione:', sessionError)
-          setLoading(false)
-          return
-        }
-
-        setSession(session)
-        setUser(session?.user ?? null)
-
-        if (session?.user) {
-          console.log('🔐 Caricamento profilo per:', session.user.id)
-          const p = await fetchProfile(session.user.id)
-          console.log('🔐 Profilo caricato:', p ? 'SI - is_author:' + p.is_author : 'NO/ERRORE')
-          setProfile(p)
-        } else {
-          console.log('🔐 Nessun utente in sessione')
-        }
-      } catch (err) {
-        console.error('🔐 Errore inizializzazione auth:', err)
-      } finally {
-        console.log('🔐 Fine inizializzazione auth - setLoading(false)')
-        setLoading(false)
-      }
-    }
-
-    initAuth()
+    // Usiamo SOLO onAuthStateChange per evitare il bug del lock di Supabase
+    // che causa il blocco di 5 secondi quando getSession() e onAuthStateChange competono
+    console.log('🔐 Inizializzazione auth con onAuthStateChange...')
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: any, session: any) => {
+        console.log('🔐 Auth event:', event, session ? 'con sessione' : 'senza sessione')
+
         setSession(session)
         setUser(session?.user ?? null)
 
         if (session?.user) {
+          console.log('🔐 Caricamento profilo...')
           const p = await fetchProfile(session.user.id)
+          console.log('🔐 Profilo:', p ? 'OK - is_author:' + p.is_author : 'ERRORE')
           setProfile(p)
         } else {
           setProfile(null)
@@ -119,7 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    // Timeout di sicurezza: se dopo 3 secondi non arriva nessun evento, sblocca
+    const timeout = setTimeout(() => {
+      setLoading(prev => {
+        if (prev) {
+          console.log('🔐 Timeout sicurezza - nessun evento auth ricevuto')
+        }
+        return false
+      })
+    }, 3000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [fetchProfile])
 
   const signUp = async (email: string, password: string, name: string) => {
