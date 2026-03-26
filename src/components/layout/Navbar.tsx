@@ -93,14 +93,15 @@ export default function Navbar() {
                 <div className="relative">
                   <button
                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-sage-50 hover:bg-sage-100 transition-colors"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-full bg-sage-50 hover:bg-sage-100 transition-colors"
                   >
-                    <div className="w-7 h-7 rounded-full bg-sage-300 flex items-center justify-center text-white text-xs font-bold">
-                      {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
-                    <span className="text-sm font-medium text-sage-800 max-w-[100px] truncate">
-                      {profile?.name || 'Utente'}
-                    </span>
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-sage-500 flex items-center justify-center text-white text-sm font-bold">
+                        {(profile?.name || user?.email || 'U').charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <ChevronDown className="w-3.5 h-3.5 text-sage-500" />
                   </button>
 
@@ -109,8 +110,19 @@ export default function Navbar() {
                       <div className="fixed inset-0" onClick={() => setProfileMenuOpen(false)} />
                       <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-sage-100 py-2 animate-fade-in">
                         <div className="px-4 py-2 border-b border-sage-50">
-                          <p className="text-sm font-semibold text-sage-800">{profile?.name}</p>
-                          <p className="text-xs text-bark-400">{user.email}</p>
+                          <div className="flex items-center gap-3 mb-1">
+                            {profile?.avatar_url ? (
+                              <img src={profile.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-sage-500 flex items-center justify-center text-white text-lg font-bold">
+                                {(profile?.name || user.email || 'U').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-semibold text-sage-800">{profile?.name || user.email?.split('@')[0]}</p>
+                              <p className="text-xs text-bark-400">{user.email}</p>
+                            </div>
+                          </div>
                           <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 capitalize">
                             {profile?.subscription_plan || 'free'}
                           </span>

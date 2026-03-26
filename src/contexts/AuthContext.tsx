@@ -88,25 +88,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔐 Inizializzazione auth con onAuthStateChange...')
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: any, session: any) => {
+      (event: any, session: any) => {
         console.log('🔐 Auth event:', event, session ? 'con sessione' : 'senza sessione')
 
         setSession(session)
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          console.log('🔐 Caricamento profilo...')
-          const p = await fetchProfile(session.user.id)
-          console.log('🔐 Profilo:', p ? 'OK - is_author:' + p.is_author : 'ERRORE')
-          setProfile(p)
+          // Carica il profilo IN BACKGROUND — NON bloccare il callback
+          // Questo rilascia il lock di Supabase immediatamente
+          setLoading(false)
+          fetchProfile(session.user.id).then(p => {
+            if (p) {
+              console.log('✅ Profilo caricato:', p.name, 'is_author:', p.is_author)
+              setProfile(p)
+            } else {
+              console.warn('⚠️ Profilo non trovato')
+            }
+          })
         } else {
           setProfile(null)
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
 
-    // Timeout di sicurezza: se dopo 3 secondi non arriva nessun evento, sblocca
+    // Timeout di sicurezza: se dopo 4 secondi non arriva nessun evento, sblocca
     const timeout = setTimeout(() => {
       setLoading(prev => {
         if (prev) {
@@ -114,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         return false
       })
-    }, 3000)
+    }, 4000)
 
     return () => {
       subscription.unsubscribe()
