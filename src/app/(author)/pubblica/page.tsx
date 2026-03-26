@@ -383,25 +383,31 @@ export default function PublishPage() {
       }
       console.log('✅ Blocchi creati')
 
-      // 5. Upload file originale (opzionale)
+      // 5. Upload file originale (opzionale, con timeout 10s)
       if (data.file) {
+        console.log('📁 Upload file originale...')
         try {
           const filePath = `${user.id}/${book.id}/${data.file.name}`
-          await supabase.storage.from('book-files').upload(filePath, data.file)
+          const uploadPromise = supabase.storage.from('book-files').upload(filePath, data.file)
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout upload file')), 10000))
+          await Promise.race([uploadPromise, timeoutPromise])
           console.log('✅ File caricato')
-        } catch (e) {
-          console.error('⚠️ Upload file fallito (non bloccante)')
+        } catch (e: any) {
+          console.warn('⚠️ Upload file fallito (non bloccante):', e?.message)
         }
       }
 
       // SUCCESSO
       console.log('🎉 PUBBLICAZIONE COMPLETATA')
       alert('Libro pubblicato con successo!')
-      window.location.href = '/dashboard/opere'
+      setTimeout(() => {
+        window.location.href = '/dashboard/opere'
+      }, 300)
 
     } catch (err: any) {
       console.error('💥 ERRORE IMPREVISTO:', err)
       alert('Errore imprevisto: ' + (err?.message || String(err)))
+    } finally {
       setPublishing(false)
     }
   }
