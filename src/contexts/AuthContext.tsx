@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = useCallback(async (userId: string) => {
+    console.log('🔍 Caricamento profilo per:', userId)
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -55,9 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single()
 
     if (error) {
-      console.error('Errore caricamento profilo:', error)
+      console.error('❌ Errore caricamento profilo:', error.message, error.code, error.details, error.hint)
       return null
     }
+    console.log('✅ Profilo caricato:', data?.name, 'is_author:', data?.is_author)
     return data as UserProfile
   }, [])
 
@@ -70,15 +72,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-      if (session?.user) {
-        const p = await fetchProfile(session.user.id)
-        setProfile(p)
+        if (sessionError) {
+          console.error('Errore sessione:', sessionError)
+          setLoading(false)
+          return
+        }
+
+        setSession(session)
+        setUser(session?.user ?? null)
+
+        if (session?.user) {
+          const p = await fetchProfile(session.user.id)
+          setProfile(p)
+        }
+      } catch (err) {
+        console.error('Errore inizializzazione auth:', err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     initAuth()

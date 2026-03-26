@@ -65,7 +65,10 @@ export default function Navbar() {
           {/* Actions */}
           <div className="hidden md:flex items-center gap-3">
             {loading ? (
-              <div className="w-8 h-8 rounded-full bg-sage-100 animate-pulse" />
+              <div className="flex items-center gap-2">
+                <div className="w-20 h-8 rounded-full bg-sage-100 animate-pulse" />
+                <div className="w-28 h-8 rounded-full bg-sage-100 animate-pulse" />
+              </div>
             ) : user ? (
               <div className="flex items-center gap-2">
                 {/* Wallet con token */}
