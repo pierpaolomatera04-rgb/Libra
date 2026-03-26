@@ -281,21 +281,22 @@ export default function PublishPage() {
   // ============================================
   const handlePublish = async () => {
     if (!user || !profile) {
-      toast.error('Devi essere autenticato')
+      alert('Devi essere autenticato per pubblicare.')
       return
     }
 
     if (data.scheduledDays.length < data.blocks.length) {
-      toast.error(`Seleziona ${data.blocks.length} date nel calendario (una per blocco)`)
+      alert(`Seleziona ${data.blocks.length} date nel calendario (una per blocco)`)
       return
     }
 
     setPublishing(true)
 
-    const publishPromise = async () => {
-      // 1. Upload cover se presente
+    try {
+      // 1. Upload cover
       let coverUrl = null
       if (data.coverImage) {
+        console.log('📸 Upload cover...')
         const ext = data.coverImage.name.split('.').pop()
         const path = `${user.id}/${Date.now()}.${ext}`
         const { error: uploadError } = await supabase.storage
@@ -303,23 +304,24 @@ export default function PublishPage() {
           .upload(path, data.coverImage)
 
         if (uploadError) {
-          console.error('Errore upload cover:', uploadError)
-          // Non bloccare la pubblicazione per la cover
+          console.error('⚠️ Errore upload cover:', JSON.stringify(uploadError))
         } else {
           const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
           coverUrl = urlData.publicUrl
+          console.log('✅ Cover caricata:', coverUrl)
         }
       }
 
-      // 2. Calcola date di pubblicazione
+      // 2. Calcola date
       const today = new Date()
       const scheduledDates = data.scheduledDays.map(dayIndex => {
         const date = new Date(today)
         date.setDate(date.getDate() + dayIndex)
         return date.toISOString()
       })
+      console.log('📅 Date calcolate:', scheduledDates.length)
 
-      // 3. Crea il libro
+      // 3. Inserisci libro
       const bookPayload = {
         author_id: user.id,
         title: data.title,
@@ -337,8 +339,7 @@ export default function PublishPage() {
         publication_end_date: scheduledDates[scheduledDates.length - 1],
         published_at: new Date().toISOString(),
       }
-
-      console.log('📚 Inserimento libro:', JSON.stringify(bookPayload, null, 2))
+      console.log('📚 Inserimento libro...')
 
       const { data: book, error: bookError } = await supabase
         .from('books')
@@ -347,13 +348,14 @@ export default function PublishPage() {
         .single()
 
       if (bookError) {
-        console.error('❌ Errore creazione libro:', bookError)
-        throw new Error('Errore creazione libro: ' + (bookError.message || bookError.details || bookError.hint || JSON.stringify(bookError)))
+        console.error('❌ ERRORE LIBRO:', JSON.stringify(bookError))
+        alert('Errore creazione libro: ' + (bookError.message || bookError.details || bookError.hint || 'Errore sconosciuto'))
+        setPublishing(false)
+        return
       }
+      console.log('✅ Libro creato:', book.id)
 
-      console.log('✅ Libro creato con ID:', book.id)
-
-      // 4. Crea i blocchi
+      // 4. Inserisci blocchi
       const blocksToInsert = data.blocks.map((block, index) => ({
         book_id: book.id,
         block_number: block.number,
@@ -366,49 +368,42 @@ export default function PublishPage() {
         is_released: index === 0,
         released_at: index === 0 ? new Date().toISOString() : null,
       }))
-
-      console.log(`📝 Inserimento ${blocksToInsert.length} blocchi...`)
+      console.log('📝 Inserimento', blocksToInsert.length, 'blocchi...')
 
       const { error: blocksError } = await supabase
         .from('blocks')
         .insert(blocksToInsert)
 
       if (blocksError) {
-        console.error('❌ Errore creazione blocchi:', blocksError)
-        // Elimina il libro orfano
+        console.error('❌ ERRORE BLOCCHI:', JSON.stringify(blocksError))
+        alert('Errore creazione blocchi: ' + (blocksError.message || blocksError.details || 'Errore sconosciuto'))
         await supabase.from('books').delete().eq('id', book.id)
-        throw new Error('Errore creazione blocchi: ' + (blocksError.message || blocksError.details || JSON.stringify(blocksError)))
+        setPublishing(false)
+        return
       }
+      console.log('✅ Blocchi creati')
 
-      console.log('✅ Blocchi creati con successo')
-
-      // 5. Upload file originale (non bloccante)
+      // 5. Upload file originale (opzionale)
       if (data.file) {
         try {
           const filePath = `${user.id}/${book.id}/${data.file.name}`
           await supabase.storage.from('book-files').upload(filePath, data.file)
-          console.log('✅ File originale caricato')
-        } catch (fileErr) {
-          console.error('⚠️ Errore upload file (non bloccante):', fileErr)
+          console.log('✅ File caricato')
+        } catch (e) {
+          console.error('⚠️ Upload file fallito (non bloccante)')
         }
       }
 
-      return book
-    }
+      // SUCCESSO
+      console.log('🎉 PUBBLICAZIONE COMPLETATA')
+      alert('Libro pubblicato con successo!')
+      window.location.href = '/dashboard/opere'
 
-    toast.promise(publishPromise(), {
-      loading: 'Pubblicazione in corso...',
-      success: () => {
-        setTimeout(() => {
-          window.location.href = '/dashboard/opere'
-        }, 1000)
-        return 'Libro pubblicato con successo! 🎉'
-      },
-      error: (err) => {
-        setPublishing(false)
-        return err?.message || 'Errore nella pubblicazione. Riprova.'
-      },
-    })
+    } catch (err: any) {
+      console.error('💥 ERRORE IMPREVISTO:', err)
+      alert('Errore imprevisto: ' + (err?.message || String(err)))
+      setPublishing(false)
+    }
   }
 
   // ============================================
