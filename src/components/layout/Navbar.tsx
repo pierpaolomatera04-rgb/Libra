@@ -135,7 +135,7 @@ export default function Navbar() {
 
                         {!profile?.is_author && (
                           <Link
-                            href="/onboarding"
+                            href="/diventa-autore"
                             onClick={() => setProfileMenuOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 transition-colors"
                           >

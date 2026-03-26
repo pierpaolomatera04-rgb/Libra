@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
 import { BookOpen, Upload, Scissors, Calendar, Coins, Users, ArrowRight, CheckCircle, TrendingUp, PenTool } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -14,6 +15,14 @@ const stagger = {
 }
 
 export default function DiventaAutorePage() {
+  const { user, profile } = useAuth()
+
+  // Se è già autore, manda alla dashboard
+  const ctaHref = profile?.is_author ? '/dashboard' : user ? '/onboarding' : '/signup'
+  const ctaText = profile?.is_author ? 'Vai allo Studio Autore' : user ? 'Completa il profilo autore' : 'Registrati e inizia a pubblicare'
+  const secondaryHref = user ? '/browse' : '/login'
+  const secondaryText = user ? 'Torna a sfogliare' : 'Ho già un account'
+
   return (
     <div className="min-h-screen bg-cream-50">
       {/* Navbar */}
@@ -59,17 +68,17 @@ export default function DiventaAutorePage() {
 
         <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
           <Link
-            href="/signup"
+            href={ctaHref}
             className="px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors flex items-center gap-2 text-lg"
           >
-            Registrati e inizia a pubblicare
+            {ctaText}
             <ArrowRight className="w-5 h-5" />
           </Link>
           <Link
-            href="/login"
+            href={secondaryHref}
             className="px-8 py-3.5 border-2 border-sage-300 text-sage-700 rounded-xl font-medium hover:bg-sage-50 transition-colors text-lg"
           >
-            Ho già un account
+            {secondaryText}
           </Link>
         </motion.div>
       </motion.section>
@@ -225,10 +234,10 @@ export default function DiventaAutorePage() {
             Registrati gratuitamente, completa il profilo autore e carica il tuo primo libro in pochi minuti.
           </p>
           <Link
-            href="/signup"
+            href={ctaHref}
             className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-sage-700 rounded-xl font-medium hover:bg-sage-50 transition-colors text-lg"
           >
-            Inizia ora — è gratis
+            {profile?.is_author ? 'Vai allo Studio' : 'Inizia ora — è gratis'}
             <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
