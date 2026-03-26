@@ -5,12 +5,12 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import {
-  BookOpen, Users, Coins, TrendingUp, Eye, Plus,
+  BookOpen, Users, Coins, TrendingUp, Eye, Plus, Loader2,
   BarChart3, MessageCircle, Settings, PenTool, ArrowRight
 } from 'lucide-react'
 
 export default function DashboardPage() {
-  const { user, profile } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const [stats, setStats] = useState({
     totalBooks: 0,
     totalReads: 0,
@@ -20,42 +20,70 @@ export default function DashboardPage() {
     totalComments: 0,
   })
   const [recentBooks, setRecentBooks] = useState<any[]>([])
+  const [pageLoading, setPageLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
-    if (!user) return
+    if (authLoading) return
+    if (!user) {
+      setPageLoading(false)
+      return
+    }
 
     const fetchStats = async () => {
-      // Libri dell'autore
-      const { data: books } = await supabase
-        .from('books')
-        .select('id, title, total_reads, total_likes, total_earnings, total_comments, status, cover_image_url, trending_score')
-        .eq('author_id', user.id)
-        .order('created_at', { ascending: false })
+      try {
+        // Libri dell'autore
+        const { data: books, error: booksErr } = await supabase
+          .from('books')
+          .select('id, title, total_reads, total_likes, total_earnings, total_comments, status, cover_image_url, trending_score')
+          .eq('author_id', user.id)
+          .order('created_at', { ascending: false })
 
-      if (books) {
-        setRecentBooks(books.slice(0, 5))
-        setStats(prev => ({
-          ...prev,
-          totalBooks: books.length,
-          totalReads: books.reduce((sum: number, b: any) => sum + (b.total_reads || 0), 0),
-          totalLikes: books.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0),
-          totalEarnings: books.reduce((sum: number, b: any) => sum + Number(b.total_earnings || 0), 0),
-          totalComments: books.reduce((sum: number, b: any) => sum + (b.total_comments || 0), 0),
-        }))
+        if (booksErr) {
+          console.error('❌ Errore fetch libri:', booksErr.message)
+        } else if (books) {
+          setRecentBooks(books.slice(0, 5))
+          setStats(prev => ({
+            ...prev,
+            totalBooks: books.length,
+            totalReads: books.reduce((sum: number, b: any) => sum + (b.total_reads || 0), 0),
+            totalLikes: books.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0),
+            totalEarnings: books.reduce((sum: number, b: any) => sum + Number(b.total_earnings || 0), 0),
+            totalComments: books.reduce((sum: number, b: any) => sum + (b.total_comments || 0), 0),
+          }))
+        }
+
+        // Followers
+        const { count, error: followErr } = await supabase
+          .from('follows')
+          .select('id', { count: 'exact', head: true })
+          .eq('following_id', user.id)
+
+        if (followErr) {
+          console.error('⚠️ Errore fetch followers:', followErr.message)
+        } else {
+          setStats(prev => ({ ...prev, totalFollowers: count || 0 }))
+        }
+      } catch (err) {
+        console.error('💥 Errore imprevisto dashboard:', err)
+      } finally {
+        setPageLoading(false)
       }
-
-      // Followers
-      const { count } = await supabase
-        .from('follows')
-        .select('id', { count: 'exact', head: true })
-        .eq('following_id', user.id)
-
-      setStats(prev => ({ ...prev, totalFollowers: count || 0 }))
     }
 
     fetchStats()
-  }, [user, supabase])
+  }, [user, authLoading])
+
+  if (authLoading || pageLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-sage-400 mx-auto mb-3" />
+          <p className="text-sm text-bark-400">Caricamento dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!profile?.is_author) {
     return (

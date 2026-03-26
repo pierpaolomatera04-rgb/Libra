@@ -20,17 +20,25 @@ export default function OperePage() {
   useEffect(() => {
     if (!user) return
     const fetchBooks = async () => {
-      const { data } = await supabase
-        .from('books')
-        .select('*, blocks(count)')
-        .eq('author_id', user.id)
-        .order('created_at', { ascending: false })
+      try {
+        const { data, error } = await supabase
+          .from('books')
+          .select('*, blocks(count)')
+          .eq('author_id', user.id)
+          .order('created_at', { ascending: false })
 
-      setBooks(data || [])
-      setLoading(false)
+        if (error) {
+          console.error('❌ Errore fetch libri:', error.message)
+        }
+        setBooks(data || [])
+      } catch (err) {
+        console.error('💥 Errore imprevisto opere:', err)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchBooks()
-  }, [user, supabase])
+  }, [user])
 
   const filteredBooks = filter === 'all'
     ? books
