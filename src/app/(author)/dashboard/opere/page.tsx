@@ -152,14 +152,16 @@ export default function OperePage() {
             return (
               <div key={book.id} className="bg-white rounded-2xl border border-sage-100 p-5 hover:shadow-sm transition-shadow">
                 <div className="flex gap-4">
-                  {/* Cover */}
-                  {book.cover_image_url ? (
-                    <img src={book.cover_image_url} alt="" className="w-20 h-28 rounded-xl object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-20 h-28 rounded-xl bg-sage-100 flex items-center justify-center flex-shrink-0">
-                      <BookOpen className="w-8 h-8 text-sage-300" />
-                    </div>
-                  )}
+                  {/* Cover - click per statistiche */}
+                  <Link href={`/dashboard/analytics?libro=${book.id}`} className="flex-shrink-0 hover:opacity-80 transition-opacity">
+                    {book.cover_image_url ? (
+                      <img src={book.cover_image_url} alt="" className="w-20 h-28 rounded-xl object-cover" />
+                    ) : (
+                      <div className="w-20 h-28 rounded-xl bg-sage-100 flex items-center justify-center">
+                        <BookOpen className="w-8 h-8 text-sage-300" />
+                      </div>
+                    )}
+                  </Link>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
@@ -199,7 +201,7 @@ export default function OperePage() {
                                 Visualizza
                               </Link>
                               <Link
-                                href={`/pubblica?edit=${book.id}`}
+                                href={`/pubblica?edit=${book.id}&step=4`}
                                 onClick={() => setMenuOpen(null)}
                                 className="flex items-center gap-2 px-3 py-2 text-sm text-bark-600 hover:bg-sage-50"
                               >

@@ -32,8 +32,20 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
   const authorName = book.author?.author_pseudonym || book.author?.name || 'Autore'
   const isNew = book.published_at && (Date.now() - new Date(book.published_at).getTime()) < 48 * 60 * 60 * 1000
 
+  const accessLabel = book.access_level === 'gold_exclusive'
+    ? 'Gold'
+    : book.access_level === 'silver_choice'
+      ? 'Silver+'
+      : 'Free'
+
+  const accessColor = book.access_level === 'gold_exclusive'
+    ? 'bg-yellow-500 text-white'
+    : book.access_level === 'silver_choice'
+      ? 'bg-gray-400 text-white'
+      : 'bg-sage-100 text-sage-700'
+
   return (
-    <Link href={`/reader/${book.id}/1`} className="group block">
+    <Link href={`/libro/${book.id}`} className="group block">
       <div className="bg-white rounded-2xl overflow-hidden border border-sage-100 hover:border-sage-300 hover:shadow-md transition-all duration-300">
         {/* Cover */}
         <div className="relative aspect-[3/4] bg-sage-100 overflow-hidden">
@@ -56,20 +68,17 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
                 NUOVO
               </span>
             )}
-            {book.access_level === 'gold_exclusive' && (
-              <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full">
-                GOLD
-              </span>
-            )}
-            {book.access_level === 'silver_choice' && (
-              <span className="px-2 py-0.5 bg-gray-400 text-white text-xs font-bold rounded-full">
-                SILVER
-              </span>
-            )}
+          </div>
+
+          {/* Access level badge */}
+          <div className="absolute top-2 right-2">
+            <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${accessColor}`}>
+              {accessLabel}
+            </span>
           </div>
 
           {showTrending && book.trending_score > 0 && (
-            <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
+            <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
               <TrendingUp className="w-3 h-3" />
               Trending
             </div>
@@ -82,12 +91,6 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
             {book.title}
           </h3>
           <p className="text-xs text-bark-400 mt-1">{authorName}</p>
-
-          {book.description && (
-            <p className="text-xs text-bark-500 mt-2 line-clamp-2 leading-relaxed">
-              {book.description}
-            </p>
-          )}
 
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-sage-50">
             <div className="flex items-center gap-3 text-xs text-bark-400">
