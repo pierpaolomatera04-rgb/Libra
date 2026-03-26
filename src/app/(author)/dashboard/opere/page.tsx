@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 
 export default function OperePage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const supabase = createClient()
   const [books, setBooks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,7 +18,11 @@ export default function OperePage() {
   const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed' | 'draft'>('all')
 
   useEffect(() => {
-    if (!user) return
+    if (authLoading) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
     const fetchBooks = async () => {
       try {
         const { data, error } = await supabase
@@ -38,7 +42,7 @@ export default function OperePage() {
       }
     }
     fetchBooks()
-  }, [user])
+  }, [user, authLoading])
 
   const filteredBooks = filter === 'all'
     ? books
