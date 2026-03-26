@@ -49,18 +49,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async (userId: string) => {
     console.log('🔍 Caricamento profilo per:', userId)
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    try {
+      const queryPromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (error) {
-      console.error('❌ Errore caricamento profilo:', error.message, error.code, error.details, error.hint)
+      // Timeout di 5 secondi sulla query
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout caricamento profilo')), 5000)
+      )
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any
+
+      if (error) {
+        console.error('❌ Errore caricamento profilo:', error.message, error.code)
+        return null
+      }
+      console.log('✅ Profilo caricato:', data?.name, 'is_author:', data?.is_author)
+      return data as UserProfile
+    } catch (err: any) {
+      console.error('❌ Timeout o errore profilo:', err?.message)
       return null
     }
-    console.log('✅ Profilo caricato:', data?.name, 'is_author:', data?.is_author)
-    return data as UserProfile
   }, [])
 
   const refreshProfile = useCallback(async () => {

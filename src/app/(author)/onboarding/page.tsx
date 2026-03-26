@@ -73,23 +73,18 @@ export default function AuthorOnboardingPage() {
 
       if (error) {
         console.error('Errore onboarding autore:', error)
-        toast.error('Errore durante la registrazione: ' + error.message)
+        alert('Errore durante la registrazione: ' + error.message)
         setLoading(false)
         return
       }
 
-      try {
-        await refreshProfile()
-      } catch {
-        // Il profilo si aggiornerà al prossimo caricamento
-      }
-
-      toast.success('Benvenuto come autore!')
-      // Uso window.location per un redirect pulito
+      // Redirect immediato - il profilo si aggiornerà al caricamento della dashboard
+      // Non chiamiamo refreshProfile() per evitare blocchi
+      alert('Benvenuto come autore!')
       window.location.href = '/dashboard'
-    } catch (err) {
+    } catch (err: any) {
       console.error('Errore imprevisto:', err)
-      toast.error('Si è verificato un errore. Riprova.')
+      alert('Errore: ' + (err?.message || 'Riprova'))
       setLoading(false)
     }
   }
