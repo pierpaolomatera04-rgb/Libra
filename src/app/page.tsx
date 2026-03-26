@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { BookOpen, Sparkles, Calendar, Coins, Users, ArrowRight, TrendingUp, Shield } from 'lucide-react'
+import { BookOpen, Sparkles, Calendar, Coins, ArrowRight, TrendingUp, Shield, PenTool } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const fadeUp = {
@@ -62,14 +62,15 @@ export default function HomePage() {
             href="/signup"
             className="px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors flex items-center gap-2 text-lg"
           >
-            Inizia a leggere gratis
-            <ArrowRight className="w-5 h-5" />
+            <BookOpen className="w-5 h-5" />
+            Inizia a leggere
           </Link>
           <Link
-            href="/come-funziona"
-            className="px-8 py-3.5 border-2 border-sage-300 text-sage-700 rounded-xl font-medium hover:bg-sage-50 transition-colors text-lg"
+            href="/diventa-autore"
+            className="px-8 py-3.5 border-2 border-sage-700 bg-sage-800 text-white rounded-xl font-medium hover:bg-sage-900 transition-colors flex items-center gap-2 text-lg"
           >
-            Come funziona?
+            <PenTool className="w-5 h-5" />
+            Diventa un Autore
           </Link>
         </motion.div>
       </motion.section>
@@ -114,62 +115,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Per Autori */}
-      <section className="py-24 bg-cream-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            <div>
-              <span className="text-sage-600 font-medium text-sm">Per gli autori</span>
-              <h2 className="text-3xl font-bold text-sage-900 mt-2 mb-6">
-                Pubblica il tuo libro e raggiungi migliaia di lettori
-              </h2>
-              <div className="space-y-4">
-                {[
-                  { icon: BookOpen, text: 'Carica il tuo PDF o DOCX e il sistema lo divide in blocchi automaticamente' },
-                  { icon: Calendar, text: 'Scegli quando pubblicare ogni blocco con il calendario (max 2 a settimana)' },
-                  { icon: Coins, text: 'Guadagna token dai lettori che sbloccano i tuoi contenuti' },
-                  { icon: Users, text: 'Costruisci la tua community di lettori fedeli' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-sage-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <item.icon className="w-4 h-4 text-sage-600" />
-                    </div>
-                    <p className="text-bark-600 text-sm leading-relaxed">{item.text}</p>
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/diventa-autore"
-                className="inline-flex items-center gap-2 mt-8 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
-              >
-                Diventa autore
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-sage-100">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-sage-50 rounded-xl">
-                  <span className="text-sm font-medium text-sage-800">Lettori totali</span>
-                  <span className="text-2xl font-bold text-sage-600">12.4k</span>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-sage-50 rounded-xl">
-                  <span className="text-sm font-medium text-sage-800">Token guadagnati</span>
-                  <span className="text-2xl font-bold text-sage-600">8.250</span>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-sage-50 rounded-xl">
-                  <span className="text-sm font-medium text-sage-800">Tasso completamento</span>
-                  <span className="text-2xl font-bold text-sage-600">87%</span>
-                </div>
-                <p className="text-xs text-bark-400 text-center pt-2">Esempio di dashboard autore</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Piani */}
-      <section className="py-24 bg-white">
+      <section className="py-24 bg-cream-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-sage-900 mb-4">Scegli il tuo piano VIP</h2>
           <p className="text-bark-500 mb-12 max-w-xl mx-auto">
@@ -208,7 +155,7 @@ export default function HomePage() {
                 className={`rounded-2xl p-8 ${
                   plan.highlighted
                     ? 'bg-sage-500 text-white ring-4 ring-sage-200 scale-105'
-                    : 'bg-cream-50 border border-sage-100'
+                    : 'bg-white border border-sage-100'
                 }`}
               >
                 <h3 className={`text-lg font-bold mb-1 ${plan.highlighted ? 'text-white' : 'text-sage-800'}`}>
@@ -257,9 +204,8 @@ export default function HomePage() {
               <span className="text-lg font-bold text-white">Libra</span>
             </div>
             <div className="flex items-center gap-6 text-sm">
-              <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
-              <Link href="/piani" className="hover:text-white transition-colors">Piani</Link>
               <Link href="/browse" className="hover:text-white transition-colors">Sfoglia</Link>
+              <Link href="/diventa-autore" className="hover:text-white transition-colors">Diventa autore</Link>
             </div>
             <p className="text-xs text-sage-400">
               &copy; 2025 Libra. Tutti i diritti riservati.

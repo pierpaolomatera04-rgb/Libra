@@ -74,7 +74,18 @@ export default function DashboardPage() {
     fetchStats()
   }, [user, authLoading])
 
-  if (authLoading || pageLoading) {
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-sage-400 mx-auto mb-3" />
+          <p className="text-sm text-bark-400">Caricamento...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (pageLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
