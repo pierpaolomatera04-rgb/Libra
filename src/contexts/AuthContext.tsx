@@ -72,8 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
+      console.log('🔐 Inizio inizializzazione auth...')
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        console.log('🔐 Sessione ottenuta:', session ? 'SI' : 'NO', sessionError ? 'ERRORE: ' + sessionError.message : '')
 
         if (sessionError) {
           console.error('Errore sessione:', sessionError)
@@ -85,12 +87,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null)
 
         if (session?.user) {
+          console.log('🔐 Caricamento profilo per:', session.user.id)
           const p = await fetchProfile(session.user.id)
+          console.log('🔐 Profilo caricato:', p ? 'SI - is_author:' + p.is_author : 'NO/ERRORE')
           setProfile(p)
+        } else {
+          console.log('🔐 Nessun utente in sessione')
         }
       } catch (err) {
-        console.error('Errore inizializzazione auth:', err)
+        console.error('🔐 Errore inizializzazione auth:', err)
       } finally {
+        console.log('🔐 Fine inizializzazione auth - setLoading(false)')
         setLoading(false)
       }
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,7 +13,16 @@ export default function Navbar() {
   const { user, profile, signOut, totalTokens, loading } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [authTimeout, setAuthTimeout] = useState(false)
   const pathname = usePathname()
+
+  // Se auth carica per più di 4 secondi, mostra lo stato attuale
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) setAuthTimeout(true)
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [loading])
 
   const isActive = (path: string) => pathname === path
 
@@ -64,7 +73,7 @@ export default function Navbar() {
 
           {/* Actions */}
           <div className="hidden md:flex items-center gap-3">
-            {loading ? (
+            {(loading && !authTimeout) ? (
               <div className="flex items-center gap-2">
                 <div className="w-20 h-8 rounded-full bg-sage-100 animate-pulse" />
                 <div className="w-28 h-8 rounded-full bg-sage-100 animate-pulse" />

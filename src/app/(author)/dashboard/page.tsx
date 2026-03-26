@@ -21,10 +21,23 @@ export default function DashboardPage() {
   })
   const [recentBooks, setRecentBooks] = useState<any[]>([])
   const [pageLoading, setPageLoading] = useState(true)
+  const [authTimeout, setAuthTimeout] = useState(false)
   const supabase = createClient()
 
+  // Timeout di sicurezza: se auth carica per più di 5 secondi, forza il caricamento
   useEffect(() => {
-    if (authLoading) return
+    const timer = setTimeout(() => {
+      if (authLoading) {
+        console.warn('⏰ Auth timeout - forzando fine caricamento')
+        setAuthTimeout(true)
+        setPageLoading(false)
+      }
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [authLoading])
+
+  useEffect(() => {
+    if (authLoading && !authTimeout) return
     if (!user) {
       setPageLoading(false)
       return
@@ -72,20 +85,9 @@ export default function DashboardPage() {
     }
 
     fetchStats()
-  }, [user, authLoading])
+  }, [user, authLoading, authTimeout])
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-sage-400 mx-auto mb-3" />
-          <p className="text-sm text-bark-400">Caricamento...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (pageLoading) {
+  if ((authLoading && !authTimeout) || pageLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
