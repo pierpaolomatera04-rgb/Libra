@@ -153,7 +153,7 @@ export async function GET() {
       const result = await spendWelcomeTokens(supabase, UID_FREE, BID_FREE, 5)
 
       // Verifica RPC direttamente — ritorna il nuovo score (INTEGER)
-      const { data: rpcResult, error: rpcErr } = await supabase.rpc('increment_visibility_score' as any, { book_id_param: BID_FREE, amount_param: 0 })
+      const { data: rpcResult, error: rpcErr } = await (supabase.rpc as any)('increment_visibility_score', { book_id_param: BID_FREE, amount_param: 0 })
 
       // Il test passa se:
       // 1. spendWelcomeTokens ha avuto successo
