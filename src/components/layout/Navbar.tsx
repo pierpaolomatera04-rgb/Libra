@@ -6,11 +6,14 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   BookOpen, Search, Library, User, Menu, X, Users, Wallet,
-  LogOut, LayoutDashboard, PenTool, Settings, ChevronDown
+  LogOut, LayoutDashboard, PenTool, Settings, ChevronDown,
+  Sun, Moon
 } from 'lucide-react'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export default function Navbar() {
   const { user, profile, signOut, totalTokens, loading } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [authTimeout, setAuthTimeout] = useState(false)
@@ -27,7 +30,7 @@ export default function Navbar() {
   const isActive = (path: string) => pathname === path
 
   return (
-    <nav className="sticky top-0 z-50 bg-cream-50/80 backdrop-blur-md border-b border-sage-200/50">
+    <nav className="sticky top-0 z-50 bg-cream-50/80 dark:bg-[#1a1a1a]/90 backdrop-blur-md border-b border-sage-200/50 dark:border-sage-800/50 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -80,13 +83,26 @@ export default function Navbar() {
               </div>
             ) : user ? (
               <div className="flex items-center gap-2">
+                {/* Toggle Dark Mode */}
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-full bg-sage-50 dark:bg-sage-800 hover:bg-sage-100 dark:hover:bg-sage-700 transition-colors"
+                  title={theme === 'light' ? 'Modalità scura' : 'Modalità chiara'}
+                >
+                  {theme === 'light' ? (
+                    <Moon className="w-4 h-4 text-sage-600 dark:text-sage-300" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  )}
+                </button>
+
                 {/* Wallet con token */}
                 <Link
                   href="/wallet"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sage-50 hover:bg-sage-100 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sage-50 dark:bg-sage-800 hover:bg-sage-100 dark:hover:bg-sage-700 transition-colors"
                 >
-                  <Wallet className="w-4 h-4 text-sage-500" />
-                  <span className="text-sm font-semibold text-sage-700">{totalTokens}</span>
+                  <Wallet className="w-4 h-4 text-sage-500 dark:text-sage-300" />
+                  <span className="text-sm font-semibold text-sage-700 dark:text-sage-200">{totalTokens}</span>
                 </Link>
 
                 {/* Profilo */}
@@ -193,9 +209,21 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
+                {/* Toggle Dark Mode per non loggati */}
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-full bg-sage-50 dark:bg-sage-800 hover:bg-sage-100 dark:hover:bg-sage-700 transition-colors"
+                  title={theme === 'light' ? 'Modalità scura' : 'Modalità chiara'}
+                >
+                  {theme === 'light' ? (
+                    <Moon className="w-4 h-4 text-sage-600" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  )}
+                </button>
                 <Link
                   href="/login"
-                  className="px-4 py-2 text-sm font-medium text-sage-700 hover:text-sage-800 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-sage-700 dark:text-sage-300 hover:text-sage-800 transition-colors"
                 >
                   Accedi
                 </Link>

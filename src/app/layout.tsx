@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import localFont from "next/font/local"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/AuthContext"
+import { ThemeProvider } from "@/contexts/ThemeContext"
 import { Toaster } from "sonner"
 
 const geistSans = localFont({
@@ -26,21 +27,38 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-cream-50 min-h-screen`}>
-        <AuthProvider>
-          {children}
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              style: {
-                background: '#fff',
-                border: '1px solid #d4daca',
-                color: '#2D2D2D',
-              },
-            }}
-          />
-        </AuthProvider>
+    <html lang="it" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            try {
+              const t = localStorage.getItem('libra-theme');
+              if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+              }
+              if (localStorage.getItem('libra-blue-light') === 'true') {
+                document.documentElement.classList.add('blue-light-filter');
+              }
+            } catch(e) {}
+          `
+        }} />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-cream-50 dark:bg-[#1a1a1a] min-h-screen transition-colors duration-300`}>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  background: 'var(--background)',
+                  border: '1px solid var(--sage)',
+                  color: 'var(--foreground)',
+                },
+              }}
+            />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
