@@ -229,7 +229,7 @@ export async function spendWelcomeTokens(
   amount: number
 ): Promise<{ success: boolean; error?: string }> {
 
-  // Verifica che il libro sia tier 'free'
+  // Verifica che il libro esista
   const { data: book, error: bookErr } = await supabase
     .from('books')
     .select('id, tier, visibility_score')
@@ -237,7 +237,8 @@ export async function spendWelcomeTokens(
     .single()
 
   if (bookErr || !book) return { success: false, error: 'Libro non trovato' }
-  if (book.tier !== 'free') return { success: false, error: 'I Welcome Token sono utilizzabili solo su libri con tier free' }
+  // WELCOME_TOKEN utilizzabili su TUTTI i tier (free, silver, gold)
+  // Danno sempre boost visibilità e 0 payout
 
   // Fetch welcome token disponibili
   const { data: welcomeTokens, error: fetchErr } = await supabase

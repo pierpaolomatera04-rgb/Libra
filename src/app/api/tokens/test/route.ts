@@ -128,18 +128,19 @@ export async function GET() {
     }
 
     // =====================
-    // TEST 8: WELCOME_TOKEN rifiutati su libro non-free
+    // TEST 8: WELCOME_TOKEN accettati su TUTTI i tier (boost visibilità, 0 payout)
     // =====================
     try {
+      await creditTokens(supabase, UID_FREE, 5, 'WELCOME_TOKEN')
       const result = await spendWelcomeTokens(supabase, UID_FREE, BID_SILVER, 5)
-      const pass = !result.success && result.error?.includes('tier free')
+      const pass = result.success
       results.push({
-        test: '8. WELCOME_TOKEN rifiutati su libro SILVER tier',
+        test: '8. WELCOME_TOKEN accettati su libro SILVER (visibilità, 0 payout)',
         status: pass ? 'PASS' : 'FAIL',
         details: result,
       })
     } catch (err: any) {
-      results.push({ test: '8. WELCOME su non-free', status: 'FAIL', details: err.message })
+      results.push({ test: '8. WELCOME su silver', status: 'FAIL', details: err.message })
     }
 
     // =====================
