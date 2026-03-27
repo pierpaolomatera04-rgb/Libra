@@ -281,11 +281,13 @@ export async function spendWelcomeTokens(
   }
 
   // Incrementa visibility_score del libro — NON genera payout
+  // Usa RPC atomico per evitare problemi con schema cache di PostgREST
   const { error: visErr } = await supabase.rpc('increment_visibility_score' as any, {
     book_id_param: bookId,
     amount_param: amount,
   })
-  if (visErr) console.error('Errore incremento visibility_score:', visErr.message)
+
+  if (visErr) console.error('Errore incremento visibility_score:', visErr)
 
   // Registra transazione con payout = 0
   await supabase
