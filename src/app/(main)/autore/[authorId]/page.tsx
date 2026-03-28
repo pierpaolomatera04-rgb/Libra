@@ -386,13 +386,12 @@ export default function AuthorProfilePage() {
                 <input
                   type="number"
                   min={1}
-                  max={spendableTokens}
                   value={tipAmount}
-                  onChange={(e) => setTipAmount(Math.max(1, Math.min(spendableTokens, parseInt(e.target.value) || 1)))}
+                  onChange={(e) => setTipAmount(Math.max(1, parseInt(e.target.value) || 1))}
                   className="flex-1 text-center text-2xl font-bold text-sage-900 border border-sage-200 rounded-xl py-2 outline-none focus:border-sage-400"
                 />
                 <button
-                  onClick={() => setTipAmount(Math.min(spendableTokens, tipAmount + 1))}
+                  onClick={() => setTipAmount(tipAmount + 1)}
                   className="w-10 h-10 rounded-xl border border-sage-200 flex items-center justify-center hover:bg-sage-50 transition-colors"
                 >
                   <Plus className="w-4 h-4 text-sage-600" />
@@ -405,8 +404,7 @@ export default function AuthorProfilePage() {
               {[1, 5, 10, 20].map(val => (
                 <button
                   key={val}
-                  onClick={() => setTipAmount(Math.min(val, spendableTokens))}
-                  disabled={val > spendableTokens}
+                  onClick={() => setTipAmount(val)}
                   className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
                     tipAmount === val
                       ? 'bg-sage-500 text-white'
@@ -421,12 +419,15 @@ export default function AuthorProfilePage() {
             <div className="bg-sage-50 rounded-xl p-3 mb-5">
               <div className="flex justify-between text-xs text-bark-400">
                 <span>Token disponibili</span>
-                <span className="font-semibold text-sage-700">{spendableTokens} tk</span>
+                <span className={`font-semibold ${tipAmount > spendableTokens ? 'text-red-500' : 'text-sage-700'}`}>{spendableTokens} tk</span>
               </div>
               <div className="flex justify-between text-xs text-bark-400 mt-1">
                 <span>L&apos;autore riceve</span>
-                <span className="font-semibold text-sage-700">€{(tipAmount * 0.10 * 0.80).toFixed(2)}</span>
+                <span className="font-semibold text-sage-700">&euro;{(tipAmount * 0.10 * 0.80).toFixed(2)}</span>
               </div>
+              {tipAmount > spendableTokens && (
+                <p className="text-xs text-red-500 mt-2">Token insufficienti. Acquista token dal wallet.</p>
+              )}
             </div>
 
             <button
