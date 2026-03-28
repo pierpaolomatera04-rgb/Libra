@@ -511,6 +511,163 @@ export async function GET() {
     }
 
     // =====================
+    // TEST 21: OWNED permanente — accesso anche dopo cancellazione abbonamento
+    // =====================
+    try {
+      // Setup: Silver mensile ha bid_free come OWNED nel seed
+      // Assicuriamoci che esista come OWNED
+      await supabase.from('library').delete().eq('user_id', UID_SILVER_M).eq('book_id', BID_FREE)
+      await supabase.from('library').insert({
+        user_id: UID_SILVER_M,
+        book_id: BID_FREE,
+        ownership_type: 'OWNED',
+        pages_read: 45,
+      })
+
+      // Simula cancellazione abbonamento
+      await (supabase as any).rpc('simulate_cancel_plan', { user_id_param: UID_SILVER_M })
+
+      // Verifica che OWNED sia ancora accessibile
+      const result = await canAccessBlock(supabase, UID_SILVER_M, BID_FREE, 2)
+      const pass = result.access === 'GRANTED_OWNED' && result.canRead === true
+
+      // Ripristina piano
+      await (supabase as any).rpc('restore_plan', { user_id_param: UID_SILVER_M })
+
+      results.push({
+        test: '21. OWNED permanente: accesso anche dopo cancellazione abbonamento',
+        status: pass ? 'PASS' : 'FAIL',
+        details: result,
+      })
+    } catch (err: any) {
+      // Ripristina piano in caso di errore
+      await (supabase as any).rpc('restore_plan', { user_id_param: UID_SILVER_M })
+      results.push({ test: '21. OWNED permanente', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
+    // TEST 22: PLAN — banner "Riabbonati" dopo cancellazione abbonamento
+    // =====================
+    try {
+      // Setup: Silver mensile ha bid_silver come PLAN nel seed
+      await supabase.from('library').delete().eq('user_id', UID_SILVER_M).eq('book_id', BID_SILVER)
+      await supabase.from('library').insert({
+        user_id: UID_SILVER_M,
+        book_id: BID_SILVER,
+        ownership_type: 'PLAN',
+        pages_read: 30,
+      })
+
+      // Simula cancellazione abbonamento
+      await (supabase as any).rpc('simulate_cancel_plan', { user_id_param: UID_SILVER_M })
+
+      // Verifica che PLAN sia bloccato con messaggio "Riabbonati"
+      const result = await canAccessBlock(supabase, UID_SILVER_M, BID_SILVER, 2)
+      const pass = result.access === 'REQUIRES_PLAN' &&
+        result.canRead === false &&
+        result.message.includes('Riabbonati')
+
+      // Ripristina piano
+      await (supabase as any).rpc('restore_plan', { user_id_param: UID_SILVER_M })
+
+      results.push({
+        test: '22. PLAN bloccato dopo cancellazione: banner "Riabbonati"',
+        status: pass ? 'PASS' : 'FAIL',
+        details: result,
+      })
+    } catch (err: any) {
+      await (supabase as any).rpc('restore_plan', { user_id_param: UID_SILVER_M })
+      results.push({ test: '22. PLAN riabbonati', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
+    // TEST 23: PLAN → OWNED upgrade (non decrementa monthly_books_used)
+    // =====================
+    try {
+      const futureReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Setup: libro come PLAN in libreria, contatore a 2
+      await supabase.from('library').delete().eq('user_id', UID_SILVER_M).eq('book_id', BID_SILVER)
+      await supabase.from('library').insert({
+        user_id: UID_SILVER_M,
+        book_id: BID_SILVER,
+        ownership_type: 'PLAN',
+        pages_read: 30,
+      })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_M, books_count: 2, reset_date: futureReset })
+
+      // Ripristina piano per il test
+      await (supabase as any).rpc('restore_plan', { user_id_param: UID_SILVER_M })
+
+      // Upgrade da PLAN a OWNED
+      const result = await addBookToLibrary(supabase, UID_SILVER_M, BID_SILVER, 'OWNED')
+
+      // Verifica che l'upgrade sia avvenuto
+      const { data: libEntry } = await supabase
+        .from('library')
+        .select('ownership_type')
+        .eq('user_id', UID_SILVER_M)
+        .eq('book_id', BID_SILVER)
+        .single()
+
+      // Verifica che monthly_books_used NON sia stato decrementato (rimane 2)
+      const { data: profileData } = await (supabase as any).rpc('get_user_plan', { user_id_param: UID_SILVER_M })
+      const profile = Array.isArray(profileData) ? profileData[0] : profileData
+
+      const pass = result.success &&
+        (libEntry as any)?.ownership_type === 'OWNED' &&
+        profile?.monthly_books_used === 2
+
+      // Cleanup
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_M, books_count: 1, reset_date: futureReset })
+
+      results.push({
+        test: '23. PLAN→OWNED upgrade: ownership cambia, monthly_books_used invariato',
+        status: pass ? 'PASS' : 'FAIL',
+        details: {
+          upgradeSuccess: result.success,
+          ownershipType: (libEntry as any)?.ownership_type,
+          monthlyBooksUsed: profile?.monthly_books_used,
+        },
+      })
+    } catch (err: any) {
+      results.push({ test: '23. PLAN→OWNED upgrade', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
+    // TEST 24: OWNED resiste a cancellazione — blocco GOLD acquistato da Silver
+    // =====================
+    try {
+      // Setup: Silver con libro GOLD acquistato (OWNED)
+      await supabase.from('library').delete().eq('user_id', UID_SILVER_M).eq('book_id', BID_GOLD)
+      await supabase.from('library').insert({
+        user_id: UID_SILVER_M,
+        book_id: BID_GOLD,
+        ownership_type: 'OWNED',
+        pages_read: 12,
+      })
+
+      // Simula cancellazione
+      await (supabase as any).rpc('simulate_cancel_plan', { user_id_param: UID_SILVER_M })
+
+      // Anche senza piano, OWNED Gold deve essere accessibile
+      const result = await canAccessBlock(supabase, UID_SILVER_M, BID_GOLD, 3)
+      const pass = result.access === 'GRANTED_OWNED' && result.canRead === true
+
+      // Ripristina
+      await (supabase as any).rpc('restore_plan', { user_id_param: UID_SILVER_M })
+
+      results.push({
+        test: '24. OWNED Gold resiste a cancellazione Silver (accesso permanente)',
+        status: pass ? 'PASS' : 'FAIL',
+        details: result,
+      })
+    } catch (err: any) {
+      await (supabase as any).rpc('restore_plan', { user_id_param: UID_SILVER_M })
+      results.push({ test: '24. OWNED Gold permanente', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
     // RIEPILOGO
     // =====================
     const passed = results.filter(r => r.status === 'PASS').length
