@@ -40,7 +40,7 @@ export default function AuthorProfilePage() {
 
     const { data: authorData } = await supabase
       .from('profiles')
-      .select('id, name, author_pseudonym, avatar_url, author_bio, is_author, social_links')
+      .select('id, name, author_pseudonym, avatar_url, author_bio, is_author')
       .eq('id', authorId)
       .single()
 
