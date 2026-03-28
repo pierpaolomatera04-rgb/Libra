@@ -28,6 +28,7 @@ interface WizardData {
   coverPreview: string | null
   accessLevel: 'open' | 'silver_choice' | 'gold_exclusive'
   tokenPricePerBlock: number
+  priceFull: number
   firstBlockFree: boolean
   scheduledDays: number[] // indici dei giorni selezionati (0 = oggi)
 }
@@ -44,6 +45,7 @@ const INITIAL_DATA: WizardData = {
   coverPreview: null,
   accessLevel: 'open',
   tokenPricePerBlock: 10,
+  priceFull: 50,
   firstBlockFree: true,
   scheduledDays: [],
 }
@@ -339,12 +341,15 @@ export default function PublishPage() {
         total_blocks: data.blocks.length,
         access_level: data.accessLevel,
         token_price_per_block: data.accessLevel === 'open' ? 0 : data.tokenPricePerBlock,
+        price_full: data.accessLevel === 'open' ? 0 : data.priceFull,
         first_block_free: data.accessLevel === 'open' ? true : data.firstBlockFree,
         status: 'ongoing',
         scheduled_releases: scheduledDates,
         publication_start_date: scheduledDates[0],
         publication_end_date: scheduledDates[scheduledDates.length - 1],
         published_at: new Date().toISOString(),
+        serialization_start: new Date().toISOString(),
+        serialization_end: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // max 2 mesi
       }
       console.log('📚 Inserimento libro...')
 
@@ -1112,6 +1117,32 @@ export default function PublishPage() {
                 </div>
               </div>
 
+              {/* Prezzo libro completo */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-medium text-sage-800">Prezzo libro completo (token)</label>
+                  <div className="text-right">
+                    <span className="text-xl font-bold text-sage-600">{data.priceFull}</span>
+                    <span className="text-sm text-bark-400 ml-1">= €{(data.priceFull * 0.10).toFixed(2)}</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={20}
+                  max={200}
+                  value={data.priceFull}
+                  onChange={(e) => setData(prev => ({ ...prev, priceFull: parseInt(e.target.value) }))}
+                  className="w-full accent-sage-500"
+                />
+                <div className="flex justify-between text-xs text-bark-400 mt-1">
+                  <span>20 token (€2,00)</span>
+                  <span>200 token (€20,00)</span>
+                </div>
+                <p className="text-xs text-bark-400 mt-2">
+                  Il prezzo che un lettore paga per acquistare il libro intero con un unico acquisto, anziché blocco per blocco.
+                </p>
+              </div>
+
               {/* Riepilogo guadagni stimati */}
               <div className="p-4 bg-cream-200 rounded-xl">
                 <p className="text-sm font-medium text-sage-800 mb-2">Stima guadagni</p>
@@ -1173,6 +1204,7 @@ export default function PublishPage() {
                   { label: 'Accesso', value: data.accessLevel === 'open' ? 'Tutti (Free)' : data.accessLevel === 'silver_choice' ? 'Silver+' : 'Gold' },
                   ...(data.accessLevel !== 'open' ? [
                     { label: 'Prezzo/blocco', value: `${data.tokenPricePerBlock} token` },
+                    { label: 'Prezzo completo', value: `${data.priceFull} token (€${(data.priceFull * 0.10).toFixed(2)})` },
                     { label: 'Primo gratis', value: data.firstBlockFree ? 'Si' : 'No' },
                   ] : []),
                   { label: 'Uscite', value: `${data.scheduledDays.length} date` },

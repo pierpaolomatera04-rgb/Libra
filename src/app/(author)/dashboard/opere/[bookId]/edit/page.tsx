@@ -39,6 +39,7 @@ export default function BookEditPage() {
   const [mood, setMood] = useState('')
   const [accessLevel, setAccessLevel] = useState<'open' | 'silver_choice' | 'gold_exclusive'>('open')
   const [tokenPrice, setTokenPrice] = useState(5)
+  const [priceFull, setPriceFull] = useState(50)
   const [firstBlockFree, setFirstBlockFree] = useState(true)
   const [newCover, setNewCover] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
@@ -72,6 +73,7 @@ export default function BookEditPage() {
       setMood(data.mood || '')
       setAccessLevel(data.access_level || 'open')
       setTokenPrice(data.token_price_per_block || 5)
+      setPriceFull(data.price_full || 50)
       setFirstBlockFree(data.first_block_free ?? true)
       setCoverPreview(data.cover_image_url || null)
       setBlockCount(data.blocks?.[0]?.count || data.total_blocks || 0)
@@ -123,6 +125,7 @@ export default function BookEditPage() {
           cover_image_url: coverUrl,
           access_level: accessLevel,
           token_price_per_block: finalTokenPrice,
+          price_full: accessLevel === 'open' ? 0 : priceFull,
           first_block_free: firstBlockFree,
         })
         .eq('id', bookId)
@@ -324,6 +327,32 @@ export default function BookEditPage() {
               <span>5 token (€0,50)</span>
               <span>30 token (€3,00)</span>
             </div>
+          </div>
+
+          {/* Price full book */}
+          <div className="space-y-3 pt-3 border-t border-sage-100">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-sage-600">{priceFull}</span>
+              <span className="text-sm text-bark-400">token/libro completo</span>
+              <span className="text-sm text-bark-300 ml-1">= €{(priceFull * 0.10).toFixed(2)}</span>
+            </div>
+
+            <input
+              type="range"
+              min={20}
+              max={200}
+              value={priceFull}
+              onChange={(e) => setPriceFull(parseInt(e.target.value))}
+              className="w-full accent-sage-500"
+            />
+
+            <div className="flex justify-between text-xs text-bark-300">
+              <span>20 token (€2,00)</span>
+              <span>200 token (€20,00)</span>
+            </div>
+            <p className="text-xs text-bark-400">
+              Prezzo per acquistare il libro intero con un unico acquisto.
+            </p>
           </div>
 
           {/* First block free toggle */}

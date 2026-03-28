@@ -25,6 +25,7 @@ export default function ReaderPage() {
   const [blocks, setBlocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
+  const [planExpired, setPlanExpired] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -90,6 +91,25 @@ export default function ReaderPage() {
           .single()
 
         setIsLocked(!unlock)
+
+        // Check if user has this book via PLAN but plan is expired
+        if (!unlock) {
+          const { data: libEntry } = await supabase
+            .from('library' as any)
+            .select('ownership_type')
+            .eq('user_id', user.id)
+            .eq('book_id', bookId)
+            .single()
+
+          if (libEntry?.ownership_type === 'PLAN') {
+            const { data: profileData } = await (supabase.rpc as any)('get_user_plan', { user_id_param: user.id })
+            const prof = Array.isArray(profileData) ? profileData[0] : profileData
+            const expiresAt = prof?.plan_expires_at
+            if (expiresAt && new Date(expiresAt) < new Date()) {
+              setPlanExpired(true)
+            }
+          }
+        }
       } else {
         setIsLocked(false)
       }
@@ -337,6 +357,32 @@ export default function ReaderPage() {
                 <Link href="/signup" className="px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600">
                   Registrati gratis
                 </Link>
+              </>
+            ) : planExpired ? (
+              <>
+                <h2 className="text-xl font-bold text-sage-900 mb-2">Abbonamento scaduto</h2>
+                <p className="text-bark-500 mb-2">
+                  Hai aggiunto questo libro con il tuo abbonamento, ma il piano è scaduto.
+                </p>
+                <p className="text-sm text-bark-400 mb-6">
+                  Riabbonati per continuare a leggere, oppure acquista il libro con i token per accesso permanente.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href="/impostazioni"
+                    className="px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 text-center"
+                  >
+                    Riabbonati
+                  </Link>
+                  <button
+                    onClick={handleUnlock}
+                    disabled={unlocking}
+                    className="px-6 py-3 bg-white border border-sage-300 text-sage-700 rounded-xl font-medium hover:bg-sage-50 transition-colors flex items-center gap-2 justify-center"
+                  >
+                    <Coins className="w-4 h-4" />
+                    Acquista per {block?.token_price || book?.token_price_per_block || 5} token
+                  </button>
+                </div>
               </>
             ) : (
               <>

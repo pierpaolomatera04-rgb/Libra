@@ -52,7 +52,7 @@ ALTER TABLE public.books
   ADD COLUMN IF NOT EXISTS price_per_block INTEGER DEFAULT 10
     CHECK (price_per_block >= 5 AND price_per_block <= 30),
   ADD COLUMN IF NOT EXISTS price_full INTEGER DEFAULT 50
-    CHECK (price_full >= 20 AND price_full <= 150),
+    CHECK (price_full >= 0 AND price_full <= 200),
   ADD COLUMN IF NOT EXISTS serialization_start TIMESTAMPTZ DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS serialization_end TIMESTAMPTZ DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS visibility_score INTEGER DEFAULT 0;
