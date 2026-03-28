@@ -290,10 +290,10 @@ export async function checkAndResetMonthlyCounter(
   if (new Date(resetAt) <= now) {
     // Resetta il contatore e imposta prossimo reset a 30 giorni via RPC
     const nextReset = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    await (supabase.rpc as any)('set_monthly_books', {
-      user_id_param: userId,
-      books_used_param: 0,
-      reset_at_param: nextReset,
+    await (supabase.rpc as any)('update_monthly_cap', {
+      uid: userId,
+      books_count: 0,
+      reset_date: nextReset,
     })
     return true // Reset effettuato
   }

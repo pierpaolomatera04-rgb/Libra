@@ -214,7 +214,7 @@ export async function GET() {
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_GOLD)
 
       // Simula 3 libri via RPC — con debug
-      const { data: setData, error: setErr } = await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
+      const { data: setData, error: setErr } = await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_A, books_count: 3, reset_date: futureReset })
 
       // Verifica cosa ha letto
       const { data: checkData } = await (supabase as any).rpc('get_user_plan', { user_id_param: UID_SILVER_A })
@@ -225,7 +225,7 @@ export async function GET() {
       const pass = !result.success && (result.error?.includes('3') || result.error?.includes('limite'))
 
       // Cleanup
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_A, books_count: 0, reset_date: futureReset })
 
       results.push({
         test: '11. Cap 3 libri Silver: 4° libro PLAN rifiutato',
@@ -248,7 +248,7 @@ export async function GET() {
       const futureReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
       // Setta contatore a 3 via RPC
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_A, books_count: 3, reset_date: futureReset })
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_SERIAL)
@@ -259,7 +259,7 @@ export async function GET() {
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_SERIAL)
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_A, books_count: 0, reset_date: futureReset })
 
       results.push({
         test: '12. Serializzazioni bypassano cap Silver (PLAN ok anche con 3/3)',
@@ -277,7 +277,7 @@ export async function GET() {
       const futureReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
       // Setta contatore a 3 via RPC
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_A, books_count: 3, reset_date: futureReset })
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_GOLD)
@@ -288,7 +288,7 @@ export async function GET() {
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_GOLD)
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_A, books_count: 0, reset_date: futureReset })
 
       results.push({
         test: '13. Acquisto OWNED: nessun cap (Silver con 3/3 può comprare)',
@@ -328,7 +328,7 @@ export async function GET() {
       const pastReset = new Date(Date.now() - 60 * 60 * 1000).toISOString() // 1 ora fa
 
       // Setta reset_at nel passato via RPC
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_M, books_used_param: 3, reset_at_param: pastReset })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_M, books_count: 3, reset_date: pastReset })
 
       const wasReset = await checkAndResetMonthlyCounter(supabase, UID_SILVER_M)
 
@@ -340,7 +340,7 @@ export async function GET() {
 
       // Ripristina valori originali
       const futureReset = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_M, books_used_param: 1, reset_at_param: futureReset })
+      await (supabase as any).rpc('update_monthly_cap', { uid: UID_SILVER_M, books_count: 1, reset_date: futureReset })
 
       results.push({
         test: '15. Reset contatore mensile (3 → 0 quando scaduto)',
