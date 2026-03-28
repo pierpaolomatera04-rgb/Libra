@@ -40,7 +40,7 @@ export default function AuthorProfilePage() {
 
     const { data: authorData } = await supabase
       .from('profiles')
-      .select('id, name, author_pseudonym, avatar_url, author_bio, is_author')
+      .select('id, name, author_pseudonym, avatar_url, author_bio, author_banner_url, is_author')
       .eq('id', authorId)
       .single()
 
@@ -205,24 +205,38 @@ export default function AuthorProfilePage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       {/* Header profilo */}
-      <div className="bg-white rounded-2xl border border-sage-100 p-6 sm:p-8 mb-8">
+      <div className="bg-white rounded-2xl border border-sage-100 overflow-hidden mb-8">
+        {/* Banner */}
+        {author.author_banner_url ? (
+          <div className="w-full h-40 sm:h-52">
+            <img
+              src={author.author_banner_url}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="w-full h-28 sm:h-36 bg-gradient-to-r from-sage-200 via-sage-100 to-sage-200" />
+        )}
+
+        <div className="p-6 sm:p-8 -mt-12 sm:-mt-14">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
           {/* Avatar */}
           {author.avatar_url ? (
             <img
               src={author.avatar_url}
               alt={authorName}
-              className="w-24 h-24 rounded-full object-cover border-2 border-sage-200"
+              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
             />
           ) : (
-            <div className="w-24 h-24 rounded-full bg-sage-100 flex items-center justify-center border-2 border-sage-200">
+            <div className="w-24 h-24 rounded-full bg-sage-100 flex items-center justify-center border-4 border-white shadow-md">
               <span className="text-3xl font-bold text-sage-500">
                 {authorName.charAt(0).toUpperCase()}
               </span>
             </div>
           )}
 
-          <div className="flex-1 text-center sm:text-left">
+          <div className="flex-1 text-center sm:text-left pt-2 sm:pt-4">
             <h1 className="text-2xl font-bold text-sage-900">{authorName}</h1>
             {author.author_bio && (
               <p className="text-sm text-bark-500 mt-2 max-w-lg">{author.author_bio}</p>
@@ -284,6 +298,7 @@ export default function AuthorProfilePage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
 

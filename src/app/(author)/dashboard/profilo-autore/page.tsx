@@ -3,13 +3,14 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
-import { Camera, Loader2, CheckCircle, UserCircle } from 'lucide-react'
+import { Camera, Loader2, CheckCircle, UserCircle, ImagePlus, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function ProfiloAutorePage() {
   const { user, profile, refreshProfile } = useAuth()
   const supabase = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
 
   const [pseudonym, setPseudonym] = useState(profile?.author_pseudonym || '')
   const [bio, setBio] = useState(profile?.author_bio || '')
@@ -17,6 +18,7 @@ export default function ProfiloAutorePage() {
   const [username, setUsername] = useState(profile?.username || '')
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -62,6 +64,62 @@ export default function ProfiloAutorePage() {
     }
 
     setUploadingAvatar(false)
+  }
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('L\'immagine deve essere massimo 5MB')
+      return
+    }
+
+    setUploadingBanner(true)
+
+    const fileExt = file.name.split('.').pop()
+    const filePath = `${user.id}/banner.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) {
+      toast.error('Errore nel caricamento della copertina')
+      setUploadingBanner(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ author_banner_url: publicUrl })
+      .eq('id', user.id)
+
+    if (error) {
+      toast.error('Errore nell\'aggiornamento della copertina')
+    } else {
+      toast.success('Copertina aggiornata!')
+      await refreshProfile()
+    }
+
+    setUploadingBanner(false)
+  }
+
+  const handleRemoveBanner = async () => {
+    if (!user) return
+    const { error } = await supabase
+      .from('profiles')
+      .update({ author_banner_url: null })
+      .eq('id', user.id)
+
+    if (!error) {
+      toast.success('Copertina rimossa')
+      await refreshProfile()
+    }
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -157,6 +215,61 @@ export default function ProfiloAutorePage() {
               Cambia foto
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Banner / Copertina */}
+      <div className="bg-white rounded-2xl border border-sage-100 p-6 mb-6">
+        <h2 className="text-sm font-semibold text-bark-400 uppercase tracking-wider mb-4">Immagine di copertina</h2>
+        <p className="text-xs text-bark-400 mb-4">Apparir&agrave; come sfondo sulla tua pagina autore pubblica. Consigliato: 1200x400px.</p>
+        <div className="relative">
+          {profile?.author_banner_url ? (
+            <div className="relative">
+              <img
+                src={profile.author_banner_url}
+                alt="Banner"
+                className="w-full h-40 sm:h-48 rounded-xl object-cover"
+              />
+              <div className="absolute top-3 right-3 flex gap-2">
+                <button
+                  onClick={() => bannerInputRef.current?.click()}
+                  disabled={uploadingBanner}
+                  className="px-3 py-1.5 bg-white/90 backdrop-blur text-sage-700 rounded-lg text-xs font-medium hover:bg-white transition-colors shadow-sm"
+                >
+                  {uploadingBanner ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cambia'}
+                </button>
+                <button
+                  onClick={handleRemoveBanner}
+                  className="px-3 py-1.5 bg-white/90 backdrop-blur text-red-500 rounded-lg text-xs font-medium hover:bg-white transition-colors shadow-sm"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => bannerInputRef.current?.click()}
+              disabled={uploadingBanner}
+              className="w-full h-40 sm:h-48 rounded-xl border-2 border-dashed border-sage-200 hover:border-sage-400 flex flex-col items-center justify-center gap-2 transition-colors bg-sage-50/50"
+            >
+              {uploadingBanner ? (
+                <Loader2 className="w-6 h-6 animate-spin text-sage-400" />
+              ) : (
+                <>
+                  <ImagePlus className="w-8 h-8 text-sage-300" />
+                  <span className="text-sm text-bark-400">Carica immagine di copertina</span>
+                  <span className="text-xs text-bark-300">JPG, PNG. Max 5MB</span>
+                </>
+              )}
+            </button>
+          )}
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleBannerUpload}
+          />
         </div>
       </div>
 
