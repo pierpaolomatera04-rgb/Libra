@@ -25,21 +25,127 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Dark mode overrides per componenti comuni */
+/* ============================================
+   DARK MODE — Override completi
+   Tutti i testi, sfondi e bordi usati nell'app
+   ============================================ */
+
+/* --- Sfondi --- */
 .dark .bg-white { background-color: #242424 !important; }
 .dark .bg-cream-50 { background-color: #1a1a1a !important; }
 .dark .bg-cream-200 { background-color: #2a2a22 !important; }
 .dark .bg-sage-50 { background-color: #2a3024 !important; }
 .dark .bg-sage-100 { background-color: #344030 !important; }
-.dark .border-sage-100 { border-color: #3a4a35 !important; }
-.dark .border-sage-200\/50 { border-color: rgba(58, 74, 53, 0.5) !important; }
-.dark .text-sage-800 { color: #c2d4b0 !important; }
+.dark .bg-sage-200 { background-color: #3e4d38 !important; }
+.dark .bg-sage-300 { background-color: #4a5e42 !important; }
+.dark .bg-sage-400 { background-color: #5a7050 !important; }
+.dark .bg-sage-800 { background-color: #2a3524 !important; }
+.dark .bg-sage-900 { background-color: #1e2a18 !important; }
+.dark .bg-bark-50 { background-color: #2d2520 !important; }
+.dark .bg-bark-100 { background-color: #362d26 !important; }
+.dark .bg-bark-200 { background-color: #443830 !important; }
+.dark .bg-gray-100 { background-color: #2a2a2a !important; }
+.dark .bg-green-50 { background-color: #1e2e1e !important; }
+.dark .bg-emerald-50 { background-color: #1e2e22 !important; }
+.dark .bg-red-50 { background-color: #2e1e1e !important; }
+.dark .bg-amber-50 { background-color: #2e2a1e !important; }
+.dark .bg-amber-100 { background-color: #3a3420 !important; }
+.dark .bg-blue-50 { background-color: #1e222e !important; }
+.dark .bg-blue-100 { background-color: #202838 !important; }
+.dark .bg-purple-50 { background-color: #261e2e !important; }
+.dark .bg-yellow-100 { background-color: #2e2c1e !important; }
+
+/* --- Testi sage --- */
 .dark .text-sage-900 { color: #d4e3c6 !important; }
+.dark .text-sage-800 { color: #c2d4b0 !important; }
 .dark .text-sage-700 { color: #adc097 !important; }
+.dark .text-sage-600 { color: #98b07e !important; }
+.dark .text-sage-500 { color: #87a96b !important; }
+.dark .text-sage-400 { color: #7a9a60 !important; }
+.dark .text-sage-300 { color: #6d8c55 !important; }
+.dark .text-sage-200 { color: #8aaa72 !important; }
+.dark .text-sage-100 { color: #a0be8a !important; }
+
+/* --- Testi bark --- */
+.dark .text-bark-700 { color: #d4b8a0 !important; }
+.dark .text-bark-600 { color: #c0a690 !important; }
 .dark .text-bark-500 { color: #b09680 !important; }
 .dark .text-bark-400 { color: #9a8070 !important; }
-.dark .text-bark-600 { color: #c0a690 !important; }
+.dark .text-bark-300 { color: #8a7060 !important; }
+
+/* --- Testi generici --- */
+.dark .text-gray-700 { color: #c0c0c0 !important; }
+.dark .text-gray-300 { color: #888888 !important; }
+.dark .text-green-700 { color: #6dbe6d !important; }
+.dark .text-green-600 { color: #5aaa5a !important; }
+.dark .text-emerald-700 { color: #4daa6d !important; }
+.dark .text-emerald-600 { color: #40966a !important; }
+.dark .text-red-700 { color: #e07070 !important; }
+.dark .text-red-600 { color: #d06060 !important; }
+.dark .text-red-500 { color: #c05050 !important; }
+.dark .text-red-400 { color: #b04848 !important; }
+.dark .text-amber-700 { color: #d4a850 !important; }
+.dark .text-amber-600 { color: #c09840 !important; }
+.dark .text-amber-500 { color: #b08830 !important; }
+.dark .text-amber-400 { color: #a07828 !important; }
+.dark .text-blue-500 { color: #6090d0 !important; }
+.dark .text-purple-500 { color: #9070c0 !important; }
+.dark .text-yellow-800 { color: #d4c060 !important; }
+
+/* --- Bordi --- */
+.dark .border-sage-100 { border-color: #3a4a35 !important; }
+.dark .border-sage-200 { border-color: #4a5a42 !important; }
+.dark .border-sage-200\/50 { border-color: rgba(58, 74, 53, 0.5) !important; }
+.dark .border-sage-300 { border-color: #566a4e !important; }
+.dark .border-sage-400 { border-color: #607a56 !important; }
+.dark .border-sage-50 { border-color: #2e3e28 !important; }
+.dark .border-sage-500 { border-color: #6a8a5a !important; }
+.dark .border-sage-700 { border-color: #4a6040 !important; }
+.dark .border-sage-800 { border-color: #3a5030 !important; }
+.dark .border-gray-300 { border-color: #444444 !important; }
+.dark .border-red-100 { border-color: #4a2a2a !important; }
+.dark .border-red-200 { border-color: #5a3030 !important; }
+.dark .border-amber-300 { border-color: #5a4a20 !important; }
+.dark .border-amber-400 { border-color: #6a5828 !important; }
+.dark .border-yellow-300 { border-color: #5a5420 !important; }
+.dark .border-cream-300 { border-color: #3a3828 !important; }
+
+/* --- Hover states --- */
 .dark .hover\:bg-sage-50:hover { background-color: #2a3024 !important; }
+.dark .hover\:bg-sage-100:hover { background-color: #344030 !important; }
+.dark .hover\:bg-sage-200:hover { background-color: #3e4d38 !important; }
+.dark .hover\:border-sage-200:hover { border-color: #4a5a42 !important; }
+.dark .hover\:border-sage-300:hover { border-color: #566a4e !important; }
+.dark .hover\:text-sage-600:hover { color: #98b07e !important; }
+.dark .hover\:text-sage-700:hover { color: #adc097 !important; }
+.dark .hover\:text-bark-500:hover { color: #b09680 !important; }
+.dark .hover\:text-red-500:hover { color: #c05050 !important; }
+
+/* --- Placeholder --- */
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #7a7a7a !important;
+}
+
+/* --- Input/Select --- */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #2a2a2a !important;
+  color: #e8e6e3 !important;
+  border-color: #3a4a35 !important;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #6a8a5a !important;
+}
+
+/* --- Reading text --- */
+.dark .reading-text {
+  color: #d8d4d0 !important;
+}
 
 /* Scrollbar personalizzata */
 ::-webkit-scrollbar {
