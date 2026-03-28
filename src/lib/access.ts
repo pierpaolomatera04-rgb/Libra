@@ -88,17 +88,14 @@ export async function canAccessBlock(
     }
   }
 
-  // Fetch profilo utente
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('plan, monthly_books_used, monthly_books_reset_at, plan_expires_at')
-    .eq('id', userId)
-    .single()
+  // Fetch profilo utente via RPC (bypassa PostgREST schema cache)
+  const { data: profileData } = await (supabase.rpc as any)('get_user_plan', { user_id_param: userId })
+  const profile = Array.isArray(profileData) ? profileData[0] : profileData
 
-  const userPlan = ((profile as any)?.plan || 'free') as PlanType
-  const monthlyBooksUsed = (profile as any)?.monthly_books_used || 0
-  const monthlyBooksResetAt = (profile as any)?.monthly_books_reset_at
-  const planExpiresAt = (profile as any)?.plan_expires_at
+  const userPlan = (profile?.plan || 'free') as PlanType
+  const monthlyBooksUsed = profile?.monthly_books_used || 0
+  const monthlyBooksResetAt = profile?.monthly_books_reset_at
+  const planExpiresAt = profile?.plan_expires_at
 
   // Controlla se il piano è scaduto
   const planExpired = planExpiresAt && new Date(planExpiresAt) < now
@@ -216,13 +213,11 @@ export async function addBookToLibrary(
 
   // Se ownership_type è PLAN, controlla il cap mensile Silver
   if (ownershipType === 'PLAN') {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan, monthly_books_used, monthly_books_reset_at')
-      .eq('id', userId)
-      .single()
+    // Fetch piano via RPC (bypassa PostgREST schema cache)
+    const { data: profileData } = await (supabase.rpc as any)('get_user_plan', { user_id_param: userId })
+    const profile = Array.isArray(profileData) ? profileData[0] : profileData
 
-    const userPlan = (profile as any)?.plan || 'free'
+    const userPlan = profile?.plan || 'free'
     const isSilver = userPlan === 'silver_monthly' || userPlan === 'silver_annual'
 
     if (isSilver) {
@@ -230,13 +225,10 @@ export async function addBookToLibrary(
       await checkAndResetMonthlyCounter(supabase, userId)
 
       // Ri-fetch dopo eventuale reset
-      const { data: updatedProfile } = await supabase
-        .from('profiles')
-        .select('monthly_books_used')
-        .eq('id', userId)
-        .single()
+      const { data: updatedData } = await (supabase.rpc as any)('get_user_plan', { user_id_param: userId })
+      const updatedProfile = Array.isArray(updatedData) ? updatedData[0] : updatedData
 
-      const currentUsed = (updatedProfile as any)?.monthly_books_used || 0
+      const currentUsed = updatedProfile?.monthly_books_used || 0
 
       // Controlla se il libro è una serializzazione in corso
       const { data: book } = await supabase
@@ -287,13 +279,11 @@ export async function checkAndResetMonthlyCounter(
   supabase: SupabaseClient,
   userId: string
 ): Promise<boolean> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('monthly_books_reset_at')
-    .eq('id', userId)
-    .single()
+  // Fetch via RPC (bypassa PostgREST schema cache)
+  const { data: profileData } = await (supabase.rpc as any)('get_user_plan', { user_id_param: userId })
+  const profile = Array.isArray(profileData) ? profileData[0] : profileData
 
-  const resetAt = (profile as any)?.monthly_books_reset_at
+  const resetAt = profile?.monthly_books_reset_at
   if (!resetAt) return false
 
   const now = new Date()

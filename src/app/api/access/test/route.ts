@@ -155,12 +155,9 @@ export async function GET() {
       // Cleanup library
       await supabase.from('library').delete().eq('user_id', UID_GOLD_A).eq('book_id', BID_SILVER)
 
-      // Debug: leggi profilo per verificare piano
-      const { data: debugProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', UID_GOLD_A)
-        .single()
+      // Debug: leggi profilo via RPC per verificare piano
+      const { data: debugRpc } = await (supabase as any).rpc('get_user_plan', { user_id_param: UID_GOLD_A })
+      const debugProfile = Array.isArray(debugRpc) ? debugRpc[0] : debugRpc
 
       const result = await canAccessBlock(supabase, UID_GOLD_A, BID_SILVER, 5)
       const pass = result.access === 'GRANTED_PLAN' && result.canRead === true
