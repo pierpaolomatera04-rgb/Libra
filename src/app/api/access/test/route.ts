@@ -208,16 +208,17 @@ export async function GET() {
     try {
       const futureReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
-      // Resetta contatore via RPC
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
-
       // Cleanup libreria per test
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_SILVER)
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_FREE)
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_GOLD)
 
-      // Simula 3 libri aggiunti via RPC
-      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
+      // Simula 3 libri via RPC — con debug
+      const { data: setData, error: setErr } = await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
+
+      // Verifica cosa ha letto
+      const { data: checkData } = await (supabase as any).rpc('get_user_plan', { user_id_param: UID_SILVER_A })
+      const checkProfile = Array.isArray(checkData) ? checkData[0] : checkData
 
       // Il 4° libro PLAN deve essere rifiutato
       const result = await addBookToLibrary(supabase, UID_SILVER_A, BID_SILVER, 'PLAN')
@@ -229,7 +230,12 @@ export async function GET() {
       results.push({
         test: '11. Cap 3 libri Silver: 4° libro PLAN rifiutato',
         status: pass ? 'PASS' : 'FAIL',
-        details: result,
+        details: {
+          result,
+          rpcSetErr: setErr?.message || null,
+          monthlyAfterSet: checkProfile?.monthly_books_used,
+          planAfterSet: checkProfile?.plan,
+        },
       })
     } catch (err: any) {
       results.push({ test: '11. Cap Silver', status: 'FAIL', details: err.message })
