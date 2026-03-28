@@ -13,6 +13,7 @@ interface UserProfile {
   is_author: boolean
   author_pseudonym: string | null
   author_bio: string | null
+  author_banner_url: string | null
   subscription_plan: 'free' | 'silver' | 'gold'
   subscription_end_date: string | null
   bonus_tokens: number
