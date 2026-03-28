@@ -139,20 +139,20 @@ export default function DashboardPage() {
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         {[
-          { label: 'Libri', value: stats.totalBooks, icon: BookOpen, color: 'text-sage-600' },
-          { label: 'Letture', value: stats.totalReads.toLocaleString(), icon: Eye, color: 'text-blue-500' },
-          { label: 'Like', value: stats.totalLikes.toLocaleString(), icon: TrendingUp, color: 'text-red-500' },
-          { label: 'Commenti', value: stats.totalComments.toLocaleString(), icon: MessageCircle, color: 'text-amber-500' },
-          { label: 'Followers', value: stats.totalFollowers.toLocaleString(), icon: Users, color: 'text-purple-500' },
-          { label: 'Guadagni', value: `${stats.totalEarnings} tk`, icon: Coins, color: 'text-sage-600' },
+          { label: 'Libri', value: stats.totalBooks, icon: BookOpen, color: 'text-sage-600', href: '/dashboard/opere' },
+          { label: 'Pagine lette', value: stats.totalReads.toLocaleString(), icon: Eye, color: 'text-blue-500', href: '/dashboard/analytics' },
+          { label: 'Like', value: stats.totalLikes.toLocaleString(), icon: TrendingUp, color: 'text-red-500', href: '/dashboard/analytics' },
+          { label: 'Commenti', value: stats.totalComments.toLocaleString(), icon: MessageCircle, color: 'text-amber-500', href: '/dashboard/commenti' },
+          { label: 'Followers', value: stats.totalFollowers.toLocaleString(), icon: Users, color: 'text-purple-500', href: '/dashboard/analytics' },
+          { label: 'Guadagni', value: `${stats.totalEarnings} tk`, icon: Coins, color: 'text-sage-600', href: '/dashboard/guadagni' },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-sage-100 p-4">
+          <Link key={stat.label} href={stat.href} className="bg-white rounded-xl border border-sage-100 p-4 hover:border-sage-300 hover:shadow-sm transition-all cursor-pointer">
             <div className="flex items-center gap-2 mb-2">
               <stat.icon className={`w-4 h-4 ${stat.color}`} />
               <span className="text-xs text-bark-400">{stat.label}</span>
             </div>
             <p className="text-xl font-bold text-sage-900">{stat.value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -178,7 +178,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {recentBooks.map((book) => (
-                <div key={book.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-sage-50 transition-colors">
+                <Link key={book.id} href={`/libro/${book.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-sage-50 transition-colors">
                   {book.cover_image_url ? (
                     <img src={book.cover_image_url} alt="" className="w-10 h-14 rounded-lg object-cover" />
                   ) : (
@@ -189,7 +189,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-sage-800 truncate">{book.title}</p>
                     <div className="flex items-center gap-3 text-xs text-bark-400 mt-0.5">
-                      <span>{book.total_reads || 0} letture</span>
+                      <span>{book.total_reads || 0} pagine lette</span>
                       <span>{book.total_likes || 0} like</span>
                       <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                         book.status === 'published' || book.status === 'ongoing'
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

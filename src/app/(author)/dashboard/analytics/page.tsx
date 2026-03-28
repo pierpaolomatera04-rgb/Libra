@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import {
@@ -13,7 +14,7 @@ export default function AnalyticsPage() {
   const supabase = createClient()
   const [books, setBooks] = useState<any[]>([])
   const [totalStats, setTotalStats] = useState({
-    reads: 0, likes: 0, comments: 0, followers: 0, trending: 0, completionRate: 0
+    reads: 0, likes: 0, comments: 0, followers: 0, visibilityScore: 0, completionRate: 0
   })
   const [loading, setLoading] = useState(true)
 
@@ -49,7 +50,7 @@ export default function AnalyticsPage() {
           likes: booksData.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0),
           comments: booksData.reduce((sum: number, b: any) => sum + (b.total_comments || 0), 0),
           followers: followersCount || 0,
-          trending: Math.round(booksData.reduce((sum: number, b: any) => sum + (b.trending_score || 0), 0) / Math.max(booksData.length, 1)),
+          visibilityScore: Math.round(booksData.reduce((sum: number, b: any) => sum + (b.trending_score || 0), 0) / Math.max(booksData.length, 1)),
           completionRate: totalReadsCount > 0 ? Math.round(((completedReads || 0) / totalReadsCount) * 100) : 0,
         })
       }
@@ -77,21 +78,31 @@ export default function AnalyticsPage() {
       {/* Overview cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         {[
-          { label: 'Letture totali', value: totalStats.reads.toLocaleString(), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
-          { label: 'Like totali', value: totalStats.likes.toLocaleString(), icon: Heart, color: 'text-red-500', bg: 'bg-red-50' },
-          { label: 'Commenti', value: totalStats.comments.toLocaleString(), icon: MessageCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
-          { label: 'Followers', value: totalStats.followers.toLocaleString(), icon: Users, color: 'text-purple-500', bg: 'bg-purple-50' },
-          { label: 'Trending medio', value: totalStats.trending.toString(), icon: TrendingUp, color: 'text-sage-600', bg: 'bg-sage-50' },
-          { label: 'Tasso completamento', value: `${totalStats.completionRate}%`, icon: BookOpen, color: 'text-green-600', bg: 'bg-green-50' },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-2xl border border-sage-100 p-5">
-            <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
-              <stat.icon className={`w-5 h-5 ${stat.color}`} />
+          { label: 'Pagine lette totali', desc: 'Pagine lette dai tuoi lettori — base per il calcolo dei tuoi guadagni', value: totalStats.reads.toLocaleString(), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50', href: null },
+          { label: 'Like totali', desc: null, value: totalStats.likes.toLocaleString(), icon: Heart, color: 'text-red-500', bg: 'bg-red-50', href: null },
+          { label: 'Commenti', desc: null, value: totalStats.comments.toLocaleString(), icon: MessageCircle, color: 'text-amber-500', bg: 'bg-amber-50', href: '/dashboard/commenti' },
+          { label: 'Followers', desc: null, value: totalStats.followers.toLocaleString(), icon: Users, color: 'text-purple-500', bg: 'bg-purple-50', href: null },
+          { label: 'Punteggio visibilità', desc: 'Media del punteggio di visibilità dei tuoi libri. Aumenta quando i lettori usano i Welcome Token sui tuoi libri free.', value: totalStats.visibilityScore.toString(), icon: TrendingUp, color: 'text-sage-600', bg: 'bg-sage-50', href: null },
+          { label: 'Tasso completamento', desc: 'Percentuale di blocchi letti fino alla fine rispetto al totale delle letture', value: `${totalStats.completionRate}%`, icon: BookOpen, color: 'text-green-600', bg: 'bg-green-50', href: null },
+        ].map((stat) => {
+          const content = (
+            <div className={`bg-white rounded-2xl border border-sage-100 p-5 ${stat.href ? 'hover:border-sage-300 hover:shadow-sm cursor-pointer' : ''} transition-all`}>
+              <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              </div>
+              <p className="text-2xl font-bold text-sage-900">{stat.value}</p>
+              <p className="text-xs text-bark-400 mt-1">{stat.label}</p>
+              {stat.desc && (
+                <p className="text-[10px] text-bark-300 mt-1.5 leading-relaxed">{stat.desc}</p>
+              )}
             </div>
-            <p className="text-2xl font-bold text-sage-900">{stat.value}</p>
-            <p className="text-xs text-bark-400 mt-1">{stat.label}</p>
-          </div>
-        ))}
+          )
+          return stat.href ? (
+            <Link key={stat.label} href={stat.href}>{content}</Link>
+          ) : (
+            <div key={stat.label}>{content}</div>
+          )
+        })}
       </div>
 
       {/* Classifica libri per performance */}
@@ -105,10 +116,10 @@ export default function AnalyticsPage() {
             {/* Header */}
             <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] font-semibold text-bark-400 uppercase tracking-wider">
               <div className="col-span-5">Libro</div>
-              <div className="col-span-2 text-center">Letture</div>
+              <div className="col-span-2 text-center">Pagine lette</div>
               <div className="col-span-1 text-center">Like</div>
               <div className="col-span-2 text-center">Commenti</div>
-              <div className="col-span-2 text-center">Trending</div>
+              <div className="col-span-2 text-center">Visibilità</div>
             </div>
 
             {books.map((book, index) => {
@@ -119,15 +130,17 @@ export default function AnalyticsPage() {
                 <div key={book.id} className="grid grid-cols-12 gap-2 items-center px-3 py-3 rounded-xl hover:bg-sage-50 transition-colors">
                   <div className="col-span-5 flex items-center gap-3 min-w-0">
                     <span className="text-xs font-bold text-bark-300 w-5 text-center">{index + 1}</span>
-                    {book.cover_image_url ? (
-                      <img src={book.cover_image_url} alt="" className="w-8 h-11 rounded-lg object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-8 h-11 rounded-lg bg-sage-100 flex items-center justify-center flex-shrink-0">
-                        <BookOpen className="w-3.5 h-3.5 text-sage-400" />
-                      </div>
-                    )}
+                    <Link href={`/libro/${book.id}`} className="flex-shrink-0">
+                      {book.cover_image_url ? (
+                        <img src={book.cover_image_url} alt="" className="w-8 h-11 rounded-lg object-cover hover:opacity-80 transition-opacity" />
+                      ) : (
+                        <div className="w-8 h-11 rounded-lg bg-sage-100 flex items-center justify-center hover:bg-sage-200 transition-colors">
+                          <BookOpen className="w-3.5 h-3.5 text-sage-400" />
+                        </div>
+                      )}
+                    </Link>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-sage-800 truncate">{book.title}</p>
+                      <Link href={`/libro/${book.id}`} className="text-sm font-medium text-sage-800 truncate block hover:text-sage-600 transition-colors">{book.title}</Link>
                       <div className="w-full bg-sage-100 rounded-full h-1 mt-1.5">
                         <div className="bg-sage-400 h-1 rounded-full" style={{ width: `${barWidth}%` }} />
                       </div>
