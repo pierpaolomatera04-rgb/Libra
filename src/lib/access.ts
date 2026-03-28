@@ -213,11 +213,14 @@ export async function addBookToLibrary(
     }
     // Se era PLAN e ora acquista (OWNED), aggiorna
     if (ownershipType === 'OWNED' && existing.ownership_type === 'PLAN') {
-      await supabase
+      const { error: updateErr } = await supabase
         .from('library' as any)
         .update({ ownership_type: 'OWNED' } as any)
         .eq('user_id', userId)
         .eq('book_id', bookId)
+      if (updateErr) {
+        return { success: false, error: `Errore upgrade PLAN→OWNED: ${updateErr.message}` }
+      }
       return { success: true }
     }
     // Già PLAN e richiede PLAN — già in libreria
