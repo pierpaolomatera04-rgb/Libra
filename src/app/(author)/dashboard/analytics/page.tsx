@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import {
-  BarChart3, Eye, Heart, MessageCircle, Users, TrendingUp,
-  BookOpen, Loader2, ArrowUp, ArrowDown, Minus
+  BarChart3, Eye, Heart, MessageCircle, Users,
+  BookOpen, Loader2, ArrowUp, ArrowDown, Minus, Bookmark
 } from 'lucide-react'
 
 export default function AnalyticsPage() {
@@ -14,7 +14,7 @@ export default function AnalyticsPage() {
   const supabase = createClient()
   const [books, setBooks] = useState<any[]>([])
   const [totalStats, setTotalStats] = useState({
-    reads: 0, likes: 0, comments: 0, followers: 0, visibilityScore: 0, completionRate: 0
+    reads: 0, likes: 0, comments: 0, followers: 0, saves: 0, completionRate: 0
   })
   const [loading, setLoading] = useState(true)
 
@@ -50,7 +50,7 @@ export default function AnalyticsPage() {
           likes: booksData.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0),
           comments: booksData.reduce((sum: number, b: any) => sum + (b.total_comments || 0), 0),
           followers: followersCount || 0,
-          visibilityScore: Math.round(booksData.reduce((sum: number, b: any) => sum + (b.trending_score || 0), 0) / Math.max(booksData.length, 1)),
+          saves: booksData.reduce((sum: number, b: any) => sum + (b.total_saves || 0), 0),
           completionRate: totalReadsCount > 0 ? Math.round(((completedReads || 0) / totalReadsCount) * 100) : 0,
         })
       }
@@ -82,7 +82,7 @@ export default function AnalyticsPage() {
           { label: 'Like totali', desc: null, value: totalStats.likes.toLocaleString(), icon: Heart, color: 'text-red-500', bg: 'bg-red-50', href: null },
           { label: 'Commenti', desc: null, value: totalStats.comments.toLocaleString(), icon: MessageCircle, color: 'text-amber-500', bg: 'bg-amber-50', href: '/dashboard/commenti' },
           { label: 'Followers', desc: null, value: totalStats.followers.toLocaleString(), icon: Users, color: 'text-purple-500', bg: 'bg-purple-50', href: null },
-          { label: 'Punteggio visibilità', desc: 'Media del punteggio di visibilità dei tuoi libri. Aumenta quando i lettori usano i Welcome Token sui tuoi libri free.', value: totalStats.visibilityScore.toString(), icon: TrendingUp, color: 'text-sage-600', bg: 'bg-sage-50', href: null },
+          { label: 'Salvataggi', desc: 'Quante volte i lettori hanno salvato i tuoi libri nella loro libreria', value: totalStats.saves.toLocaleString(), icon: Bookmark, color: 'text-sage-600', bg: 'bg-sage-50', href: null },
           { label: 'Tasso completamento', desc: 'Percentuale di blocchi letti fino alla fine rispetto al totale delle letture', value: `${totalStats.completionRate}%`, icon: BookOpen, color: 'text-green-600', bg: 'bg-green-50', href: null },
         ].map((stat) => {
           const content = (
@@ -119,7 +119,7 @@ export default function AnalyticsPage() {
               <div className="col-span-2 text-center">Pagine lette</div>
               <div className="col-span-1 text-center">Like</div>
               <div className="col-span-2 text-center">Commenti</div>
-              <div className="col-span-2 text-center">Visibilità</div>
+              <div className="col-span-2 text-center">Salvataggi</div>
             </div>
 
             {books.map((book, index) => {
@@ -157,7 +157,7 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="col-span-2 text-center">
                     <span className="text-sm font-semibold text-sage-600">
-                      {Math.round(book.trending_score || 0)}
+                      {book.total_saves || 0}
                     </span>
                   </div>
                 </div>
