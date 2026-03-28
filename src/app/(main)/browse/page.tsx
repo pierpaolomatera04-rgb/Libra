@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import BookCard from '@/components/book/BookCard'
-import { Search, Filter, TrendingUp, Clock, Sparkles, X, BookOpen, Timer } from 'lucide-react'
+import { Search, Filter, TrendingUp, Clock, Sparkles, X, BookOpen, Timer, Radio } from 'lucide-react'
 
 const GENRES = [
   'Fantasy', 'Romanzo', 'Thriller', 'Horror', 'Sci-Fi',
@@ -16,7 +16,7 @@ const READING_TIMES = [
   { label: 'Lungo (25+ blocchi)', min: 25 },
 ]
 
-type SortOption = 'trending' | 'newest' | 'popular'
+type SortOption = 'trending' | 'newest' | 'popular' | 'serializations'
 type StatusFilter = 'all' | 'ongoing' | 'completed'
 
 export default function BrowsePage() {
@@ -43,8 +43,10 @@ export default function BrowsePage() {
         author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
       `)
 
-    // Filtro stato
-    if (statusFilter === 'ongoing') {
+    // Serializzazioni: forza filtro su libri in corso
+    if (sort === 'serializations') {
+      query = query.in('status', ['published', 'ongoing'])
+    } else if (statusFilter === 'ongoing') {
       query = query.in('status', ['published', 'ongoing'])
     } else if (statusFilter === 'completed') {
       query = query.eq('status', 'completed')
@@ -76,6 +78,9 @@ export default function BrowsePage() {
         break
       case 'popular':
         query = query.order('total_reads', { ascending: false })
+        break
+      case 'serializations':
+        query = query.order('published_at', { ascending: false })
         break
     }
 
@@ -164,6 +169,7 @@ export default function BrowsePage() {
           { key: 'trending' as SortOption, label: 'In tendenza', icon: TrendingUp },
           { key: 'newest' as SortOption, label: 'Nuovi', icon: Sparkles },
           { key: 'popular' as SortOption, label: 'Più letti', icon: Clock },
+          { key: 'serializations' as SortOption, label: 'Serializzazioni', icon: Radio },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
