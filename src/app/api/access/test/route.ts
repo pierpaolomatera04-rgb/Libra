@@ -206,35 +206,25 @@ export async function GET() {
     // TEST 11: Cap 3 libri Silver — addBookToLibrary
     // =====================
     try {
-      // Resetta contatore
-      await supabase
-        .from('profiles')
-        .update({
-          monthly_books_used: 0,
-          monthly_books_reset_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        } as any)
-        .eq('id', UID_SILVER_A)
+      const futureReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Resetta contatore via RPC
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
 
       // Cleanup libreria per test
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_SILVER)
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_FREE)
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_GOLD)
 
-      // Simula 3 libri aggiunti (setta contatore a 3)
-      await supabase
-        .from('profiles')
-        .update({ monthly_books_used: 3 } as any)
-        .eq('id', UID_SILVER_A)
+      // Simula 3 libri aggiunti via RPC
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
 
       // Il 4° libro PLAN deve essere rifiutato
       const result = await addBookToLibrary(supabase, UID_SILVER_A, BID_SILVER, 'PLAN')
       const pass = !result.success && (result.error?.includes('3') || result.error?.includes('limite'))
 
       // Cleanup
-      await supabase
-        .from('profiles')
-        .update({ monthly_books_used: 0 } as any)
-        .eq('id', UID_SILVER_A)
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
 
       results.push({
         test: '11. Cap 3 libri Silver: 4° libro PLAN rifiutato',
@@ -249,14 +239,10 @@ export async function GET() {
     // TEST 12: Serializzazioni NON contano verso il cap Silver
     // =====================
     try {
-      // Setta contatore a 3 (cap raggiunto)
-      await supabase
-        .from('profiles')
-        .update({
-          monthly_books_used: 3,
-          monthly_books_reset_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        } as any)
-        .eq('id', UID_SILVER_A)
+      const futureReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Setta contatore a 3 via RPC
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_SERIAL)
@@ -267,10 +253,7 @@ export async function GET() {
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_SERIAL)
-      await supabase
-        .from('profiles')
-        .update({ monthly_books_used: 0 } as any)
-        .eq('id', UID_SILVER_A)
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
 
       results.push({
         test: '12. Serializzazioni bypassano cap Silver (PLAN ok anche con 3/3)',
@@ -285,11 +268,10 @@ export async function GET() {
     // TEST 13: Acquisto OWNED non ha cap
     // =====================
     try {
-      // Setta contatore a 3 (cap raggiunto)
-      await supabase
-        .from('profiles')
-        .update({ monthly_books_used: 3 } as any)
-        .eq('id', UID_SILVER_A)
+      const futureReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Setta contatore a 3 via RPC
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 3, reset_at_param: futureReset })
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_GOLD)
@@ -300,10 +282,7 @@ export async function GET() {
 
       // Cleanup
       await supabase.from('library').delete().eq('user_id', UID_SILVER_A).eq('book_id', BID_GOLD)
-      await supabase
-        .from('profiles')
-        .update({ monthly_books_used: 0 } as any)
-        .eq('id', UID_SILVER_A)
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_A, books_used_param: 0, reset_at_param: futureReset })
 
       results.push({
         test: '13. Acquisto OWNED: nessun cap (Silver con 3/3 può comprare)',
@@ -340,39 +319,27 @@ export async function GET() {
     // TEST 15: Reset contatore mensile
     // =====================
     try {
-      // Setta reset_at nel passato (scaduto)
-      await supabase
-        .from('profiles')
-        .update({
-          monthly_books_used: 3,
-          monthly_books_reset_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 ora fa
-        } as any)
-        .eq('id', UID_SILVER_M)
+      const pastReset = new Date(Date.now() - 60 * 60 * 1000).toISOString() // 1 ora fa
+
+      // Setta reset_at nel passato via RPC
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_M, books_used_param: 3, reset_at_param: pastReset })
 
       const wasReset = await checkAndResetMonthlyCounter(supabase, UID_SILVER_M)
 
-      // Verifica che sia stato resettato
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('monthly_books_used, monthly_books_reset_at')
-        .eq('id', UID_SILVER_M)
-        .single()
+      // Verifica che sia stato resettato via RPC
+      const { data: profileData } = await (supabase as any).rpc('get_user_plan', { user_id_param: UID_SILVER_M })
+      const profile = Array.isArray(profileData) ? profileData[0] : profileData
 
-      const pass = wasReset && (profile as any)?.monthly_books_used === 0
+      const pass = wasReset && profile?.monthly_books_used === 0
 
       // Ripristina valori originali
-      await supabase
-        .from('profiles')
-        .update({
-          monthly_books_used: 1,
-          monthly_books_reset_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-        } as any)
-        .eq('id', UID_SILVER_M)
+      const futureReset = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+      await (supabase as any).rpc('set_monthly_books', { user_id_param: UID_SILVER_M, books_used_param: 1, reset_at_param: futureReset })
 
       results.push({
         test: '15. Reset contatore mensile (3 → 0 quando scaduto)',
         status: pass ? 'PASS' : 'FAIL',
-        details: { wasReset, monthlyBooksUsed: (profile as any)?.monthly_books_used },
+        details: { wasReset, monthlyBooksUsed: profile?.monthly_books_used },
       })
     } catch (err: any) {
       results.push({ test: '15. Reset mensile', status: 'FAIL', details: err.message })
