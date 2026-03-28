@@ -145,6 +145,41 @@ export default function ReaderPage() {
       .limit(50)
 
     setComments(commentsData || [])
+
+    // Update library: mark as 'reading' when user opens any block
+    if (user) {
+      const { data: libEntry } = await supabase
+        .from('user_library')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('book_id', bookId)
+        .single()
+
+      if (libEntry) {
+        // If saved, move to reading
+        if (libEntry.status === 'saved') {
+          await supabase
+            .from('user_library')
+            .update({ status: 'reading', last_read_block: blockNumber })
+            .eq('id', libEntry.id)
+        } else if (libEntry.status === 'reading') {
+          // Update last read block
+          await supabase
+            .from('user_library')
+            .update({ last_read_block: blockNumber })
+            .eq('id', libEntry.id)
+        }
+      } else {
+        // Not in library yet — add as reading
+        await supabase.from('user_library').insert({
+          user_id: user.id,
+          book_id: bookId,
+          status: 'reading',
+          last_read_block: blockNumber,
+        })
+      }
+    }
+
     setLoading(false)
   }, [bookId, blockNumber, user, supabase, router])
 
