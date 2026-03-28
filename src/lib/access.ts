@@ -76,13 +76,17 @@ export async function canAccessBlock(
   const now = new Date()
 
   // REGOLA 2: Controlla se il blocco è stato rilasciato
+  // isPreviewOnly = blocco in anteprima (non ancora rilasciato pubblicamente)
+  // L'anteprima NON è acquistabile con token — beneficio esclusivo abbonati
+  let isPreviewOnly = false
+
   if (block.release_at && new Date(block.release_at) > now) {
     // Blocco non ancora rilasciato pubblicamente
     // Ma Gold/Silver potrebbero avere accesso anticipato
     if (block.gold_release_at && new Date(block.gold_release_at) <= now) {
-      // Gold release disponibile — controlla sotto
+      isPreviewOnly = true // Solo Gold (e Silver se silver_release_at passato)
     } else if (block.silver_release_at && new Date(block.silver_release_at) <= now) {
-      // Silver release disponibile — controlla sotto
+      isPreviewOnly = true // Solo Silver e Gold
     } else {
       return { access: 'LOCKED_NOT_RELEASED', canRead: false, message: 'Questo blocco non è ancora disponibile' }
     }
@@ -165,7 +169,16 @@ export async function canAccessBlock(
     }
   }
 
-  // REGOLA 7: Se non ha accesso tramite piano, serve token
+  // REGOLA 7: Se è in anteprima, NON acquistabile con token
+  if (isPreviewOnly) {
+    return {
+      access: 'LOCKED_NOT_RELEASED',
+      canRead: false,
+      message: 'Anteprima disponibile solo per abbonati Silver o Gold',
+    }
+  }
+
+  // REGOLA 8: Se non ha accesso tramite piano, serve token
   return {
     access: 'REQUIRES_TOKEN',
     canRead: false,

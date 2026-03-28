@@ -352,6 +352,165 @@ export async function GET() {
     }
 
     // =====================
+    // TEST 16: Primo blocco serializzazione SEMPRE gratuito
+    // =====================
+    try {
+      const result = await canAccessBlock(supabase, UID_FREE, BID_SERIAL, 1)
+      const pass = result.access === 'GRANTED_FREE' && result.canRead === true
+      results.push({
+        test: '16. Primo blocco serializzazione gratuito (utente FREE)',
+        status: pass ? 'PASS' : 'FAIL',
+        details: result,
+      })
+    } catch (err: any) {
+      results.push({ test: '16. Primo blocco serial', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
+    // TEST 17: Blocco futuro serializzazione — LOCKED per tutti
+    // (blocco 5: release_at = NOW() + 4 giorni, gold_release_at = NOW() + 2 giorni)
+    // =====================
+    try {
+      const result = await canAccessBlock(supabase, UID_GOLD_M, BID_SERIAL, 5)
+      // Blocco 5 ha release_at ~ NOW()+4gg, gold_release_at ~ NOW()+2gg → tutto nel futuro
+      const pass = result.access === 'LOCKED_NOT_RELEASED' && result.canRead === false
+      results.push({
+        test: '17. Blocco futuro serializzazione: LOCKED anche per Gold',
+        status: pass ? 'PASS' : 'FAIL',
+        details: result,
+      })
+    } catch (err: any) {
+      results.push({ test: '17. Blocco futuro serial', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
+    // TEST 18: Blocco rilasciato serializzazione — Silver accede
+    // (blocco 3: release_at nel passato)
+    // =====================
+    try {
+      const result = await canAccessBlock(supabase, UID_SILVER_A, BID_SERIAL, 3)
+      const pass = result.access === 'GRANTED_PLAN' && result.canRead === true
+      results.push({
+        test: '18. Blocco rilasciato serializzazione: Silver accede',
+        status: pass ? 'PASS' : 'FAIL',
+        details: result,
+      })
+    } catch (err: any) {
+      results.push({ test: '18. Serial rilasciato silver', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
+    // TEST 19: Anteprima NON acquistabile con token
+    // Creiamo un blocco con gold_release_at nel passato ma release_at nel futuro
+    // =====================
+    try {
+      // Inserisci blocco di test con date di anteprima
+      const testBlockId = 'd0000000-0000-0000-0000-000000000099'
+      await supabase.from('blocks').delete().eq('id', testBlockId)
+      await supabase.from('blocks').insert({
+        id: testBlockId,
+        book_id: BID_SERIAL,
+        block_number: 99,
+        title: 'Test Anteprima',
+        content: 'Blocco di test per anteprima',
+        character_count: 100,
+        word_count: 15,
+        release_at: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), // domani
+        is_first_block: false,
+        is_released: false,
+      } as any)
+
+      // Il trigger calcola: gold_release_at = domani - 48h = ieri, silver_release_at = domani - 24h = oggi
+      // Quindi Gold dovrebbe avere accesso, Free NO (e non può comprare con token)
+
+      // Test: utente FREE non può accedere e NON gli viene detto "compra con token"
+      const freeResult = await canAccessBlock(supabase, UID_FREE, BID_SERIAL, 99)
+      const freePass = freeResult.access === 'LOCKED_NOT_RELEASED' && freeResult.canRead === false
+
+      // Test: utente GOLD può accedere in anteprima
+      const goldResult = await canAccessBlock(supabase, UID_GOLD_M, BID_SERIAL, 99)
+      const goldPass = goldResult.access === 'GRANTED_PLAN' && goldResult.canRead === true
+
+      // Cleanup
+      await supabase.from('blocks').delete().eq('id', testBlockId)
+
+      results.push({
+        test: '19. Anteprima: FREE bloccato (no token), Gold accede',
+        status: freePass && goldPass ? 'PASS' : 'FAIL',
+        details: {
+          freeAccess: freeResult.access,
+          freeMessage: freeResult.message,
+          goldAccess: goldResult.access,
+          goldMessage: goldResult.message,
+        },
+      })
+    } catch (err: any) {
+      results.push({ test: '19. Anteprima', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
+    // TEST 20: Trigger calcola silver_release_at e gold_release_at
+    // =====================
+    try {
+      const testBlockId2 = 'd0000000-0000-0000-0000-000000000098'
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // tra 7 giorni
+
+      await supabase.from('blocks').delete().eq('id', testBlockId2)
+      await supabase.from('blocks').insert({
+        id: testBlockId2,
+        book_id: BID_SERIAL,
+        block_number: 98,
+        title: 'Test Trigger Date',
+        content: 'Test calcolo date anteprima',
+        character_count: 50,
+        word_count: 8,
+        release_at: futureDate.toISOString(),
+        is_first_block: false,
+        is_released: false,
+      } as any)
+
+      // Leggi il blocco e verifica che il trigger abbia calcolato le date
+      const { data: testBlock } = await supabase
+        .from('blocks')
+        .select('release_at, silver_release_at, gold_release_at')
+        .eq('id', testBlockId2)
+        .single()
+
+      const tb = testBlock as any
+      const hasRelease = !!tb?.release_at
+      const hasSilver = !!tb?.silver_release_at
+      const hasGold = !!tb?.gold_release_at
+
+      // Verifica che le date siano corrette (-24h e -48h)
+      let datesCorrect = false
+      if (hasRelease && hasSilver && hasGold) {
+        const releaseMs = new Date(tb.release_at).getTime()
+        const silverMs = new Date(tb.silver_release_at).getTime()
+        const goldMs = new Date(tb.gold_release_at).getTime()
+        const diff24h = Math.abs((releaseMs - silverMs) - 24 * 60 * 60 * 1000)
+        const diff48h = Math.abs((releaseMs - goldMs) - 48 * 60 * 60 * 1000)
+        datesCorrect = diff24h < 1000 && diff48h < 1000 // Tolleranza 1 secondo
+      }
+
+      // Cleanup
+      await supabase.from('blocks').delete().eq('id', testBlockId2)
+
+      results.push({
+        test: '20. Trigger: silver_release_at = -24h, gold_release_at = -48h',
+        status: datesCorrect ? 'PASS' : 'FAIL',
+        details: {
+          release_at: tb?.release_at,
+          silver_release_at: tb?.silver_release_at,
+          gold_release_at: tb?.gold_release_at,
+          hasSilver,
+          hasGold,
+        },
+      })
+    } catch (err: any) {
+      results.push({ test: '20. Trigger date', status: 'FAIL', details: err.message })
+    }
+
+    // =====================
     // RIEPILOGO
     // =====================
     const passed = results.filter(r => r.status === 'PASS').length
