@@ -13,6 +13,7 @@ const GENRES = [
 ]
 
 type SortOption = 'newest' | 'oldest' | 'popular' | 'most_books'
+type ViewTab = 'scopri' | 'seguiti'
 
 export default function AuthorsPage() {
   const [authors, setAuthors] = useState<any[]>([])
@@ -23,6 +24,7 @@ export default function AuthorsPage() {
   const [genreFilter, setGenreFilter] = useState<string | null>(null)
   const [bookLengthFilter, setBookLengthFilter] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [viewTab, setViewTab] = useState<ViewTab>('scopri')
   const { user } = useAuth()
   const supabase = createClient()
 
@@ -100,6 +102,11 @@ export default function AuthorsPage() {
   const filteredAuthors = useMemo(() => {
     let result = [...authors]
 
+    // Filtro tab Seguiti
+    if (viewTab === 'seguiti') {
+      result = result.filter(a => followedIds.includes(a.id))
+    }
+
     // Filtro genere
     if (genreFilter) {
       result = result.filter(a => a.genres.includes(genreFilter))
@@ -131,7 +138,7 @@ export default function AuthorsPage() {
     }
 
     return result
-  }, [authors, sort, genreFilter, bookLengthFilter])
+  }, [authors, sort, genreFilter, bookLengthFilter, viewTab, followedIds])
 
   const toggleFollow = async (authorId: string) => {
     if (!user) {
@@ -191,6 +198,34 @@ export default function AuthorsPage() {
             <Filter className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* View tabs: Scopri / Seguiti */}
+      <div className="flex items-center gap-2 mb-6">
+        {[
+          { key: 'scopri' as ViewTab, label: 'Scopri', icon: Sparkles },
+          { key: 'seguiti' as ViewTab, label: 'Seguiti', icon: Heart },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setViewTab(key)}
+            className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+              viewTab === key
+                ? 'bg-sage-500 text-white shadow-sm'
+                : 'bg-white text-bark-500 border border-sage-200 hover:bg-sage-50'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+            {key === 'seguiti' && followedIds.length > 0 && (
+              <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${
+                viewTab === 'seguiti' ? 'bg-white/20' : 'bg-sage-100 text-sage-600'
+              }`}>
+                {followedIds.length}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Sort tabs */}
@@ -310,10 +345,14 @@ export default function AuthorsPage() {
         <div className="text-center py-20">
           <Users className="w-16 h-16 text-sage-200 mx-auto mb-4" />
           <p className="text-bark-500 text-lg">
-            {search || hasActiveFilters ? 'Nessun autore trovato' : 'Nessun autore ancora'}
+            {viewTab === 'seguiti'
+              ? 'Non segui ancora nessun autore'
+              : search || hasActiveFilters ? 'Nessun autore trovato' : 'Nessun autore ancora'}
           </p>
           <p className="text-bark-400 text-sm mt-1">
-            {search || hasActiveFilters ? 'Prova a modificare i filtri' : 'I primi autori stanno arrivando!'}
+            {viewTab === 'seguiti'
+              ? 'Esplora la sezione "Scopri" e inizia a seguire gli autori che ti piacciono!'
+              : search || hasActiveFilters ? 'Prova a modificare i filtri' : 'I primi autori stanno arrivando!'}
           </p>
           {hasActiveFilters && (
             <button

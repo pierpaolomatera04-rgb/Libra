@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
-import { BookOpen, Clock, Check, Bookmark, Search } from 'lucide-react'
+import { BookOpen, Clock, Check, Bookmark, Search, Radio, Sparkles } from 'lucide-react'
 
-type Tab = 'reading' | 'saved' | 'completed'
+type Tab = 'reading' | 'saved' | 'completed' | 'serial'
 
 export default function LibraryPage() {
   const { user } = useAuth()
@@ -19,20 +19,51 @@ export default function LibraryPage() {
     if (!user) return
     const fetchLibrary = async () => {
       setLoading(true)
-      const { data } = await supabase
-        .from('user_library')
-        .select(`
-          *,
-          book:books!user_library_book_id_fkey(
-            id, title, cover_image_url, total_blocks, genre,
-            author:profiles!books_author_id_fkey(name, author_pseudonym)
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('status', tab)
-        .order('updated_at', { ascending: false })
 
-      setBooks(data || [])
+      if (tab === 'serial') {
+        // Fetch books in active serialization from user's library
+        const { data } = await supabase
+          .from('user_library')
+          .select(`
+            *,
+            book:books!user_library_book_id_fkey(
+              id, title, cover_image_url, total_blocks, genre, status,
+              author:profiles!books_author_id_fkey(name, author_pseudonym)
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'reading')
+          .order('updated_at', { ascending: false })
+
+        // Filter to only ongoing/published books and check for new blocks
+        const serialBooks = (data || []).filter(
+          (item: any) => item.book?.status === 'ongoing' || item.book?.status === 'published'
+        ).map((item: any) => {
+          const totalBlocks = item.book?.total_blocks || 0
+          const lastReadBlock = item.last_read_block || 0
+          const hasNewBlocks = totalBlocks > lastReadBlock
+          const newBlockCount = Math.max(0, totalBlocks - lastReadBlock)
+          return { ...item, hasNewBlocks, newBlockCount }
+        })
+
+        setBooks(serialBooks)
+      } else {
+        const { data } = await supabase
+          .from('user_library')
+          .select(`
+            *,
+            book:books!user_library_book_id_fkey(
+              id, title, cover_image_url, total_blocks, genre,
+              author:profiles!books_author_id_fkey(name, author_pseudonym)
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('status', tab)
+          .order('updated_at', { ascending: false })
+
+        setBooks(data || [])
+      }
+
       setLoading(false)
     }
     fetchLibrary()
@@ -40,6 +71,7 @@ export default function LibraryPage() {
 
   const tabs = [
     { key: 'reading' as Tab, label: 'In lettura', icon: Clock },
+    { key: 'serial' as Tab, label: 'Serializzazioni', icon: Radio },
     { key: 'saved' as Tab, label: 'Salvati', icon: Bookmark },
     { key: 'completed' as Tab, label: 'Completati', icon: Check },
   ]
@@ -80,7 +112,7 @@ export default function LibraryPage() {
       ) : books.length === 0 ? (
         <div className="text-center py-20">
           <BookOpen className="w-16 h-16 text-sage-200 mx-auto mb-4" />
-          <p className="text-bark-500">Nessun libro {tab === 'reading' ? 'in lettura' : tab === 'saved' ? 'salvato' : 'completato'}</p>
+          <p className="text-bark-500">Nessun libro {tab === 'reading' ? 'in lettura' : tab === 'serial' ? 'in serializzazione attiva' : tab === 'saved' ? 'salvato' : 'completato'}</p>
           <Link href="/browse" className="text-sage-600 font-medium text-sm mt-2 inline-block">
             Esplora il catalogo
           </Link>
@@ -91,8 +123,15 @@ export default function LibraryPage() {
             <Link
               key={item.id}
               href={`/reader/${item.book?.id}/1`}
-              className="bg-white rounded-xl border border-sage-100 p-4 hover:border-sage-300 hover:shadow-sm transition-all"
+              className="bg-white rounded-xl border border-sage-100 p-4 hover:border-sage-300 hover:shadow-sm transition-all relative"
             >
+              {/* New block indicator for serializations */}
+              {tab === 'serial' && item.hasNewBlocks && (
+                <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-0.5 bg-sage-500 text-white text-[10px] font-bold rounded-full shadow-sm">
+                  <Sparkles className="w-3 h-3" />
+                  {item.newBlockCount} {item.newBlockCount === 1 ? 'nuovo' : 'nuovi'}
+                </div>
+              )}
               <div className="flex gap-3">
                 {item.book?.cover_image_url ? (
                   <img src={item.book.cover_image_url} alt="" className="w-16 h-22 rounded-lg object-cover" />
@@ -114,7 +153,20 @@ export default function LibraryPage() {
                       <p className="text-[10px] text-bark-400 mt-1">{Math.round(item.progress_percentage)}% completato</p>
                     </div>
                   )}
-                  {item.book?.genre && (
+                  {tab === 'serial' && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full font-medium">
+                        <Radio className="w-3 h-3" />
+                        In corso
+                      </span>
+                      {item.book?.genre && (
+                        <span className="text-[10px] px-2 py-0.5 bg-sage-50 text-sage-600 rounded-full">
+                          {item.book.genre}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {tab !== 'serial' && item.book?.genre && (
                     <span className="inline-block mt-2 text-[10px] px-2 py-0.5 bg-sage-50 text-sage-600 rounded-full">
                       {item.book.genre}
                     </span>

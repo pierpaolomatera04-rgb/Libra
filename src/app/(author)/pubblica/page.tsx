@@ -10,7 +10,7 @@ import {
   Upload, FileText, Scissors, Eye, BookOpen, Calendar,
   Coins, Check, ArrowLeft, ArrowRight, Loader2, X,
   ChevronUp, ChevronDown, Trash2, Edit3, Save, RotateCcw,
-  GripVertical, AlertTriangle
+  GripVertical, AlertTriangle, Shield
 } from 'lucide-react'
 
 // ============================================
@@ -54,8 +54,9 @@ const STEPS = [
   { id: 3, label: 'Revisiona', icon: Eye },
   { id: 4, label: 'Dettagli', icon: BookOpen },
   { id: 5, label: 'Calendario', icon: Calendar },
-  { id: 6, label: 'Prezzo', icon: Coins },
-  { id: 7, label: 'Pubblica', icon: Check },
+  { id: 6, label: 'Tier', icon: Shield },
+  { id: 7, label: 'Prezzo', icon: Coins },
+  { id: 8, label: 'Pubblica', icon: Check },
 ]
 
 const GENRES = [
@@ -331,8 +332,8 @@ export default function PublishPage() {
         mood: data.mood || null,
         total_blocks: data.blocks.length,
         access_level: data.accessLevel,
-        token_price_per_block: data.tokenPricePerBlock,
-        first_block_free: data.firstBlockFree,
+        token_price_per_block: data.accessLevel === 'open' ? 0 : data.tokenPricePerBlock,
+        first_block_free: data.accessLevel === 'open' ? true : data.firstBlockFree,
         status: 'ongoing',
         scheduled_releases: scheduledDates,
         publication_start_date: scheduledDates[0],
@@ -363,7 +364,7 @@ export default function PublishPage() {
         content: block.content,
         character_count: block.characterCount,
         word_count: block.wordCount,
-        token_price: data.tokenPricePerBlock,
+        token_price: data.accessLevel === 'open' ? 0 : data.tokenPricePerBlock,
         scheduled_date: scheduledDates[index] || null,
         is_released: index === 0,
         released_at: index === 0 ? new Date().toISOString() : null,
@@ -422,7 +423,8 @@ export default function PublishPage() {
       case 3: return true
       case 4: return data.title.length > 0 && data.genre.length > 0 && data.description.trim().length >= 150 && data.coverImage !== null
       case 5: return data.scheduledDays.length === data.blocks.length
-      case 6: return true
+      case 6: return true // Tier
+      case 7: return true // Price
       default: return false
     }
   }
@@ -441,12 +443,12 @@ export default function PublishPage() {
               Indietro
             </button>
             <h1 className="text-lg font-bold text-sage-900">Pubblica un libro</h1>
-            <div className="text-sm text-bark-400">Passo {step} di 7</div>
+            <div className="text-sm text-bark-400">Passo {step} di {data.accessLevel === 'open' ? 7 : 8}</div>
           </div>
 
           {/* Progress bar */}
           <div className="flex items-center gap-1">
-            {STEPS.map((s) => (
+            {STEPS.filter(s => !(s.id === 7 && data.accessLevel === 'open')).map((s) => (
               <div key={s.id} className="flex-1 flex flex-col items-center gap-1">
                 <div
                   className={`h-1.5 w-full rounded-full transition-colors ${
@@ -951,12 +953,12 @@ export default function PublishPage() {
           </div>
         )}
 
-        {/* ---- STEP 6: PREZZO ---- */}
+        {/* ---- STEP 6: TIER ---- */}
         {step === 6 && (
           <div className="max-w-2xl mx-auto animate-fade-in">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-sage-900">Prezzo e accesso</h2>
-              <p className="text-bark-500 mt-2">Scegli come i lettori accederanno ai tuoi blocchi</p>
+              <h2 className="text-2xl font-bold text-sage-900">Livello di accesso</h2>
+              <p className="text-bark-500 mt-2">Scegli chi potrà leggere il tuo libro</p>
             </div>
 
             <div className="bg-white rounded-2xl border border-sage-100 p-8 space-y-8">
@@ -965,7 +967,7 @@ export default function PublishPage() {
                 <label className="block text-sm font-medium text-sage-800 mb-3">Chi può leggere?</label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { value: 'open', label: 'Tutti', desc: 'Aperto a tutti i lettori' },
+                    { value: 'open', label: 'Tutti (Free)', desc: 'Aperto a tutti i lettori, senza costo' },
                     { value: 'silver_choice', label: 'Silver+', desc: 'Solo Silver e Gold' },
                     { value: 'gold_exclusive', label: 'Gold', desc: 'Solo abbonati Gold' },
                   ].map((opt) => (
@@ -985,6 +987,25 @@ export default function PublishPage() {
                 </div>
               </div>
 
+              {data.accessLevel === 'open' && (
+                <div className="p-4 bg-green-50 rounded-xl text-sm text-green-700">
+                  <p className="font-medium">Libro gratuito</p>
+                  <p className="text-xs mt-1 opacity-80">Tutti potranno leggere i tuoi blocchi senza spendere token. Passerai direttamente al riepilogo.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---- STEP 7: PREZZO (solo se Silver/Gold) ---- */}
+        {step === 7 && (
+          <div className="max-w-2xl mx-auto animate-fade-in">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-sage-900">Prezzo in token</h2>
+              <p className="text-bark-500 mt-2">Imposta il prezzo per ogni blocco</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-sage-100 p-8 space-y-8">
               {/* Primo blocco gratis */}
               <div className="flex items-center justify-between p-4 bg-sage-50 rounded-xl">
                 <div>
@@ -1096,8 +1117,8 @@ export default function PublishPage() {
           </div>
         )}
 
-        {/* ---- STEP 7: RIEPILOGO E PUBBLICA ---- */}
-        {step === 7 && (
+        {/* ---- STEP 8: RIEPILOGO E PUBBLICA ---- */}
+        {step === 8 && (
           <div className="max-w-2xl mx-auto animate-fade-in">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-sage-900">Riepilogo</h2>
@@ -1125,9 +1146,11 @@ export default function PublishPage() {
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: 'Blocchi', value: data.blocks.length },
-                  { label: 'Accesso', value: data.accessLevel === 'open' ? 'Tutti' : data.accessLevel === 'silver_choice' ? 'Silver+' : 'Gold' },
-                  { label: 'Prezzo/blocco', value: `${data.tokenPricePerBlock} token` },
-                  { label: 'Primo gratis', value: data.firstBlockFree ? 'Si' : 'No' },
+                  { label: 'Accesso', value: data.accessLevel === 'open' ? 'Tutti (Free)' : data.accessLevel === 'silver_choice' ? 'Silver+' : 'Gold' },
+                  ...(data.accessLevel !== 'open' ? [
+                    { label: 'Prezzo/blocco', value: `${data.tokenPricePerBlock} token` },
+                    { label: 'Primo gratis', value: data.firstBlockFree ? 'Si' : 'No' },
+                  ] : []),
                   { label: 'Uscite', value: `${data.scheduledDays.length} date` },
                   { label: 'Parole totali', value: data.extractedText.split(/\s+/).length.toLocaleString() },
                 ].map((item) => (
@@ -1160,10 +1183,14 @@ export default function PublishPage() {
         )}
 
         {/* ---- NAVIGATION BUTTONS ---- */}
-        {step < 7 ? (
+        {step < 8 ? (
           <div className="flex items-center justify-between mt-8 max-w-2xl mx-auto">
             <button
-              onClick={() => setStep(Math.max(1, step - 1))}
+              onClick={() => {
+                const prev = step - 1
+                // Skip price step (7) going backwards if accessLevel is 'open'
+                setStep(prev === 7 && data.accessLevel === 'open' ? 6 : Math.max(1, prev))
+              }}
               disabled={step === 1}
               className="flex items-center gap-1 px-4 py-2 text-sm text-bark-500 hover:text-sage-700 disabled:opacity-30"
             >
@@ -1171,7 +1198,11 @@ export default function PublishPage() {
               Indietro
             </button>
             <button
-              onClick={() => setStep(Math.min(7, step + 1))}
+              onClick={() => {
+                const next = step + 1
+                // Skip price step (7) if accessLevel is 'open'
+                setStep(next === 7 && data.accessLevel === 'open' ? 8 : Math.min(8, next))
+              }}
               disabled={!canGoNext()}
               className="flex items-center gap-1 px-6 py-2.5 text-sm bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
@@ -1182,7 +1213,7 @@ export default function PublishPage() {
         ) : (
           <div className="flex items-center justify-center mt-8 max-w-2xl mx-auto">
             <button
-              onClick={() => setStep(6)}
+              onClick={() => setStep(data.accessLevel === 'open' ? 6 : 7)}
               className="flex items-center gap-1 px-4 py-2 text-sm text-bark-500 hover:text-sage-700"
             >
               <ArrowLeft className="w-4 h-4" />
