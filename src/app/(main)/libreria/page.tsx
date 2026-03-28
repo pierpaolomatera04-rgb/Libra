@@ -48,7 +48,7 @@ export default function LibraryPage() {
 
         setBooks(serialBooks)
       } else {
-        const { data } = await supabase
+        let query = supabase
           .from('user_library')
           .select(`
             *,
@@ -58,8 +58,15 @@ export default function LibraryPage() {
             )
           `)
           .eq('user_id', user.id)
-          .eq('status', tab)
-          .order('updated_at', { ascending: false })
+
+        // "Salvati" shows both saved and reading books
+        if (tab === 'saved') {
+          query = query.in('status', ['saved', 'reading'])
+        } else {
+          query = query.eq('status', tab)
+        }
+
+        const { data } = await query.order('updated_at', { ascending: false })
 
         setBooks(data || [])
       }
