@@ -43,7 +43,7 @@ const INITIAL_DATA: WizardData = {
   coverImage: null,
   coverPreview: null,
   accessLevel: 'open',
-  tokenPricePerBlock: 5,
+  tokenPricePerBlock: 10,
   firstBlockFree: true,
   scheduledDays: [],
 }
@@ -291,6 +291,12 @@ export default function PublishPage() {
       return
     }
 
+    // Validazione: max 16 blocchi
+    if (data.blocks.length > 16) {
+      toast.error('Un libro può avere massimo 16 blocchi.')
+      return
+    }
+
     setPublishing(true)
 
     try {
@@ -355,6 +361,24 @@ export default function PublishPage() {
         return
       }
       console.log('✅ Libro creato:', book.id)
+
+      // 3b. Validazione backend: max blocchi e limite settimanale
+      const { data: validation, error: valError } = await supabase
+        .rpc('validate_block_publication', {
+          p_book_id: book.id,
+          p_author_id: user.id,
+          p_block_count: data.blocks.length,
+        })
+
+      if (valError) {
+        console.warn('⚠️ Validazione RPC non disponibile, proseguo:', valError.message)
+      } else if (validation && !validation.valid) {
+        console.error('❌ VALIDAZIONE FALLITA:', validation)
+        toast.error(validation.message || 'Errore di validazione pubblicazione')
+        await supabase.from('books').delete().eq('id', book.id)
+        setPublishing(false)
+        return
+      }
 
       // 4. Inserisci blocchi
       const blocksToInsert = data.blocks.map((block, index) => ({
@@ -550,7 +574,7 @@ export default function PublishPage() {
                 <input
                   type="range"
                   min={3}
-                  max={Math.min(100, Math.floor(data.extractedText.length / 500))}
+                  max={Math.min(16, Math.floor(data.extractedText.length / 500))}
                   value={blockCount}
                   onChange={(e) => recalculateBlocks(parseInt(e.target.value))}
                   className="w-full accent-sage-500"
@@ -1035,15 +1059,15 @@ export default function PublishPage() {
                 </div>
                 <input
                   type="range"
-                  min={1}
-                  max={50}
+                  min={5}
+                  max={30}
                   value={data.tokenPricePerBlock}
                   onChange={(e) => setData(prev => ({ ...prev, tokenPricePerBlock: parseInt(e.target.value) }))}
                   className="w-full accent-sage-500"
                 />
                 <div className="flex justify-between text-xs text-bark-400 mt-1">
-                  <span>1 token (€0,10)</span>
-                  <span>50 token (€5,00)</span>
+                  <span>5 token (€0,50)</span>
+                  <span>30 token (€3,00)</span>
                 </div>
 
                 {/* Messaggio consiglio dinamico */}

@@ -313,16 +313,16 @@ export default function BookEditPage() {
 
             <input
               type="range"
-              min={1}
-              max={50}
+              min={5}
+              max={30}
               value={tokenPrice}
               onChange={(e) => setTokenPrice(parseInt(e.target.value))}
               className="w-full accent-sage-500"
             />
 
             <div className="flex justify-between text-xs text-bark-300">
-              <span>1 token</span>
-              <span>50 token</span>
+              <span>5 token (€0,50)</span>
+              <span>30 token (€3,00)</span>
             </div>
           </div>
 
