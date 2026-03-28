@@ -201,7 +201,7 @@ export default function OperePage() {
                                 Visualizza
                               </Link>
                               <Link
-                                href={`/pubblica?edit=${book.id}&step=4`}
+                                href={`/dashboard/opere/${book.id}/edit`}
                                 onClick={() => setMenuOpen(null)}
                                 className="flex items-center gap-2 px-3 py-2 text-sm text-bark-600 hover:bg-sage-50"
                               >
