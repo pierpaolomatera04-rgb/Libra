@@ -90,7 +90,13 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
           <h3 className="font-semibold text-sage-900 text-sm line-clamp-1 group-hover:text-sage-600 transition-colors">
             {book.title}
           </h3>
-          <p className="text-xs text-bark-400 mt-1">{authorName}</p>
+          <Link
+            href={`/autore/${book.author?.id}`}
+            className="text-xs text-bark-400 mt-1 block hover:text-sage-600 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {authorName}
+          </Link>
 
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-sage-50">
             <div className="flex items-center gap-3 text-xs text-bark-400">
