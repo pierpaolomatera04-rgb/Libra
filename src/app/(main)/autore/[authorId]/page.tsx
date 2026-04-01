@@ -369,7 +369,7 @@ export default function AuthorProfilePage() {
             </div>
 
             <p className="text-sm text-bark-400 mb-5">
-              Invia una mancia in token. L&apos;autore riceve l&apos;80% del valore.
+              Invia una mancia in token. L&apos;autore riceve il 90% del valore.
               I Welcome Token non possono essere usati.
             </p>
 
@@ -423,7 +423,7 @@ export default function AuthorProfilePage() {
               </div>
               <div className="flex justify-between text-xs text-bark-400 mt-1">
                 <span>L&apos;autore riceve</span>
-                <span className="font-semibold text-sage-700">&euro;{(tipAmount * 0.10 * 0.80).toFixed(2)}</span>
+                <span className="font-semibold text-sage-700">&euro;{(tipAmount * 0.10 * 0.90).toFixed(2)}</span>
               </div>
               {tipAmount > spendableTokens && (
                 <Link href="/wallet" className="block text-xs text-red-500 mt-2 font-medium hover:text-red-600 underline">

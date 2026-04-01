@@ -224,7 +224,7 @@ export default function ComeFunzionaPage() {
               {
                 icon: Coins,
                 title: 'Guadagna',
-                desc: 'Ricevi il 70% di ogni sblocco con token e l\'80% delle mance. Payout mensile.',
+                desc: 'Ricevi il 70% di ogni sblocco con token e il 90% delle mance. Payout mensile.',
               },
               {
                 icon: Star,
@@ -238,6 +238,16 @@ export default function ComeFunzionaPage() {
                 <p className="text-sm text-sage-300 leading-relaxed">{item.desc}</p>
               </div>
             ))}
+          </div>
+
+          <div className="text-center">
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-sage-800 rounded-xl text-sm font-medium hover:bg-sage-50 transition-colors"
+            >
+              <PenTool className="w-4 h-4" />
+              Diventa autore
+            </Link>
           </div>
         </div>
       </section>
@@ -267,6 +277,7 @@ export default function ComeFunzionaPage() {
             </div>
             <div className="flex items-center gap-6 text-sm">
               <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
+              <Link href="/diventa-autore" className="hover:text-white transition-colors">Diventa Autore</Link>
               <Link href="/termini" className="hover:text-white transition-colors">Termini di servizio</Link>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link href="/contatti" className="hover:text-white transition-colors">Contatti</Link>

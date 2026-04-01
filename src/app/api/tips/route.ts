@@ -88,10 +88,10 @@ export async function POST(request: NextRequest) {
         .in('id', tokenIdsToMarkSpent)
     }
 
-    // Calcola payout: 80% autore, 20% piattaforma (mance)
+    // Calcola payout: 90% autore, 10% piattaforma (mance)
     const euroValue = amount * 0.10
-    const authorPayout = Math.round(euroValue * 0.80 * 100) / 100
-    const platformPayout = Math.round(euroValue * 0.20 * 100) / 100
+    const authorPayout = Math.round(euroValue * 0.90 * 100) / 100
+    const platformPayout = Math.round(euroValue * 0.10 * 100) / 100
 
     // Registra transazioni token
     for (const spent of tokensSpent) {
@@ -103,8 +103,8 @@ export async function POST(request: NextRequest) {
           book_id: null,
           token_type: spent.type,
           tokens_spent: spent.amount,
-          author_payout: Math.round(spentEuro * 0.80 * 100) / 100,
-          platform_payout: Math.round(spentEuro * 0.20 * 100) / 100,
+          author_payout: Math.round(spentEuro * 0.90 * 100) / 100,
+          platform_payout: Math.round(spentEuro * 0.10 * 100) / 100,
         })
     }
 
