@@ -174,6 +174,11 @@ export default function PublishPage() {
 
   const saveEditBlock = () => {
     if (editingBlock === null) return
+    const wordCount = editContent.trim().split(/\s+/).filter(Boolean).length
+    if (wordCount < 3000) {
+      toast.error('Il blocco è troppo corto — durata minima 15 minuti di lettura (circa 3.000 parole)')
+      return
+    }
     setData(prev => ({
       ...prev,
       blocks: prev.blocks.map(b =>
@@ -182,7 +187,7 @@ export default function PublishPage() {
               ...b,
               content: editContent,
               characterCount: editContent.length,
-              wordCount: editContent.split(/\s+/).length,
+              wordCount,
             }
           : b
       ),
@@ -216,6 +221,13 @@ export default function PublishPage() {
   const splitBlock = (blockNum: number) => {
     const block = data.blocks.find(b => b.number === blockNum)
     if (!block) return
+
+    // Verifica che entrambe le metà avranno almeno 3000 parole
+    const totalWords = block.content.trim().split(/\s+/).filter(Boolean).length
+    if (totalWords < 6000) {
+      toast.error('Non puoi dividere: entrambi i blocchi risultanti devono avere almeno 3.000 parole')
+      return
+    }
 
     const mid = Math.floor(block.content.length / 2)
     // Trova il punto migliore per dividere (fine paragrafo o frase)
@@ -296,6 +308,13 @@ export default function PublishPage() {
     // Validazione: max 16 blocchi
     if (data.blocks.length > 16) {
       toast.error('Un libro può avere massimo 16 blocchi.')
+      return
+    }
+
+    // Validazione: minimo 3000 parole per blocco
+    const shortBlock = data.blocks.find(b => b.content.trim().split(/\s+/).filter(Boolean).length < 3000)
+    if (shortBlock) {
+      toast.error(`Blocco ${shortBlock.number} troppo corto — minimo 3.000 parole (15 min di lettura)`)
       return
     }
 
@@ -714,25 +733,41 @@ export default function PublishPage() {
                         onChange={(e) => setEditContent(e.target.value)}
                         className="w-full h-64 p-4 border border-sage-200 rounded-xl text-sm font-serif leading-relaxed resize-y focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none"
                       />
-                      <div className="flex items-center justify-between mt-3">
-                        <p className="text-xs text-bark-400">
-                          {editContent.split(/\s+/).length} parole
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => { setEditingBlock(null); setEditContent('') }}
-                            className="px-4 py-2 text-sm text-bark-500 hover:bg-sage-50 rounded-lg"
-                          >
-                            Annulla
-                          </button>
-                          <button
-                            onClick={saveEditBlock}
-                            className="flex items-center gap-1 px-4 py-2 text-sm bg-sage-500 text-white rounded-lg hover:bg-sage-600"
-                          >
-                            <Save className="w-3.5 h-3.5" />
-                            Salva
-                          </button>
-                        </div>
+                      <div className="mt-3">
+                        {(() => {
+                          const wc = editContent.trim().split(/\s+/).filter(Boolean).length
+                          const isTooShort = wc < 3000
+                          return (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <p className={`text-xs ${isTooShort ? 'text-red-500 font-medium' : 'text-bark-400'}`}>
+                                  {wc.toLocaleString()} / 3.000 parole {isTooShort ? '— troppo corto' : ''}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => { setEditingBlock(null); setEditContent('') }}
+                                    className="px-4 py-2 text-sm text-bark-500 hover:bg-sage-50 rounded-lg"
+                                  >
+                                    Annulla
+                                  </button>
+                                  <button
+                                    onClick={saveEditBlock}
+                                    disabled={isTooShort}
+                                    className="flex items-center gap-1 px-4 py-2 text-sm bg-sage-500 text-white rounded-lg hover:bg-sage-600 disabled:opacity-50"
+                                  >
+                                    <Save className="w-3.5 h-3.5" />
+                                    Salva
+                                  </button>
+                                </div>
+                              </div>
+                              {isTooShort && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  Durata minima 15 minuti di lettura (circa 3.000 parole)
+                                </p>
+                              )}
+                            </>
+                          )
+                        })()}
                       </div>
                     </div>
                   ) : (
@@ -744,6 +779,16 @@ export default function PublishPage() {
                         </p>
                         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white" />
                       </div>
+
+                      {/* Avviso se blocco troppo corto */}
+                      {block.wordCount < 3000 && (
+                        <div className="flex items-center gap-2 mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                          <p className="text-xs text-red-700">
+                            Blocco troppo corto: {block.wordCount.toLocaleString()} / 3.000 parole — durata minima 15 min di lettura
+                          </p>
+                        </div>
+                      )}
 
                       {/* Avviso se finisce a metà frase */}
                       {block.number < data.blocks.length && !/[.!?…»"']\s*$/.test(block.content.trim()) && (
