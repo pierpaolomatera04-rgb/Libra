@@ -1,22 +1,30 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { BookOpen, Sparkles, Calendar, Coins, ArrowRight, TrendingUp, Shield, PenTool } from 'lucide-react'
-import { motion } from 'framer-motion'
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-}
-
-const stagger = {
-  visible: { transition: { staggerChildren: 0.15 } },
-}
+import { createClient } from '@/lib/supabase'
+import { BookOpen, Sparkles, Coins, ArrowRight, Shield, PenTool, BookMarked, Lock, Star } from 'lucide-react'
 
 export default function HomePage() {
+  const [books, setBooks] = useState<any[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    const fetchBooks = async () => {
+      const { data } = await supabase
+        .from('books')
+        .select('id, title, cover_image_url, author:profiles!books_author_id_fkey(author_pseudonym, name)')
+        .in('status', ['published', 'ongoing', 'completed'])
+        .order('trending_score', { ascending: false })
+        .limit(6)
+      setBooks(data || [])
+    }
+    fetchBooks()
+  }, [])
+
   return (
     <div className="min-h-screen bg-cream-50">
-      {/* Navbar minimale per landing */}
+      {/* Navbar minimale */}
       <nav className="sticky top-0 z-50 bg-cream-50/80 backdrop-blur-md border-b border-sage-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
@@ -34,91 +42,88 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <motion.section
-        initial="hidden"
-        animate="visible"
-        variants={stagger}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center"
-      >
-        <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-1.5 bg-sage-100 rounded-full text-sage-700 text-sm font-medium mb-8">
+      {/* SEZIONE 1 — Hero */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-sage-100 rounded-full text-sage-700 text-sm font-medium mb-8">
           <Sparkles className="w-4 h-4" />
           La prima piattaforma italiana per storie a blocchi
-        </motion.div>
+        </div>
 
-        <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-bold text-sage-900 leading-tight max-w-4xl mx-auto">
-          Scopri storie incredibili,
-          <br />
-          <span className="text-sage-500">un blocco alla volta</span>
-        </motion.h1>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-sage-900 leading-tight max-w-4xl mx-auto">
+          Leggi storie un blocco alla volta
+        </h1>
 
-        <motion.p variants={fadeUp} className="text-lg text-bark-500 mt-6 max-w-2xl mx-auto leading-relaxed">
-          Come YouTube, ma per i libri. Gli autori pubblicano le loro storie in blocchi settimanali,
-          tu le scopri, le segui e supporti chi merita.
-        </motion.p>
+        <p className="text-lg text-bark-500 mt-6 max-w-2xl mx-auto leading-relaxed">
+          Gli autori pubblicano i loro libri in blocchi settimanali. Tu li scopri, li segui e supporti chi merita.
+        </p>
 
-        <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
           <Link
             href="/signup"
             className="px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors flex items-center gap-2 text-lg"
           >
             <BookOpen className="w-5 h-5" />
-            Inizia a leggere
+            Registrati gratis
           </Link>
           <Link
-            href="/diventa-autore"
-            className="px-8 py-3.5 border-2 border-sage-700 bg-sage-800 text-white rounded-xl font-medium hover:bg-sage-900 transition-colors flex items-center gap-2 text-lg"
+            href="/come-funziona"
+            className="px-8 py-3.5 border-2 border-sage-300 text-sage-700 rounded-xl font-medium hover:bg-sage-50 transition-colors flex items-center gap-2 text-lg"
           >
-            <PenTool className="w-5 h-5" />
-            Diventa un Autore
+            Come funziona
+            <ArrowRight className="w-5 h-5" />
           </Link>
-        </motion.div>
-      </motion.section>
+        </div>
+      </section>
 
-      {/* Come funziona - 3 colonne */}
+      {/* SEZIONE 2 — Come funziona (sintesi) */}
       <section className="bg-white py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-sage-900">Come funziona Libra?</h2>
+            <h2 className="text-3xl font-bold text-sage-900">Come funziona?</h2>
             <p className="text-bark-500 mt-3 max-w-xl mx-auto">
-              Un modo nuovo di leggere e pubblicare libri, ispirato ai migliori creator del web
+              Tre passi per iniziare a leggere su Libra
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
               {
-                icon: Calendar,
-                title: 'Pubblicazione a blocchi',
-                desc: 'Gli autori pubblicano i loro libri in blocchi settimanali, creando attesa come le serie TV. Ogni settimana nuovi contenuti da scoprire.',
+                emoji: '📖',
+                title: 'Scegli un libro',
+                desc: 'Sfoglia il catalogo e trova la storia che fa per te tra decine di generi diversi.',
               },
               {
-                icon: TrendingUp,
-                title: 'Algoritmo democratico',
-                desc: 'I libri migliori salgono in tendenza grazie ai lettori, non alla pubblicità. Like, letture complete e commenti determinano il successo.',
+                emoji: '🔓',
+                title: 'Il primo blocco è gratis',
+                desc: 'Ogni libro ha il primo blocco gratuito. Inizia a leggere senza impegno.',
               },
               {
-                icon: Coins,
-                title: 'Supporta gli autori',
-                desc: 'Usa i token per sbloccare blocchi premium e supportare direttamente gli autori emergenti con donazioni e tips.',
+                emoji: '⭐',
+                title: 'Abbonati per di più',
+                desc: 'Con Silver o Gold leggi in anteprima, senza limiti e con sconti sui token.',
               },
             ].map((item, i) => (
               <div key={i} className="text-center p-8 rounded-2xl hover:bg-sage-50/50 transition-colors">
-                <div className="w-14 h-14 mx-auto bg-sage-100 rounded-2xl flex items-center justify-center mb-5">
-                  <item.icon className="w-7 h-7 text-sage-600" />
-                </div>
+                <div className="text-4xl mb-5">{item.emoji}</div>
                 <h3 className="text-lg font-semibold text-sage-800 mb-3">{item.title}</h3>
                 <p className="text-bark-500 text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
+
+          <div className="text-center mt-10">
+            <Link href="/come-funziona" className="inline-flex items-center gap-2 text-sage-600 font-medium hover:text-sage-700 transition-colors">
+              Scopri di più
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* Piani */}
+      {/* SEZIONE 3 — Piani */}
       <section className="py-24 bg-cream-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-sage-900 mb-4">Scegli il tuo piano VIP</h2>
+          <h2 className="text-3xl font-bold text-sage-900 mb-4">Scegli il tuo piano</h2>
           <p className="text-bark-500 mb-12 max-w-xl mx-auto">
             Inizia gratis e sblocca più contenuti con i piani premium
           </p>
@@ -126,10 +131,10 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {[
               {
-                name: 'Esploratore',
+                name: 'Free',
                 price: 'Gratis',
                 period: '',
-                features: ['10 token di benvenuto', 'Accesso ai contenuti gratuiti', 'Primo blocco sempre gratis', 'Commenti e like illimitati', 'Salvataggio libri preferiti'],
+                features: ['10 token di benvenuto', 'Primo blocco sempre gratis', 'Commenti e like illimitati'],
                 cta: 'Inizia gratis',
                 highlighted: false,
               },
@@ -137,7 +142,7 @@ export default function HomePage() {
                 name: 'Silver',
                 price: '€4,99',
                 period: '/mese',
-                features: ['50 token bonus al mese', 'Sconto 20% su tutti i blocchi', 'Contenuti Silver esclusivi', 'Badge Silver sul profilo', 'Accesso anticipato alle novità'],
+                features: ['10 token al mese', 'Sconto 15% su tutti i blocchi', 'Contenuti Silver in anteprima'],
                 cta: 'Scegli Silver',
                 highlighted: true,
               },
@@ -145,7 +150,7 @@ export default function HomePage() {
                 name: 'Gold',
                 price: '€9,99',
                 period: '/mese',
-                features: ['120 token bonus al mese', 'Sconto 40% su tutti i blocchi', 'Accesso a tutto il catalogo', 'Badge Gold + priorità commenti', 'Supporto prioritario'],
+                features: ['20 token al mese', 'Sconto 30% su tutti i blocchi', 'Accesso a tutto il catalogo'],
                 cta: 'Scegli Gold',
                 highlighted: false,
               },
@@ -195,8 +200,68 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-sage-900 text-sage-200 py-12">
+      {/* SEZIONE 4 — Anteprima catalogo */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-sage-900 mb-4">Esplora il catalogo</h2>
+          <p className="text-bark-500 mb-12">Registrati per iniziare a leggere</p>
+
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 max-w-3xl mx-auto mb-10">
+            {books.length > 0 ? books.map((book) => (
+              <div key={book.id} className="relative group">
+                {book.cover_image_url ? (
+                  <img
+                    src={book.cover_image_url}
+                    alt={book.title}
+                    className="w-full aspect-[3/4] rounded-xl object-cover shadow-md group-hover:shadow-lg transition-shadow"
+                  />
+                ) : (
+                  <div className="w-full aspect-[3/4] rounded-xl bg-gradient-to-br from-sage-200 to-sage-300 flex items-center justify-center shadow-md">
+                    <BookOpen className="w-8 h-8 text-sage-500" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-sage-900/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Lock className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            )) : (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="w-full aspect-[3/4] rounded-xl bg-sage-100 animate-pulse" />
+              ))
+            )}
+          </div>
+
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors text-lg"
+          >
+            <BookMarked className="w-5 h-5" />
+            Scopri il catalogo
+          </Link>
+        </div>
+      </section>
+
+      {/* SEZIONE 5 — Diventa autore */}
+      <section className="py-24 bg-sage-800">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+          <PenTool className="w-12 h-12 text-sage-300 mx-auto mb-6" />
+          <h2 className="text-3xl font-bold text-white mb-4">Sei uno scrittore?</h2>
+          <p className="text-sage-200 text-lg mb-8 leading-relaxed">
+            Pubblica su Libra e guadagna per ogni pagina letta. Carica il tuo libro, scegli il prezzo
+            e raggiungi migliaia di lettori.
+          </p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-sage-800 rounded-xl font-medium hover:bg-sage-50 transition-colors text-lg"
+          >
+            <Star className="w-5 h-5" />
+            Diventa autore
+          </Link>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-sage-900 text-sage-300 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
@@ -204,10 +269,12 @@ export default function HomePage() {
               <span className="text-lg font-bold text-white">Libra</span>
             </div>
             <div className="flex items-center gap-6 text-sm">
-              <Link href="/browse" className="hover:text-white transition-colors">Sfoglia</Link>
-              <Link href="/diventa-autore" className="hover:text-white transition-colors">Diventa autore</Link>
+              <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
+              <Link href="/termini" className="hover:text-white transition-colors">Termini di servizio</Link>
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link href="/contatti" className="hover:text-white transition-colors">Contatti</Link>
             </div>
-            <p className="text-xs text-sage-400">
+            <p className="text-xs text-sage-500">
               &copy; 2025 Libra. Tutti i diritti riservati.
             </p>
           </div>
