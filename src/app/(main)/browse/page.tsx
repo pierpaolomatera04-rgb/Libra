@@ -234,7 +234,7 @@ export default function BrowsePage() {
             <div className="flex flex-wrap gap-2">
               {[
                 { key: 'all' as StatusFilter, label: 'Tutti', icon: BookOpen },
-                { key: 'ongoing' as StatusFilter, label: 'In uscita', icon: Clock },
+                { key: 'ongoing' as StatusFilter, label: 'In corso', icon: Clock },
                 { key: 'completed' as StatusFilter, label: 'Completati', icon: Sparkles },
               ].map(({ key, label, icon: Icon }) => (
                 <button

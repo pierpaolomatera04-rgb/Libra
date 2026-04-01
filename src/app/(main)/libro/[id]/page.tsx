@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { toast } from 'sonner'
 import {
   BookOpen, Heart, Clock, Layers, ArrowLeft, Play,
-  Coins, Users, Eye, Calendar, Loader2, Shield
+  Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark
 } from 'lucide-react'
 
 export default function BookDetailPage() {
@@ -22,6 +23,7 @@ export default function BookDetailPage() {
   const [loading, setLoading] = useState(true)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     const fetchBook = async () => {
@@ -56,6 +58,15 @@ export default function BookDetailPage() {
           .eq('user_id', user.id)
           .single()
         setLiked(!!likeData)
+
+        // Check if user saved
+        const { data: saveData } = await supabase
+          .from('user_library')
+          .select('id')
+          .eq('book_id', bookId)
+          .eq('user_id', user.id)
+          .single()
+        setSaved(!!saveData)
       }
 
       setLoading(false)
@@ -75,6 +86,24 @@ export default function BookDetailPage() {
       await supabase.from('likes').insert({ book_id: bookId, user_id: user.id })
       setLiked(true)
       setLikeCount(prev => prev + 1)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!user) return router.push('/login')
+
+    if (saved) {
+      await supabase.from('user_library').delete().eq('book_id', bookId).eq('user_id', user.id)
+      setSaved(false)
+      toast.success('Libro rimosso dalla libreria')
+    } else {
+      await supabase.from('user_library').insert({
+        user_id: user.id,
+        book_id: bookId,
+        status: 'saved',
+      })
+      setSaved(true)
+      toast.success('Libro aggiunto alla tua libreria')
     }
   }
 
@@ -224,6 +253,17 @@ export default function BookDetailPage() {
             >
               <Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
               {likeCount}
+            </button>
+            <button
+              onClick={handleSave}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors border ${
+                saved
+                  ? 'bg-sage-50 border-sage-300 text-sage-700'
+                  : 'bg-white border-sage-200 text-bark-500 hover:bg-sage-50'
+              }`}
+            >
+              <Bookmark className={`w-4 h-4 ${saved ? 'fill-sage-500 text-sage-500' : ''}`} />
+              <span className="hidden sm:inline">{saved ? 'Salvato' : 'Salva'}</span>
             </button>
           </div>
         </div>
