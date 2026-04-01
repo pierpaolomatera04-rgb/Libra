@@ -388,7 +388,7 @@ export default function AuthorProfilePage() {
                   min={1}
                   value={tipAmount}
                   onChange={(e) => setTipAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="flex-1 text-center text-2xl font-bold text-sage-900 border border-sage-200 rounded-xl py-2 outline-none focus:border-sage-400"
+                  className="w-20 text-center text-2xl font-bold text-sage-900 border border-sage-200 rounded-xl py-2 outline-none focus:border-sage-400"
                 />
                 <button
                   onClick={() => setTipAmount(tipAmount + 1)}
@@ -426,7 +426,9 @@ export default function AuthorProfilePage() {
                 <span className="font-semibold text-sage-700">&euro;{(tipAmount * 0.10 * 0.80).toFixed(2)}</span>
               </div>
               {tipAmount > spendableTokens && (
-                <p className="text-xs text-red-500 mt-2">Token insufficienti. Acquista token dal wallet.</p>
+                <Link href="/wallet" className="block text-xs text-red-500 mt-2 font-medium hover:text-red-600 underline">
+                  Token insufficienti. Acquista token dal wallet &rarr;
+                </Link>
               )}
             </div>
 
