@@ -136,8 +136,49 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SEZIONE 3 — Piani */}
+      {/* SEZIONE 3 — Anteprima catalogo */}
       <section className="py-24 bg-cream-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-sage-900 mb-4">Esplora il catalogo</h2>
+          <p className="text-bark-500 mb-12">Registrati per iniziare a leggere</p>
+
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 max-w-3xl mx-auto mb-10">
+            {books.length > 0 ? books.map((book) => (
+              <div key={book.id} className="relative group">
+                {book.cover_image_url ? (
+                  <img
+                    src={book.cover_image_url}
+                    alt={book.title}
+                    className="w-full aspect-[3/4] rounded-xl object-cover shadow-md group-hover:shadow-lg transition-shadow"
+                  />
+                ) : (
+                  <div className="w-full aspect-[3/4] rounded-xl bg-gradient-to-br from-sage-200 to-sage-300 flex items-center justify-center shadow-md">
+                    <BookOpen className="w-8 h-8 text-sage-500" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-sage-900/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Lock className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            )) : (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="w-full aspect-[3/4] rounded-xl bg-sage-100 animate-pulse" />
+              ))
+            )}
+          </div>
+
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors text-lg"
+          >
+            <BookMarked className="w-5 h-5" />
+            Scopri il catalogo
+          </Link>
+        </div>
+      </section>
+
+      {/* SEZIONE 4 — Piani */}
+      <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-sage-900 mb-4">Scegli il tuo piano</h2>
           <p className="text-bark-500 mb-12 max-w-xl mx-auto">
@@ -216,47 +257,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SEZIONE 4 — Anteprima catalogo */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-sage-900 mb-4">Esplora il catalogo</h2>
-          <p className="text-bark-500 mb-12">Registrati per iniziare a leggere</p>
-
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 max-w-3xl mx-auto mb-10">
-            {books.length > 0 ? books.map((book) => (
-              <div key={book.id} className="relative group">
-                {book.cover_image_url ? (
-                  <img
-                    src={book.cover_image_url}
-                    alt={book.title}
-                    className="w-full aspect-[3/4] rounded-xl object-cover shadow-md group-hover:shadow-lg transition-shadow"
-                  />
-                ) : (
-                  <div className="w-full aspect-[3/4] rounded-xl bg-gradient-to-br from-sage-200 to-sage-300 flex items-center justify-center shadow-md">
-                    <BookOpen className="w-8 h-8 text-sage-500" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-sage-900/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Lock className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            )) : (
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="w-full aspect-[3/4] rounded-xl bg-sage-100 animate-pulse" />
-              ))
-            )}
-          </div>
-
-          <Link
-            href="/signup"
-            className="inline-flex items-center gap-2 px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors text-lg"
-          >
-            <BookMarked className="w-5 h-5" />
-            Scopri il catalogo
-          </Link>
-        </div>
-      </section>
-
       {/* SEZIONE 5 — Diventa autore */}
       <section className="py-24 bg-sage-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
@@ -267,7 +267,7 @@ export default function HomePage() {
             e raggiungi migliaia di lettori.
           </p>
           <Link
-            href="/signup"
+            href="/diventa-autore"
             className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-sage-800 rounded-xl font-medium hover:bg-sage-50 transition-colors text-lg"
           >
             <Star className="w-5 h-5" />
