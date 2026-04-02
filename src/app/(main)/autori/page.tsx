@@ -35,7 +35,7 @@ export default function AuthorsPage() {
 
     let query = supabase
       .from('profiles')
-      .select('id, name, author_pseudonym, author_bio, avatar_url, created_at')
+      .select('id, name, author_pseudonym, author_bio, avatar_url, author_banner_url, created_at')
       .eq('is_author', true)
 
     if (search) {
@@ -327,17 +327,15 @@ export default function AuthorsPage() {
 
       {/* Authors grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="bg-white rounded-2xl border border-sage-100 p-6 animate-pulse">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-full bg-sage-100" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-sage-100 rounded w-3/4" />
-                  <div className="h-3 bg-sage-50 rounded w-1/2" />
-                </div>
+            <div key={i} className="rounded-2xl overflow-hidden animate-pulse" style={{ border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              <div className="h-24 bg-sage-100" />
+              <div className="px-5 pb-5 pt-8">
+                <div className="h-4 bg-sage-100 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-sage-50 rounded w-1/2 mb-3" />
+                <div className="h-10 bg-sage-50 rounded" />
               </div>
-              <div className="h-12 bg-sage-50 rounded" />
             </div>
           ))}
         </div>
@@ -351,7 +349,7 @@ export default function AuthorsPage() {
           </p>
           <p className="text-bark-400 text-sm mt-1">
             {viewTab === 'seguiti'
-              ? 'Esplora la sezione "Scopri" e inizia a seguire gli autori che ti piacciono!'
+              ? 'Esplora la sezione &quot;Scopri&quot; e inizia a seguire gli autori che ti piacciono!'
               : search || hasActiveFilters ? 'Prova a modificare i filtri' : 'I primi autori stanno arrivando!'}
           </p>
           {hasActiveFilters && (
@@ -364,100 +362,134 @@ export default function AuthorsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredAuthors.map((author) => (
-            <div
-              key={author.id}
-              className="bg-white rounded-2xl border border-sage-100 hover:border-sage-300 hover:shadow-sm transition-all p-6"
-            >
-              {/* Author info */}
-              <div className="flex items-center gap-4 mb-4">
-                <Link href={`/autore/${author.id}`}>
-                  <div className="w-14 h-14 rounded-full bg-sage-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {author.avatar_url ? (
-                      <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredAuthors.map((author) => {
+            const isFollowing = followedIds.includes(author.id)
+            const displayName = author.author_pseudonym || author.name
+            const initial = (displayName || '?').charAt(0).toUpperCase()
+
+            return (
+              <div
+                key={author.id}
+                className="bg-white dark:bg-[#1e221c] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1"
+                style={{
+                  border: '1px solid rgba(0,0,0,0.06)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
+              >
+                {/* Banner */}
+                <Link href={`/autore/${author.id}`} className="block">
+                  <div className="relative h-24 sm:h-28 overflow-hidden">
+                    {author.author_banner_url ? (
+                      <img
+                        src={author.author_banner_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
-                      <span className="text-xl font-bold text-sage-600">
-                        {(author.author_pseudonym || author.name || '?').charAt(0).toUpperCase()}
-                      </span>
+                      <div className="w-full h-full bg-gradient-to-br from-sage-300 to-sage-500 dark:from-sage-700 dark:to-sage-900" />
                     )}
                   </div>
                 </Link>
-                <div className="flex-1 min-w-0">
-                  <Link href={`/autore/${author.id}`}>
-                    <h3 className="font-semibold text-sage-900 truncate hover:text-sage-600 transition-colors">
-                      {author.author_pseudonym || author.name}
-                    </h3>
+
+                {/* Avatar a cavallo del banner */}
+                <div className="relative px-5">
+                  <Link href={`/autore/${author.id}`} className="-mt-9 block w-[4.5rem] h-[4.5rem] relative">
+                    <div className="w-full h-full rounded-full border-[3px] border-white dark:border-[#1e221c] overflow-hidden bg-sage-200 dark:bg-sage-700 flex items-center justify-center shadow-md">
+                      {author.avatar_url ? (
+                        <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl font-bold text-sage-600 dark:text-sage-300">
+                          {initial}
+                        </span>
+                      )}
+                    </div>
                   </Link>
-                  {author.author_pseudonym && author.name && author.author_pseudonym !== author.name && (
-                    <p className="text-xs text-bark-400 truncate">{author.name}</p>
+                </div>
+
+                {/* Content */}
+                <div className="px-5 pb-5 pt-2">
+                  {/* Name + Follow button */}
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/autore/${author.id}`}>
+                        <h3 className="font-bold text-sage-900 dark:text-sage-100 truncate text-base hover:text-sage-600 dark:hover:text-sage-300 transition-colors">
+                          {displayName}
+                        </h3>
+                      </Link>
+                      {author.author_pseudonym && author.name && author.author_pseudonym !== author.name && (
+                        <p className="text-xs text-bark-400 dark:text-sage-500 truncate">@{author.name}</p>
+                      )}
+                    </div>
+
+                    {user && user.id !== author.id && (
+                      <button
+                        onClick={() => toggleFollow(author.id)}
+                        className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                          isFollowing
+                            ? 'bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-300 hover:bg-sage-200 dark:hover:bg-sage-700'
+                            : 'bg-sage-500 text-white hover:bg-sage-600'
+                        }`}
+                      >
+                        {isFollowing ? 'Seguito' : 'Segui'}
+                      </button>
+                    )}
+
+                    {!user && (
+                      <Link
+                        href={`/autore/${author.id}`}
+                        className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sage-50 dark:bg-sage-800 text-sage-700 dark:text-sage-300 hover:bg-sage-100 dark:hover:bg-sage-700 transition-colors"
+                      >
+                        Profilo
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* Bio */}
+                  {author.author_bio && (
+                    <p className="text-sm text-bark-500 dark:text-sage-400 line-clamp-2 mb-3 leading-relaxed">
+                      {author.author_bio}
+                    </p>
                   )}
+                  {!author.author_bio && <div className="mb-3" />}
+
+                  {/* Generi */}
+                  {author.genres.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {author.genres.slice(0, 3).map((g: string) => (
+                        <span key={g} className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-600 dark:text-sage-300 rounded-full">
+                          {g}
+                        </span>
+                      ))}
+                      {author.genres.length > 3 && (
+                        <span className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-500 dark:text-sage-400 rounded-full">
+                          +{author.genres.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-4 text-xs text-bark-400 dark:text-sage-500 pt-3 border-t border-sage-50 dark:border-sage-800">
+                    <span className="flex items-center gap-1">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      {author.totalBooks} {author.totalBooks === 1 ? 'libro' : 'libri'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Heart className="w-3.5 h-3.5" />
+                      {author.totalLikes}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5" />
+                      {author.totalFollowers}
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              {/* Bio */}
-              {author.author_bio && (
-                <p className="text-sm text-bark-500 line-clamp-2 mb-3 leading-relaxed">
-                  {author.author_bio}
-                </p>
-              )}
-
-              {/* Generi */}
-              {author.genres.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {author.genres.slice(0, 3).map((g: string) => (
-                    <span key={g} className="text-[10px] px-2 py-0.5 bg-sage-50 text-sage-600 rounded-full">
-                      {g}
-                    </span>
-                  ))}
-                  {author.genres.length > 3 && (
-                    <span className="text-[10px] px-2 py-0.5 bg-sage-50 text-sage-500 rounded-full">
-                      +{author.genres.length - 3}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Stats */}
-              <div className="flex items-center gap-4 mb-4 text-xs text-bark-400">
-                <span className="flex items-center gap-1">
-                  <BookOpen className="w-3.5 h-3.5" />
-                  {author.totalBooks} {author.totalBooks === 1 ? 'libro' : 'libri'}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Heart className="w-3.5 h-3.5" />
-                  {author.totalLikes} like
-                </span>
-                <span className="flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5" />
-                  {author.totalFollowers} follower
-                </span>
-              </div>
-
-              {/* Follow button */}
-              {user && user.id !== author.id && (
-                <button
-                  onClick={() => toggleFollow(author.id)}
-                  className={`w-full py-2 rounded-xl text-sm font-medium transition-colors ${
-                    followedIds.includes(author.id)
-                      ? 'bg-sage-100 text-sage-700 hover:bg-sage-200'
-                      : 'bg-sage-500 text-white hover:bg-sage-600'
-                  }`}
-                >
-                  {followedIds.includes(author.id) ? 'Segui già' : 'Segui'}
-                </button>
-              )}
-
-              {!user && (
-                <Link
-                  href={`/autore/${author.id}`}
-                  className="block w-full py-2 rounded-xl text-sm font-medium text-center bg-sage-50 text-sage-700 hover:bg-sage-100 transition-colors"
-                >
-                  Vedi profilo
-                </Link>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
