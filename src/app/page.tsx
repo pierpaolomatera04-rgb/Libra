@@ -27,9 +27,8 @@ export default function HomePage() {
       {/* Navbar minimale */}
       <nav className="sticky top-0 z-50 bg-cream-50/80 backdrop-blur-md border-b border-sage-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-8 h-8 text-sage-600" />
-            <span className="text-xl font-bold text-sage-800">Libra</span>
+          <div className="flex items-center">
+            <img src="/logo.png" alt="Libra" className="h-9" />
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="px-4 py-2 text-sm font-medium text-sage-700 hover:text-sage-800">
@@ -280,9 +279,8 @@ export default function HomePage() {
       <footer className="bg-sage-900 text-sage-300 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-sage-400" />
-              <span className="text-lg font-bold text-white">Libra</span>
+            <div className="flex items-center">
+              <img src="/logo.png" alt="Libra" className="h-8 brightness-200 contrast-75" />
             </div>
             <div className="flex items-center gap-6 text-sm">
               <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
@@ -291,9 +289,10 @@ export default function HomePage() {
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link href="/contatti" className="hover:text-white transition-colors">Contatti</Link>
             </div>
-            <p className="text-xs text-sage-500">
-              &copy; 2025 Libra. Tutti i diritti riservati.
-            </p>
+            <div className="text-center">
+              <p className="text-xs text-sage-400">Libra &mdash; fatto col ❤️ in Italia</p>
+              <p className="text-xs text-sage-500 mt-1">&copy; 2025 Libra. Tutti i diritti riservati.</p>
+            </div>
           </div>
         </div>
       </footer>

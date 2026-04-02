@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { BookOpen, Lock, Eye, EyeOff, Check, ArrowRight } from 'lucide-react'
+import { Lock, Eye, EyeOff, Check, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function ResetPasswordPage() {
@@ -86,8 +86,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <BookOpen className="w-10 h-10 text-sage-600" />
-            <span className="text-2xl font-bold text-sage-800">Libra</span>
+            <img src="/logo.png" alt="Libra" className="h-10" />
           </Link>
           <h1 className="text-2xl font-bold text-sage-900">Nuova password</h1>
           <p className="text-bark-400 mt-2">Scegli una nuova password per il tuo account</p>

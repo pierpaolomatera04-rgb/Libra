@@ -33,9 +33,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href={user ? '/browse' : '/'} className="flex items-center gap-2">
-            <BookOpen className="w-8 h-8 text-sage-600" />
-            <span className="text-xl font-bold text-sage-800">Libra</span>
+          <Link href={user ? '/browse' : '/'} className="flex items-center">
+            <img src="/logo.png" alt="Libra" className="h-9 dark:brightness-150 dark:contrast-75" />
           </Link>
 
           {/* Nav desktop */}
