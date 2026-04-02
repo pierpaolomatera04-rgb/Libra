@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Heart, BookOpen, Clock, TrendingUp } from 'lucide-react'
+import { Heart, BookOpen, TrendingUp } from 'lucide-react'
 
 interface BookCardProps {
   book: {
@@ -121,20 +121,19 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
             {authorName}
           </span>
 
-          <div className="flex items-center justify-between mt-auto pt-3 border-t border-sage-50">
-            <div className="flex items-center gap-2 text-xs text-bark-400 min-w-0">
-              <span className="flex items-center gap-0.5 flex-shrink-0">
-                <Clock className="w-3 h-3" />
-                <span>{book.total_blocks}</span>
-                <span className="hidden sm:inline">blocchi</span>
+          <div className="flex items-center justify-between mt-auto pt-3 border-t border-sage-50 text-xs">
+            <div className="flex items-center gap-3 text-bark-400">
+              <span className="flex items-center gap-1 flex-shrink-0">
+                <BookOpen className="w-3.5 h-3.5" />
+                {book.total_blocks}
               </span>
-              <span className="flex items-center gap-0.5 flex-shrink-0">
-                <Heart className="w-3 h-3" />
+              <span className="flex items-center gap-1 flex-shrink-0">
+                <Heart className="w-3.5 h-3.5" />
                 {book.total_likes}
               </span>
             </div>
             {book.genre && (
-              <span className="flex-shrink-0 text-[11px] px-1.5 py-0.5 bg-sage-50 text-sage-600 rounded-full whitespace-nowrap">
+              <span className="flex-shrink-0 text-[11px] px-2 py-0.5 bg-sage-50 text-sage-600 rounded-full whitespace-nowrap">
                 {book.genre}
               </span>
             )}
