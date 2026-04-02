@@ -324,7 +324,7 @@ export default function BrowsePage() {
       </div>
 
       {/* ── Sticky filter bar ── */}
-      <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2.5 border-b border-sage-100/50 bg-cream-50/80 backdrop-blur-md">
+      <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2.5 border-b border-sage-100/50" style={{ backgroundColor: 'color-mix(in srgb, var(--background) 85%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         {/* Riga 1: Sort tabs */}
         <div className="flex items-center gap-1 mb-1.5">
           {[

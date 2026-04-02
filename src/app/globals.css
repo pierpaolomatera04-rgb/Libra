@@ -192,9 +192,19 @@ body {
   animation: slideUp 0.6s ease-out;
 }
 
-/* Reader - Filtro luce blu */
+/* Filtro luce blu (Eye Care) */
 .blue-light-filter {
-  filter: sepia(20%) saturate(80%);
+  filter: sepia(25%) saturate(85%) brightness(0.95);
+}
+
+/* Overlay per rinforzo filtro luce blu */
+.blue-light-filter::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 165, 0, 0.04);
+  pointer-events: none;
+  z-index: 9999;
 }
 
 /* Tipografia per la lettura */
