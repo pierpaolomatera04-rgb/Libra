@@ -11,10 +11,10 @@
 }
 
 .dark {
-  --background: #1a1a1a;
+  --background: #161a14;
   --foreground: #e8e6e3;
   --sage: #97a983;
-  --cream: #2a2a22;
+  --cream: #1e2218;
   --bark: #b09680;
 }
 
@@ -31,8 +31,8 @@ body {
    ============================================ */
 
 /* --- Sfondi --- */
-.dark .bg-white { background-color: #242424 !important; }
-.dark .bg-cream-50 { background-color: #1a1a1a !important; }
+.dark .bg-white { background-color: #1e221c !important; }
+.dark .bg-cream-50 { background-color: #161a14 !important; }
 .dark .bg-cream-200 { background-color: #2a2a22 !important; }
 .dark .bg-sage-50 { background-color: #2a3024 !important; }
 .dark .bg-sage-100 { background-color: #344030 !important; }

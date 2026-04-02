@@ -288,45 +288,43 @@ export default function BrowsePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* ── Header + Search ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-sage-900">Sfoglia</h1>
-          <p className="text-sm text-bark-400 mt-0.5">Scopri la tua prossima storia preferita</p>
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300" />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ── Sticky filter bar (inizio pagina) ── */}
+      <div
+        className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 pb-2.5 border-b border-sage-100/50 dark:border-sage-800/40"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--background) 88%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+      >
+        {/* Search + Filter toggle */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300 dark:text-sage-500" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cerca titolo..."
-              className="w-full pl-9 pr-9 py-2 rounded-lg border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm bg-white"
+              className="w-full pl-9 pr-9 py-2 rounded-lg border border-sage-200 dark:border-sage-700 focus:border-sage-400 dark:focus:border-sage-500 focus:ring-2 focus:ring-sage-200 dark:focus:ring-sage-700 outline-none transition-all text-sm bg-white dark:bg-[#252525] dark:text-gray-200"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="w-4 h-4 text-bark-300 hover:text-bark-500" />
+                <X className="w-4 h-4 text-bark-300 hover:text-bark-500 dark:text-sage-500 dark:hover:text-sage-300" />
               </button>
             )}
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`p-2 rounded-lg border transition-colors ${
-              showFilters || hasActiveFilters ? 'bg-sage-500 text-white border-sage-500' : 'border-sage-200 text-bark-500 hover:bg-sage-50'
+              showFilters || hasActiveFilters
+                ? 'bg-sage-500 text-white border-sage-500'
+                : 'border-sage-200 dark:border-sage-700 text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800'
             }`}
           >
             <Filter className="w-4 h-4" />
           </button>
         </div>
-      </div>
 
-      {/* ── Sticky filter bar ── */}
-      <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2.5 border-b border-sage-100/50" style={{ backgroundColor: 'color-mix(in srgb, var(--background) 85%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         {/* Riga 1: Sort tabs */}
-        <div className="flex items-center gap-1 mb-1.5">
+        <div className="flex items-center gap-1 mb-2">
           {[
             { key: 'trending' as SortOption, label: 'In tendenza' },
             { key: 'newest' as SortOption, label: 'Nuovi' },
@@ -339,13 +337,14 @@ export default function BrowsePage() {
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
                 sort === key
                   ? 'bg-sage-600 text-white'
-                  : 'text-sage-600 hover:bg-sage-100'
+                  : 'text-bark-500 dark:text-[#b0b0b0] hover:bg-sage-100 dark:hover:bg-[#2e2e2e]'
               }`}
             >
               {label}
             </button>
           ))}
         </div>
+
         {/* Riga 2: Genre pills — scrollabili orizzontalmente */}
         <div
           className="flex items-center gap-1.5 overflow-x-auto"
@@ -354,7 +353,9 @@ export default function BrowsePage() {
           <button
             onClick={() => setGenre(null)}
             className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
-              !genre ? 'bg-sage-200 text-sage-800' : 'bg-sage-50 text-bark-400 hover:bg-sage-100'
+              !genre
+                ? 'bg-sage-200 dark:bg-sage-700 text-sage-800 dark:text-sage-100'
+                : 'bg-sage-50 dark:bg-[#282828] text-bark-400 dark:text-[#aaaaaa] hover:bg-sage-100 dark:hover:bg-[#333333]'
             }`}
           >
             Tutti
@@ -366,7 +367,7 @@ export default function BrowsePage() {
               className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
                 genre === g
                   ? 'bg-sage-500 text-white'
-                  : 'bg-sage-50 text-bark-400 hover:bg-sage-100 hover:text-sage-700'
+                  : 'bg-sage-50 dark:bg-[#282828] text-bark-400 dark:text-[#aaaaaa] hover:bg-sage-100 dark:hover:bg-[#333333] hover:text-sage-700 dark:hover:text-[#dddddd]'
               }`}
             >
               {g}

@@ -29,7 +29,7 @@ export default function Navbar() {
   const isActive = (path: string) => pathname === path
 
   return (
-    <nav className="sticky top-0 z-50 bg-cream-50/80 dark:bg-[#1a1a1a]/90 backdrop-blur-md border-b border-sage-200/50 dark:border-sage-800/50 transition-colors">
+    <nav className="sticky top-0 z-50 bg-cream-50/80 dark:bg-[#161a14]/90 backdrop-blur-md border-b border-sage-200/50 dark:border-sage-800/50 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -141,7 +141,7 @@ export default function Navbar() {
                     {profileMenuOpen && (
                       <>
                         <div className="fixed inset-0" onClick={() => setProfileMenuOpen(false)} />
-                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-lg border border-sage-100 dark:border-sage-800 py-2 animate-fade-in">
+                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#1e221c] rounded-xl shadow-lg border border-sage-100 dark:border-sage-800 py-2 animate-fade-in">
                           <div className="px-4 py-2 border-b border-sage-50 dark:border-sage-800">
                             <div className="flex items-center gap-3 mb-1">
                               {profile?.avatar_url ? (
