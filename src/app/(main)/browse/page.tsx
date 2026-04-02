@@ -99,8 +99,15 @@ export default function BrowsePage() {
   const [recommended, setRecommended] = useState<any[]>([])
   const [mostSaved, setMostSaved] = useState<any[]>([])
 
+  const [viewAll, setViewAll] = useState(false)
+
   const hasActiveFilters = genre || statusFilter !== 'all' || readingTime !== null
-  const isDiscoveryMode = !search && !hasActiveFilters && sort === 'trending'
+  const isDiscoveryMode = !search && !hasActiveFilters && sort === 'trending' && !viewAll
+
+  const showFullCatalog = (sortBy: SortOption) => {
+    setSort(sortBy)
+    setViewAll(true)
+  }
 
   /* ── Fetch filtered books ── */
   const fetchBooks = useCallback(async () => {
@@ -316,10 +323,10 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* ── Sticky sort tabs + genre chips ── */}
-      <div className="sticky top-16 z-30 bg-cream-50/95 backdrop-blur-sm -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-sage-100/50">
-        {/* Sort tabs — compatti */}
-        <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      {/* ── Sticky filter bar ── */}
+      <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2.5 border-b border-sage-100/50 bg-cream-50/80 backdrop-blur-md">
+        {/* Riga 1: Sort tabs */}
+        <div className="flex items-center gap-1 mb-1.5">
           {[
             { key: 'trending' as SortOption, label: 'In tendenza' },
             { key: 'newest' as SortOption, label: 'Nuovi' },
@@ -328,29 +335,38 @@ export default function BrowsePage() {
           ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setSort(key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+              onClick={() => { setSort(key); setViewAll(false) }}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
                 sort === key
                   ? 'bg-sage-600 text-white'
-                  : 'text-bark-500 hover:bg-sage-100'
+                  : 'text-sage-600 hover:bg-sage-100'
               }`}
             >
               {label}
             </button>
           ))}
-
-          {/* Separatore */}
-          <div className="w-px h-5 bg-sage-200 mx-1 flex-shrink-0" />
-
-          {/* Genre chips — scrollabili inline */}
+        </div>
+        {/* Riga 2: Genre pills — scrollabili orizzontalmente */}
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+        >
+          <button
+            onClick={() => setGenre(null)}
+            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
+              !genre ? 'bg-sage-200 text-sage-800' : 'bg-sage-50 text-bark-400 hover:bg-sage-100'
+            }`}
+          >
+            Tutti
+          </button>
           {GENRES.map((g) => (
             <button
               key={g}
               onClick={() => setGenre(genre === g ? null : g)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
                 genre === g
                   ? 'bg-sage-500 text-white'
-                  : 'text-bark-400 hover:bg-sage-50 hover:text-sage-700'
+                  : 'bg-sage-50 text-bark-400 hover:bg-sage-100 hover:text-sage-700'
               }`}
             >
               {g}
@@ -423,7 +439,7 @@ export default function BrowsePage() {
 
       {/* ═══════ DISCOVERY MODE ═══════ */}
       {isDiscoveryMode && (
-        <div className="mt-6 space-y-8">
+        <div className="mt-5 space-y-6">
           {/* 1. Continua a leggere */}
           {continueReading.length > 0 && (
             <section>
@@ -484,6 +500,12 @@ export default function BrowsePage() {
             <section>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-bold text-sage-900">In tendenza</h2>
+                <button
+                  onClick={() => showFullCatalog('trending')}
+                  className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5"
+                >
+                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
               <HorizontalCarousel>
                 {trendingBooks.map((book: any) => (
@@ -502,6 +524,12 @@ export default function BrowsePage() {
                 <h2 className="text-base font-bold text-sage-900">
                   {user ? 'Consigliati per te' : 'I pi\u00F9 amati'}
                 </h2>
+                <button
+                  onClick={() => showFullCatalog('popular')}
+                  className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5"
+                >
+                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
               <HorizontalCarousel>
                 {recommended.map((book: any) => (
@@ -518,6 +546,12 @@ export default function BrowsePage() {
             <section>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-bold text-sage-900">I pi&#249; salvati</h2>
+                <button
+                  onClick={() => showFullCatalog('popular')}
+                  className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5"
+                >
+                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
               <HorizontalCarousel>
                 {mostSaved.map((book: any) => (
