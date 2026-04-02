@@ -86,15 +86,17 @@ export default function AnalyticsPage() {
           { label: 'Tasso completamento', desc: 'Percentuale di blocchi letti fino alla fine rispetto al totale delle letture', value: `${totalStats.completionRate}%`, icon: BookOpen, color: 'text-green-600', bg: 'bg-green-50', href: null },
         ].map((stat) => {
           const content = (
-            <div className={`bg-white rounded-2xl border border-sage-100 p-5 ${stat.href ? 'hover:border-sage-300 hover:shadow-sm cursor-pointer' : ''} transition-all`}>
+            <div className={`bg-white rounded-2xl border border-sage-100 p-5 flex flex-col ${stat.href ? 'hover:border-sage-300 hover:shadow-sm cursor-pointer' : ''} transition-all`} style={{ minHeight: '180px' }}>
               <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
                 <stat.icon className={`w-5 h-5 ${stat.color}`} />
               </div>
               <p className="text-2xl font-bold text-sage-900">{stat.value}</p>
-              <p className="text-xs text-bark-400 mt-1">{stat.label}</p>
-              {stat.desc && (
-                <p className="text-[10px] text-bark-300 mt-1.5 leading-relaxed">{stat.desc}</p>
-              )}
+              <p className="text-xs text-bark-500 font-medium mt-1">{stat.label}</p>
+              <div className="mt-1.5" style={{ minHeight: '2.5rem' }}>
+                {stat.desc && (
+                  <p className="text-[10px] text-bark-400 leading-relaxed line-clamp-3">{stat.desc}</p>
+                )}
+              </div>
             </div>
           )
           return stat.href ? (
