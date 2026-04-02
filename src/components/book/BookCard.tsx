@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Heart, BookOpen, Clock, TrendingUp } from 'lucide-react'
 
 interface BookCardProps {
@@ -29,6 +30,7 @@ interface BookCardProps {
 }
 
 export default function BookCard({ book, showTrending = false }: BookCardProps) {
+  const router = useRouter()
   const authorName = book.author?.author_pseudonym || book.author?.name || 'Autore'
   const isNew = book.published_at && (Date.now() - new Date(book.published_at).getTime()) < 48 * 60 * 60 * 1000
 
@@ -112,13 +114,12 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
           >
             {book.title}
           </h3>
-          <Link
-            href={`/autore/${book.author?.id}`}
-            className="text-xs text-bark-400 mt-1 block hover:text-sage-600 transition-colors"
-            onClick={(e) => e.stopPropagation()}
+          <span
+            className="text-xs text-bark-400 mt-1 block hover:text-sage-600 transition-colors cursor-pointer"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/autore/${book.author?.id}`) }}
           >
             {authorName}
-          </Link>
+          </span>
 
           <div className="flex items-center justify-between mt-auto pt-3 border-t border-sage-50">
             <div className="flex items-center gap-2 text-xs text-bark-400 min-w-0">
