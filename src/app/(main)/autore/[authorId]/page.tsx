@@ -219,24 +219,26 @@ export default function AuthorProfilePage() {
           <div className="w-full h-28 sm:h-36 bg-gradient-to-r from-sage-200 via-sage-100 to-sage-200" />
         )}
 
-        <div className="p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16 sm:-mt-20">
-          {/* Avatar */}
-          {author.avatar_url ? (
-            <img
-              src={author.avatar_url}
-              alt={authorName}
-              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0"
-            />
-          ) : (
-            <div className="w-24 h-24 rounded-full bg-sage-100 flex items-center justify-center border-4 border-white shadow-md flex-shrink-0">
-              <span className="text-3xl font-bold text-sage-500">
-                {authorName.charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
+        <div className="px-6 sm:px-8">
+          {/* Avatar a cavallo del banner */}
+          <div className="-mt-14">
+            {author.avatar_url ? (
+              <img
+                src={author.avatar_url}
+                alt={authorName}
+                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-sage-100 flex items-center justify-center border-4 border-white shadow-md">
+                <span className="text-3xl font-bold text-sage-500">
+                  {authorName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
 
-          <div className="flex-1 text-center sm:text-left pt-6 sm:pt-8">
+        <div className="pb-6 sm:pb-8">
+          <div className="text-center sm:text-left mt-4">
             <h1 className="text-2xl font-bold text-sage-900">{authorName}</h1>
             {author.author_bio && (
               <p className="text-sm text-bark-600 dark:text-[#aaaaaa] mt-2 max-w-lg">{author.author_bio}</p>
