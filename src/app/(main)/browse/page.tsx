@@ -7,7 +7,7 @@ import { Search, Filter, TrendingUp, Clock, Sparkles, X, BookOpen, Timer, Radio 
 
 const GENRES = [
   'Fantasy', 'Romanzo', 'Thriller', 'Horror', 'Sci-Fi',
-  'Avventura', 'Giallo', 'Storico', 'Poesia', 'Biografia', 'Altro'
+  'Avventura', 'Giallo', 'Storico', 'Poesia', 'Biografia', 'Self-help', 'Altro'
 ]
 
 const READING_TIMES = [
