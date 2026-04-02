@@ -34,7 +34,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href={user ? '/browse' : '/'} className="flex items-center">
-            <img src="/logo.png" alt="Libra" className="h-9 dark:brightness-150 dark:contrast-75" />
+            <img src="/logo.png" alt="Libra" className="h-10 sm:h-11 dark:invert dark:brightness-90" />
           </Link>
 
           {/* Nav desktop */}

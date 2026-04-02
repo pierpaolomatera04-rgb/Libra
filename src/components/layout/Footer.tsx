@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center">
-            <img src="/logo.png" alt="Libra" className="h-8 brightness-200 contrast-75" />
+            <img src="/logo.png" alt="Libra" className="h-10 invert brightness-90" />
           </div>
           <div className="flex items-center gap-6 text-sm">
             <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
