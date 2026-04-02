@@ -62,7 +62,7 @@ function HorizontalCarousel({ children }: { children: React.ReactNode }) {
       )}
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-2"
+        className="flex gap-4 overflow-x-auto pb-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {children}
@@ -79,45 +79,11 @@ function HorizontalCarousel({ children }: { children: React.ReactNode }) {
   )
 }
 
-/* ── Header sezione con titolo + "Vedi tutti" ── */
-function SectionHeader({
-  icon: Icon,
-  iconColor,
-  title,
-  viewAllHref,
-  viewAllAction,
-}: {
-  icon: React.ElementType
-  iconColor?: string
-  title: string
-  viewAllHref?: string
-  viewAllAction?: () => void
-}) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Icon className={`w-5 h-5 ${iconColor || 'text-sage-600'}`} />
-        <h2 className="text-lg font-bold text-sage-900">{title}</h2>
-      </div>
-      {viewAllHref && (
-        <Link href={viewAllHref} className="text-sm text-sage-500 hover:text-sage-700 font-medium flex items-center gap-1">
-          Vedi tutti <ChevronRight className="w-4 h-4" />
-        </Link>
-      )}
-      {viewAllAction && (
-        <button onClick={viewAllAction} className="text-sm text-sage-500 hover:text-sage-700 font-medium flex items-center gap-1">
-          Vedi tutti <ChevronRight className="w-4 h-4" />
-        </button>
-      )}
-    </div>
-  )
-}
-
 export default function BrowsePage() {
   const { user, profile } = useAuth()
   const supabase = createClient()
 
-  // Existing filter state
+  // Filter state
   const [books, setBooks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -129,14 +95,14 @@ export default function BrowsePage() {
 
   // Discovery sections state
   const [continueReading, setContinueReading] = useState<any[]>([])
-  const [newBlocks, setNewBlocks] = useState<any[]>([])
+  const [trendingBooks, setTrendingBooks] = useState<any[]>([])
   const [recommended, setRecommended] = useState<any[]>([])
   const [mostSaved, setMostSaved] = useState<any[]>([])
 
   const hasActiveFilters = genre || statusFilter !== 'all' || readingTime !== null
   const isDiscoveryMode = !search && !hasActiveFilters && sort === 'trending'
 
-  /* ── Fetch filtered books (existing logic) ── */
+  /* ── Fetch filtered books ── */
   const fetchBooks = useCallback(async () => {
     setLoading(true)
 
@@ -216,7 +182,6 @@ export default function BrowsePage() {
         .limit(10)
 
       if (libraryData) {
-        // Per ogni libro in lettura, calcola il progresso
         const booksWithProgress = await Promise.all(
           libraryData
             .filter((item: any) => item.book)
@@ -241,27 +206,18 @@ export default function BrowsePage() {
       }
     }
 
-    // 2. Nuovi blocchi (ultimi 48h)
-    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-    const { data: recentBlockBooks } = await supabase
-      .from('blocks')
-      .select('book_id')
-      .gte('created_at', twoDaysAgo)
-      .order('created_at', { ascending: false })
+    // 2. In tendenza
+    const { data: trendData } = await supabase
+      .from('books')
+      .select(`
+        *,
+        author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+      `)
+      .in('status', ['published', 'ongoing', 'completed'])
+      .order('trending_score', { ascending: false })
+      .limit(12)
 
-    if (recentBlockBooks && recentBlockBooks.length > 0) {
-      const uniqueBookIds = Array.from(new Set(recentBlockBooks.map((b: any) => b.book_id))) as string[]
-      const { data: newBlocksData } = await supabase
-        .from('books')
-        .select(`
-          *,
-          author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
-        `)
-        .in('id', uniqueBookIds.slice(0, 12))
-        .in('status', ['published', 'ongoing', 'completed'])
-
-      if (newBlocksData) setNewBlocks(newBlocksData)
-    }
+    if (trendData) setTrendingBooks(trendData)
 
     // 3. Consigliati per te
     if (profile?.preferred_genres && profile.preferred_genres.length > 0) {
@@ -278,7 +234,6 @@ export default function BrowsePage() {
 
       if (recData) setRecommended(recData)
     } else {
-      // Fallback: libri con più likes
       const { data: recData } = await supabase
         .from('books')
         .select(`
@@ -292,7 +247,7 @@ export default function BrowsePage() {
       if (recData) setRecommended(recData)
     }
 
-    // 4. I più salvati (basato su total_reads come proxy, o total_likes)
+    // 4. I più salvati
     const { data: savedData } = await supabase
       .from('books')
       .select(`
@@ -325,29 +280,24 @@ export default function BrowsePage() {
     setReadingTime(null)
   }
 
-  const handleGenreChipClick = (g: string) => {
-    setGenre(g)
-    setSort('trending')
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header + Search */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* ── Header + Search ── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-sage-900">Sfoglia</h1>
-          <p className="text-sm text-bark-400 mt-1">Scopri la tua prossima storia preferita</p>
+          <p className="text-sm text-bark-400 mt-0.5">Scopri la tua prossima storia preferita</p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-72">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cerca titolo..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm bg-white"
+              className="w-full pl-9 pr-9 py-2 rounded-lg border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm bg-white"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -357,7 +307,7 @@ export default function BrowsePage() {
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`p-2.5 rounded-xl border transition-colors ${
+            className={`p-2 rounded-lg border transition-colors ${
               showFilters || hasActiveFilters ? 'bg-sage-500 text-white border-sage-500' : 'border-sage-200 text-bark-500 hover:bg-sage-50'
             }`}
           >
@@ -366,100 +316,90 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* Sort tabs */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-        {[
-          { key: 'trending' as SortOption, label: 'In tendenza', icon: TrendingUp },
-          { key: 'newest' as SortOption, label: 'Nuovi', icon: Sparkles },
-          { key: 'popular' as SortOption, label: 'Più letti', icon: Clock },
-          { key: 'serializations' as SortOption, label: 'Serializzazioni', icon: Radio },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setSort(key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-              sort === key
-                ? 'bg-sage-500 text-white'
-                : 'bg-white text-bark-500 border border-sage-200 hover:bg-sage-50'
-            }`}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
+      {/* ── Sticky sort tabs + genre chips ── */}
+      <div className="sticky top-16 z-30 bg-cream-50/95 backdrop-blur-sm -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-sage-100/50">
+        {/* Sort tabs — compatti */}
+        <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {[
+            { key: 'trending' as SortOption, label: 'In tendenza' },
+            { key: 'newest' as SortOption, label: 'Nuovi' },
+            { key: 'popular' as SortOption, label: 'Più letti' },
+            { key: 'serializations' as SortOption, label: 'Serializzazioni' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setSort(key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+                sort === key
+                  ? 'bg-sage-600 text-white'
+                  : 'text-bark-500 hover:bg-sage-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+
+          {/* Separatore */}
+          <div className="w-px h-5 bg-sage-200 mx-1 flex-shrink-0" />
+
+          {/* Genre chips — scrollabili inline */}
+          {GENRES.map((g) => (
+            <button
+              key={g}
+              onClick={() => setGenre(genre === g ? null : g)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+                genre === g
+                  ? 'bg-sage-500 text-white'
+                  : 'text-bark-400 hover:bg-sage-50 hover:text-sage-700'
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Filters panel */}
+      {/* ── Filters panel (espandibile) ── */}
       {showFilters && (
-        <div className="mb-6 p-5 bg-white rounded-xl border border-sage-100 animate-fade-in space-y-5">
+        <div className="mt-4 mb-4 p-4 bg-white rounded-xl border border-sage-100 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-sage-800">Filtri</p>
+            <p className="text-sm font-semibold text-sage-800">Filtri avanzati</p>
             {hasActiveFilters && (
-              <button
-                onClick={clearAllFilters}
-                className="text-xs text-red-400 hover:text-red-500 font-medium"
-              >
+              <button onClick={clearAllFilters} className="text-xs text-red-400 hover:text-red-500 font-medium">
                 Rimuovi tutti
               </button>
             )}
           </div>
 
-          {/* Genere */}
-          <div>
-            <p className="text-xs font-medium text-bark-400 mb-2">GENERE</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setGenre(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  !genre ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
-                }`}
-              >
-                Tutti
-              </button>
-              {GENRES.map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGenre(genre === g ? null : g)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    genre === g ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
-                  }`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Stato pubblicazione */}
+          {/* Stato */}
           <div>
             <p className="text-xs font-medium text-bark-400 mb-2">STATO</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {[
-                { key: 'all' as StatusFilter, label: 'Tutti', icon: BookOpen },
-                { key: 'ongoing' as StatusFilter, label: 'In corso', icon: Clock },
-                { key: 'completed' as StatusFilter, label: 'Completati', icon: Sparkles },
-              ].map(({ key, label, icon: Icon }) => (
+                { key: 'all' as StatusFilter, label: 'Tutti' },
+                { key: 'ongoing' as StatusFilter, label: 'In corso' },
+                { key: 'completed' as StatusFilter, label: 'Completati' },
+              ].map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => setStatusFilter(key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     statusFilter === key ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
                   }`}
                 >
-                  <Icon className="w-3 h-3" />
                   {label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Tempo di lettura */}
+          {/* Lunghezza */}
           <div>
             <p className="text-xs font-medium text-bark-400 mb-2">LUNGHEZZA</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => setReadingTime(null)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   readingTime === null ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
                 }`}
               >
@@ -469,11 +409,10 @@ export default function BrowsePage() {
                 <button
                   key={i}
                   onClick={() => setReadingTime(readingTime === i ? null : i)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     readingTime === i ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
                   }`}
                 >
-                  <Timer className="w-3 h-3" />
                   {rt.label}
                 </button>
               ))}
@@ -482,43 +421,43 @@ export default function BrowsePage() {
         </div>
       )}
 
-      {/* ═══════ DISCOVERY MODE (no search/filters) ═══════ */}
+      {/* ═══════ DISCOVERY MODE ═══════ */}
       {isDiscoveryMode && (
-        <div className="space-y-10 mb-12">
-          {/* ── Continua a leggere ── */}
+        <div className="mt-6 space-y-8">
+          {/* 1. Continua a leggere */}
           {continueReading.length > 0 && (
             <section>
-              <SectionHeader
-                icon={BookMarked}
-                iconColor="text-amber-500"
-                title="Continua a leggere"
-                viewAllHref="/libreria"
-              />
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-sage-900">Continua a leggere</h2>
+                <Link href="/libreria" className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5">
+                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
               <HorizontalCarousel>
                 {continueReading.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-44 sm:w-48">
+                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
                     <Link href={`/libro/${book.id}`} className="group block">
-                      <div className="bg-white rounded-2xl overflow-hidden border border-sage-100 hover:border-sage-300 hover:shadow-md transition-all duration-300">
-                        <div className="relative aspect-[3/4] bg-sage-100 overflow-hidden">
+                      <div className="bg-white rounded-xl overflow-hidden border border-sage-100 hover:border-sage-300 hover:shadow-md transition-all duration-300">
+                        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '2/3' }}>
                           {book.cover_image_url ? (
                             <img
                               src={book.cover_image_url}
                               alt={book.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sage-200 to-sage-300">
-                              <BookOpen className="w-12 h-12 text-sage-500" />
+                            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-sage-200 to-sage-300">
+                              <BookOpen className="w-10 h-10 text-sage-500" />
                             </div>
                           )}
                           {/* Progress overlay */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 pt-8">
-                            <p className="text-white text-xs font-medium mb-1.5">
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2.5 pt-6">
+                            <p className="text-white text-[11px] font-medium mb-1">
                               Blocco {book.currentBlock} di {book.total_blocks}
                             </p>
-                            <div className="w-full h-1.5 bg-white/30 rounded-full overflow-hidden">
+                            <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-amber-400 rounded-full transition-all"
+                                className="h-full bg-amber-400 rounded-full"
                                 style={{
                                   width: `${book.total_blocks > 0 ? Math.round((book.currentBlock / book.total_blocks) * 100) : 0}%`,
                                 }}
@@ -526,9 +465,9 @@ export default function BrowsePage() {
                             </div>
                           </div>
                         </div>
-                        <div className="p-3">
-                          <h3 className="font-semibold text-sage-900 text-sm line-clamp-1">{book.title}</h3>
-                          <p className="text-xs text-bark-400 mt-0.5">
+                        <div className="p-2.5">
+                          <h3 className="font-semibold text-sage-900 text-xs line-clamp-1">{book.title}</h3>
+                          <p className="text-[11px] text-bark-400 mt-0.5 line-clamp-1">
                             {book.author?.author_pseudonym || book.author?.name || 'Autore'}
                           </p>
                         </div>
@@ -540,56 +479,33 @@ export default function BrowsePage() {
             </section>
           )}
 
-          {/* ── Nuovi blocchi ── */}
-          {newBlocks.length > 0 && (
+          {/* 2. In tendenza */}
+          {trendingBooks.length > 0 && (
             <section>
-              <SectionHeader
-                icon={Sparkles}
-                iconColor="text-emerald-500"
-                title="Nuovi blocchi"
-                viewAllAction={() => setSort('newest')}
-              />
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-sage-900">In tendenza</h2>
+              </div>
               <HorizontalCarousel>
-                {newBlocks.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-44 sm:w-48">
-                    <BookCard book={book} />
+                {trendingBooks.map((book: any) => (
+                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
+                    <BookCard book={book} showTrending />
                   </div>
                 ))}
               </HorizontalCarousel>
             </section>
           )}
 
-          {/* ── Esplora per categoria ── */}
-          <section>
-            <SectionHeader
-              icon={Filter}
-              iconColor="text-sage-600"
-              title="Esplora per categoria"
-            />
-            <div className="flex flex-wrap gap-3">
-              {GENRES.map((g) => (
-                <button
-                  key={g}
-                  onClick={() => handleGenreChipClick(g)}
-                  className="px-5 py-2.5 bg-white border border-sage-200 rounded-full text-sm font-medium text-sage-700 hover:bg-sage-500 hover:text-white hover:border-sage-500 transition-all duration-200"
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Consigliati per te ── */}
+          {/* 3. Consigliati per te */}
           {recommended.length > 0 && (
             <section>
-              <SectionHeader
-                icon={Heart}
-                iconColor="text-rose-500"
-                title={user ? 'Consigliati per te' : 'I pi\u00F9 amati'}
-              />
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-sage-900">
+                  {user ? 'Consigliati per te' : 'I pi\u00F9 amati'}
+                </h2>
+              </div>
               <HorizontalCarousel>
                 {recommended.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-44 sm:w-48">
+                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
                     <BookCard book={book} />
                   </div>
                 ))}
@@ -597,17 +513,15 @@ export default function BrowsePage() {
             </section>
           )}
 
-          {/* ── I più salvati ── */}
+          {/* 4. I più salvati */}
           {mostSaved.length > 0 && (
             <section>
-              <SectionHeader
-                icon={BookMarked}
-                iconColor="text-sage-600"
-                title="I pi\u00F9 salvati"
-              />
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-sage-900">I pi&#249; salvati</h2>
+              </div>
               <HorizontalCarousel>
                 {mostSaved.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-44 sm:w-48">
+                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
                     <BookCard book={book} />
                   </div>
                 ))}
@@ -617,14 +531,14 @@ export default function BrowsePage() {
         </div>
       )}
 
-      {/* ═══════ GRID MODE (search/filter active OR non-trending sort) ═══════ */}
+      {/* ═══════ GRID MODE (search/filter/sort active) ═══════ */}
       {!isDiscoveryMode && (
-        <>
+        <div className="mt-6">
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} className="bg-white rounded-2xl overflow-hidden border border-sage-100 animate-pulse">
-                  <div className="aspect-[3/4] bg-sage-100" />
+                  <div className="aspect-[2/3] bg-sage-100" />
                   <div className="p-4 space-y-2">
                     <div className="h-4 bg-sage-100 rounded w-3/4" />
                     <div className="h-3 bg-sage-50 rounded w-1/2" />
@@ -655,39 +569,7 @@ export default function BrowsePage() {
               ))}
             </div>
           )}
-        </>
-      )}
-
-      {/* In discovery mode, also show the trending grid below */}
-      {isDiscoveryMode && (
-        <>
-          <div className="mb-6">
-            <SectionHeader
-              icon={TrendingUp}
-              iconColor="text-red-500"
-              title="In tendenza ora"
-            />
-          </div>
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl overflow-hidden border border-sage-100 animate-pulse">
-                  <div className="aspect-[3/4] bg-sage-100" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-4 bg-sage-100 rounded w-3/4" />
-                    <div className="h-3 bg-sage-50 rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              {books.map((book) => (
-                <BookCard key={book.id} book={book} showTrending />
-              ))}
-            </div>
-          )}
-        </>
+        </div>
       )}
     </div>
   )
