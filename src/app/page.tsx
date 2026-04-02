@@ -85,34 +85,50 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-10 max-w-5xl mx-auto">
             {[
               {
-                emoji: '📖',
+                icon: <BookOpen className="w-7 h-7 text-sage-600" />,
+                step: '1',
                 title: 'Scegli un libro',
                 desc: 'Sfoglia il catalogo e trova la storia che fa per te tra decine di generi diversi.',
               },
               {
-                emoji: '🔓',
+                icon: <Sparkles className="w-7 h-7 text-sage-600" />,
+                step: '2',
                 title: 'Il primo blocco è gratis',
                 desc: 'Ogni libro ha il primo blocco gratuito. Inizia a leggere senza impegno.',
               },
               {
-                emoji: '⭐',
+                icon: <Coins className="w-7 h-7 text-sage-600" />,
+                step: '3',
                 title: 'Abbonati per di più',
                 desc: 'Con Silver o Gold leggi in anteprima, senza limiti e con sconti sui token.',
               },
             ].map((item, i) => (
-              <div key={i} className="text-center p-8 rounded-2xl hover:bg-sage-50/50 transition-colors">
-                <div className="text-4xl mb-5">{item.emoji}</div>
+              <div
+                key={i}
+                className="relative text-center bg-cream-50/80 border border-sage-200/60 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all duration-300"
+              >
+                {/* Numero step */}
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 bg-sage-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
+                  {item.step}
+                </div>
+                {/* Icona in cerchio */}
+                <div className="w-16 h-16 mx-auto mb-5 bg-sage-100 rounded-full flex items-center justify-center">
+                  {item.icon}
+                </div>
                 <h3 className="text-lg font-semibold text-sage-800 mb-3">{item.title}</h3>
                 <p className="text-bark-500 text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
 
-          <div className="text-center mt-10">
-            <Link href="/come-funziona" className="inline-flex items-center gap-2 text-sage-600 font-medium hover:text-sage-700 transition-colors">
+          <div className="text-center mt-12">
+            <Link
+              href="/come-funziona"
+              className="inline-flex items-center gap-2 px-6 py-2.5 border-2 border-sage-500 text-sage-600 font-medium rounded-xl hover:bg-sage-50 transition-colors"
+            >
               Scopri di più
               <ArrowRight className="w-4 h-4" />
             </Link>
