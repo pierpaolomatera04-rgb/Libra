@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { Search, BookOpen, Users, Heart, X, Filter, Sparkles, Clock, Timer } from 'lucide-react'
+import { Search, BookOpen, Users, Heart, X, Filter, Sparkles, Clock, Timer, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 
 const GENRES = [
@@ -200,52 +200,48 @@ export default function AuthorsPage() {
         </div>
       </div>
 
-      {/* View tabs: Scopri / Seguiti */}
-      <div className="flex items-center gap-2 mb-6">
-        {[
-          { key: 'scopri' as ViewTab, label: 'Scopri', icon: Sparkles },
-          { key: 'seguiti' as ViewTab, label: 'Seguiti', icon: Heart },
-        ].map(({ key, label, icon: Icon }) => (
+      {/* Filtri unificati — riga singola scrollabile */}
+      <div
+        className="flex items-center gap-1.5 mb-6 overflow-x-auto pb-1"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+      >
+        {/* View tabs */}
+        {([
+          { key: 'scopri' as ViewTab, label: 'Scopri' },
+          { key: 'seguiti' as ViewTab, label: `Seguiti${followedIds.length > 0 ? ` (${followedIds.length})` : ''}` },
+        ] as const).map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setViewTab(key)}
-            className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
               viewTab === key
-                ? 'bg-sage-500 text-white shadow-sm'
-                : 'bg-white text-bark-500 border border-sage-200 hover:bg-sage-50'
+                ? 'bg-sage-600 text-white'
+                : 'text-bark-500 dark:text-[#b0b0b0] hover:bg-sage-100 dark:hover:bg-[#2e2e2e]'
             }`}
           >
-            <Icon className="w-4 h-4" />
             {label}
-            {key === 'seguiti' && followedIds.length > 0 && (
-              <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${
-                viewTab === 'seguiti' ? 'bg-white/20' : 'bg-sage-100 text-sage-600'
-              }`}>
-                {followedIds.length}
-              </span>
-            )}
           </button>
         ))}
-      </div>
 
-      {/* Sort tabs */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
+        {/* Separatore */}
+        <div className="w-px h-5 bg-sage-200 dark:bg-sage-700 mx-0.5 flex-shrink-0" />
+
+        {/* Sort tabs */}
         {[
-          { key: 'newest' as SortOption, label: 'Nuovi', icon: Sparkles },
-          { key: 'oldest' as SortOption, label: 'Più anziani', icon: Clock },
-          { key: 'popular' as SortOption, label: 'Più seguiti', icon: Heart },
-          { key: 'most_books' as SortOption, label: 'Più libri', icon: BookOpen },
-        ].map(({ key, label, icon: Icon }) => (
+          { key: 'newest' as SortOption, label: 'Nuovi' },
+          { key: 'popular' as SortOption, label: 'Più seguiti' },
+          { key: 'most_books' as SortOption, label: 'Più libri' },
+          { key: 'oldest' as SortOption, label: 'Meno recenti' },
+        ].map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setSort(key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
               sort === key
                 ? 'bg-sage-500 text-white'
-                : 'bg-white text-bark-500 border border-sage-200 hover:bg-sage-50'
+                : 'text-bark-400 dark:text-[#aaaaaa] hover:bg-sage-50 dark:hover:bg-[#282828]'
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
             {label}
           </button>
         ))}
@@ -389,7 +385,7 @@ export default function AuthorsPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-sage-300 to-sage-500 dark:from-sage-700 dark:to-sage-900" />
+                      <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #4A6F62 0%, #7a9e6e 40%, #D8E3D8 100%)' }} />
                     )}
                   </div>
                 </Link>
@@ -424,6 +420,16 @@ export default function AuthorsPage() {
                       )}
                     </div>
 
+                    {user && user.id === author.id && (
+                      <Link
+                        href="/dashboard/profilo-autore"
+                        className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Modifica
+                      </Link>
+                    )}
+
                     {user && user.id !== author.id && (
                       <button
                         onClick={() => toggleFollow(author.id)}
@@ -449,7 +455,7 @@ export default function AuthorsPage() {
 
                   {/* Bio */}
                   {author.author_bio && (
-                    <p className="text-sm text-bark-500 dark:text-sage-400 line-clamp-2 mb-3 leading-relaxed">
+                    <p className="text-xs text-bark-400 dark:text-sage-500 line-clamp-2 mb-3 leading-relaxed">
                       {author.author_bio}
                     </p>
                   )}
@@ -472,17 +478,17 @@ export default function AuthorsPage() {
                   )}
 
                   {/* Stats */}
-                  <div className="flex items-center gap-4 text-xs text-bark-400 dark:text-sage-500 pt-3 border-t border-sage-50 dark:border-sage-800">
-                    <span className="flex items-center gap-1">
-                      <BookOpen className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-4 text-xs pt-3 border-t border-sage-50 dark:border-sage-800">
+                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-sage-400">
+                      <BookOpen className="w-4 h-4" />
                       {author.totalBooks} {author.totalBooks === 1 ? 'libro' : 'libri'}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Heart className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-sage-400">
+                      <Heart className="w-4 h-4" />
                       {author.totalLikes}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-sage-400">
+                      <Users className="w-4 h-4" />
                       {author.totalFollowers}
                     </span>
                   </div>
