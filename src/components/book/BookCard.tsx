@@ -46,9 +46,20 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
 
   return (
     <Link href={`/libro/${book.id}`} className="group block h-full">
-      <div className="bg-white rounded-2xl overflow-hidden border border-sage-100 hover:border-sage-300 hover:shadow-md transition-all duration-300 h-full flex flex-col">
+      <div
+        className="bg-white rounded-xl overflow-hidden h-full flex flex-col transition-all duration-300 hover:-translate-y-1"
+        style={{
+          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
+      >
         {/* Cover — aspect-ratio 2/3 fisso */}
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '2/3' }}>
+        <div
+          className="relative w-full overflow-hidden rounded-t-xl"
+          style={{ aspectRatio: '2/3', borderBottom: '1px solid rgba(0,0,0,0.05)' }}
+        >
           {book.cover_image_url ? (
             <img
               src={book.cover_image_url}
