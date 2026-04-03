@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Heart, BookOpen, TrendingUp } from 'lucide-react'
+import { Heart, BookOpen, Bookmark, TrendingUp } from 'lucide-react'
 
 interface BookCardProps {
   book: {
@@ -14,6 +14,7 @@ interface BookCardProps {
     total_blocks: number
     total_likes: number
     total_reads: number
+    total_saves?: number
     trending_score: number
     access_level: string
     first_block_free: boolean
@@ -130,6 +131,10 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
               <span className="flex items-center gap-1 flex-shrink-0">
                 <Heart className="w-3.5 h-3.5" />
                 {book.total_likes}
+              </span>
+              <span className="flex items-center gap-1 flex-shrink-0">
+                <Bookmark className="w-3.5 h-3.5" />
+                {book.total_saves || 0}
               </span>
             </div>
             {book.genre && (
