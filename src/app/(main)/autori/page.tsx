@@ -367,8 +367,9 @@ export default function AuthorsPage() {
             return (
               <div
                 key={author.id}
-                className="bg-white dark:bg-[#1e221c] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1"
+                className="bg-white dark:bg-[#1e221c] rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1"
                 style={{
+                  minHeight: '380px',
                   border: '1px solid rgba(0,0,0,0.06)',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                 }}
@@ -376,7 +377,7 @@ export default function AuthorsPage() {
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
               >
                 {/* Banner */}
-                <Link href={`/autore/${author.id}`} className="block">
+                <Link href={`/autore/${author.id}`} className="block flex-shrink-0">
                   <div className="relative h-24 sm:h-28 overflow-hidden">
                     {author.author_banner_url ? (
                       <img
@@ -390,10 +391,10 @@ export default function AuthorsPage() {
                   </div>
                 </Link>
 
-                {/* Avatar a cavallo del banner + Content */}
-                <div className="px-5 pb-5">
+                {/* Avatar + Content */}
+                <div className="px-5 pb-5 flex flex-col flex-1">
                   {/* Avatar */}
-                  <Link href={`/autore/${author.id}`} className="-mt-9 block w-[4.5rem] h-[4.5rem] relative mb-3">
+                  <Link href={`/autore/${author.id}`} className="-mt-9 block w-[4.5rem] h-[4.5rem] relative mb-3 flex-shrink-0">
                     <div className="w-full h-full rounded-full border-[3px] border-white dark:border-[#1e221c] overflow-hidden bg-sage-200 dark:bg-sage-700 flex items-center justify-center shadow-md">
                       {author.avatar_url ? (
                         <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -405,8 +406,8 @@ export default function AuthorsPage() {
                     </div>
                   </Link>
 
-                  {/* Name + Follow button */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                  {/* Name + Follow/Modifica button */}
+                  <div className="flex items-start justify-between gap-2 mb-2 flex-shrink-0">
                     <div className="min-w-0 flex-1">
                       <Link href={`/autore/${author.id}`}>
                         <h3 className="font-bold text-sage-900 dark:text-sage-100 truncate text-base hover:text-sage-600 dark:hover:text-sage-300 transition-colors">
@@ -414,14 +415,14 @@ export default function AuthorsPage() {
                         </h3>
                       </Link>
                       {author.author_pseudonym && author.name && author.author_pseudonym !== author.name && (
-                        <p className="text-xs text-bark-400 dark:text-[#999999] truncate">@{author.name}</p>
+                        <p className="text-xs text-bark-500 dark:text-[#aaaaaa] truncate">@{author.name}</p>
                       )}
                     </div>
 
                     {user && user.id === author.id && (
                       <Link
                         href="/dashboard/profilo-autore"
-                        className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+                        className="flex-shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-200 dark:border-sage-700 transition-colors"
                       >
                         <Pencil className="w-3 h-3" />
                         Modifica
@@ -451,41 +452,44 @@ export default function AuthorsPage() {
                     )}
                   </div>
 
-                  {/* Bio */}
-                  {author.author_bio && (
-                    <p className="text-xs text-bark-400 dark:text-[#999999] line-clamp-2 mb-4 leading-relaxed">
-                      {author.author_bio}
-                    </p>
-                  )}
-                  {!author.author_bio && <div className="mb-4" />}
+                  {/* Bio — altezza fissa */}
+                  <div className="flex-shrink-0" style={{ minHeight: '3rem' }}>
+                    {author.author_bio && (
+                      <p className="text-xs text-bark-500 dark:text-[#aaaaaa] line-clamp-3 leading-relaxed">
+                        {author.author_bio}
+                      </p>
+                    )}
+                  </div>
 
-                  {/* Generi */}
-                  {author.genres.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {author.genres.slice(0, 3).map((g: string) => (
-                        <span key={g} className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-600 dark:text-sage-300 rounded-full">
-                          {g}
-                        </span>
-                      ))}
-                      {author.genres.length > 3 && (
-                        <span className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-500 dark:text-sage-400 rounded-full">
-                          +{author.genres.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {/* Generi — spazio flessibile che spinge stats in basso */}
+                  <div className="flex-1 mt-2">
+                    {author.genres.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {author.genres.slice(0, 3).map((g: string) => (
+                          <span key={g} className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-600 dark:text-sage-300 rounded-full">
+                            {g}
+                          </span>
+                        ))}
+                        {author.genres.length > 3 && (
+                          <span className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-500 dark:text-sage-400 rounded-full">
+                            +{author.genres.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 text-xs pt-4 border-t border-sage-50 dark:border-sage-800">
-                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#999999]">
+                  {/* Stats — ancorati in basso */}
+                  <div className="flex items-center gap-4 text-xs pt-3 mt-auto border-t border-sage-50 dark:border-sage-800">
+                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#aaaaaa]">
                       <BookOpen className="w-4 h-4" />
                       {author.totalBooks} {author.totalBooks === 1 ? 'libro' : 'libri'}
                     </span>
-                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#999999]">
+                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#aaaaaa]">
                       <Heart className="w-4 h-4" />
                       {author.totalLikes}
                     </span>
-                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#999999]">
+                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#aaaaaa]">
                       <Users className="w-4 h-4" />
                       {author.totalFollowers}
                     </span>
