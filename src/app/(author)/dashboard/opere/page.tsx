@@ -9,6 +9,12 @@ import {
   Calendar, Loader2, MoreVertical, Trash2, Edit3
 } from 'lucide-react'
 
+function formatNum(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`
+  return n.toString()
+}
+
 export default function OperePage() {
   const { user, loading: authLoading } = useAuth()
   const supabase = createClient()
@@ -226,25 +232,25 @@ export default function OperePage() {
                     )}
 
                     {/* Stats */}
-                    <div className="flex items-center gap-4 mt-3">
-                      <div className="flex items-center gap-1 text-xs text-bark-400">
-                        <Eye className="w-3.5 h-3.5" />
-                        {book.total_reads || 0}
+                    <div className="flex items-center flex-wrap gap-x-5 gap-y-1 mt-3">
+                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Letture totali">
+                        <Eye className="w-3.5 h-3.5 text-bark-400" />
+                        {formatNum(book.total_reads || 0)}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-bark-400">
-                        <Heart className="w-3.5 h-3.5" />
-                        {book.total_likes || 0}
+                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Like">
+                        <Heart className="w-3.5 h-3.5 text-bark-400" />
+                        {formatNum(book.total_likes || 0)}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-bark-400">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        {book.total_comments || 0}
+                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Commenti">
+                        <MessageCircle className="w-3.5 h-3.5 text-bark-400" />
+                        {formatNum(book.total_comments || 0)}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-bark-400">
-                        <TrendingUp className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Trending score">
+                        <TrendingUp className="w-3.5 h-3.5 text-bark-400" />
                         {Math.round(book.trending_score || 0)}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-bark-400">
-                        <Calendar className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Data creazione">
+                        <Calendar className="w-3.5 h-3.5 text-bark-400" />
                         {new Date(book.created_at).toLocaleDateString('it-IT')}
                       </div>
                     </div>
