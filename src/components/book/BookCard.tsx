@@ -100,8 +100,15 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
           )}
         </div>
 
-        {/* Info — altezza fissa */}
+        {/* Info */}
         <div className="p-4 flex flex-col flex-1">
+          {/* Genere — etichetta discreta sopra il titolo */}
+          {book.genre && (
+            <span className="text-[10px] uppercase tracking-wider text-bark-400 font-medium mb-1">
+              {book.genre}
+            </span>
+          )}
+
           {/* Titolo: sempre 2 righe */}
           <h3
             className="font-semibold text-sage-900 text-sm group-hover:text-sage-600 transition-colors"
@@ -122,26 +129,20 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
             {authorName}
           </span>
 
-          <div className="flex items-center justify-between mt-auto pt-3 border-t border-sage-50 text-xs">
-            <div className="flex items-center gap-3 text-bark-400">
-              <span className="flex items-center gap-1 flex-shrink-0">
-                <BookOpen className="w-3.5 h-3.5" />
-                {book.total_blocks}
-              </span>
-              <span className="flex items-center gap-1 flex-shrink-0">
-                <Heart className="w-3.5 h-3.5" />
-                {book.total_likes}
-              </span>
-              <span className="flex items-center gap-1 flex-shrink-0">
-                <Bookmark className="w-3.5 h-3.5" />
-                {book.total_saves || 0}
-              </span>
-            </div>
-            {book.genre && (
-              <span className="flex-shrink-0 text-[11px] px-2 py-0.5 bg-sage-50 text-sage-600 rounded-full whitespace-nowrap">
-                {book.genre}
-              </span>
-            )}
+          {/* Stats footer */}
+          <div className="flex items-center gap-4 mt-auto pt-3 border-t border-sage-50 text-xs text-bark-400">
+            <span className="flex items-center gap-1">
+              <BookOpen className="w-3.5 h-3.5" />
+              {book.total_blocks}
+            </span>
+            <span className="flex items-center gap-1">
+              <Heart className="w-3.5 h-3.5" />
+              {book.total_likes}
+            </span>
+            <span className="flex items-center gap-1">
+              <Bookmark className="w-3.5 h-3.5" />
+              {book.total_saves || 0}
+            </span>
           </div>
         </div>
       </div>
