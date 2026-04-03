@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Heart, BookOpen, Bookmark, TrendingUp } from 'lucide-react'
+import { Heart, BookOpen, Bookmark, TrendingUp, Flame } from 'lucide-react'
 
 interface BookCardProps {
   book: {
@@ -28,9 +28,10 @@ interface BookCardProps {
     }
   }
   showTrending?: boolean
+  trendingPosition?: number  // posizione nella classifica trending (1-50)
 }
 
-export default function BookCard({ book, showTrending = false }: BookCardProps) {
+export default function BookCard({ book, showTrending = false, trendingPosition }: BookCardProps) {
   const router = useRouter()
   const authorName = book.author?.author_pseudonym || book.author?.name || 'Autore'
   const isNew = book.published_at && (Date.now() - new Date(book.published_at).getTime()) < 48 * 60 * 60 * 1000
@@ -91,13 +92,18 @@ export default function BookCard({ book, showTrending = false }: BookCardProps) 
             </span>
           </div>
 
-          {/* Badge bottom-right: Trending */}
-          {showTrending && book.trending_score > 0 && (
+          {/* Badge bottom-right: Top 10 fire o Trending generico */}
+          {trendingPosition && trendingPosition <= 10 ? (
+            <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[11px] font-bold rounded-full shadow-sm">
+              <Flame className="w-3 h-3" style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+              Top {trendingPosition}
+            </div>
+          ) : showTrending && book.trending_score > 0 ? (
             <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
               <TrendingUp className="w-3 h-3" />
               Trending
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Info */}

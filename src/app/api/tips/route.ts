@@ -115,6 +115,23 @@ export async function POST(request: NextRequest) {
       amount,
     })
 
+    // Notifica all'autore
+    const { data: donorProfile } = await supabase
+      .from('profiles')
+      .select('name, author_pseudonym')
+      .eq('id', user.id)
+      .single()
+
+    const actorName = donorProfile?.author_pseudonym || donorProfile?.name || 'Un lettore'
+    await supabase.from('notifications').insert({
+      user_id: authorId,
+      actor_id: user.id,
+      type: 'tip',
+      title: 'Mancia ricevuta!',
+      message: `${actorName} ti ha inviato una mancia di ${amount} token (\u20AC${authorPayout.toFixed(2)})`,
+      data: { actor_name: actorName, amount, author_payout: authorPayout },
+    })
+
     return NextResponse.json({
       success: true,
       amount,

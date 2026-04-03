@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
+import { createNotification } from '@/lib/notifications'
 import {
   BookOpen, Heart, Clock, Layers, ArrowLeft, Play,
   Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark
@@ -15,7 +16,7 @@ export default function BookDetailPage() {
   const params = useParams()
   const router = useRouter()
   const bookId = params.id as string
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const supabase = createClient()
 
   const [book, setBook] = useState<any>(null)
@@ -86,6 +87,21 @@ export default function BookDetailPage() {
       await supabase.from('likes').insert({ book_id: bookId, user_id: user.id })
       setLiked(true)
       setLikeCount(prev => prev + 1)
+
+      // Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'like',
+          title: 'Nuovo like',
+          message: `${actorName} ha messo like a "${book.title}"`,
+          data: { book_id: bookId, book_title: book.title },
+        })
+      }
     }
   }
 
@@ -104,6 +120,21 @@ export default function BookDetailPage() {
       })
       setSaved(true)
       toast.success('Libro aggiunto alla tua libreria')
+
+      // Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'save',
+          title: 'Libro salvato',
+          message: `${actorName} ha salvato "${book.title}" nella libreria`,
+          data: { book_id: bookId, book_title: book.title },
+        })
+      }
     }
   }
 

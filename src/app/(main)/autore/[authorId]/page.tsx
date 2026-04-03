@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
+import { createNotification } from '@/lib/notifications'
 import BookCard from '@/components/book/BookCard'
 import {
   UserPlus, UserCheck, Heart, Share2, BookOpen, Eye, Users,
@@ -17,7 +18,7 @@ type BookTab = 'published' | 'ongoing'
 export default function AuthorProfilePage() {
   const params = useParams()
   const authorId = params.authorId as string
-  const { user, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const supabase = createClient()
 
   const [author, setAuthor] = useState<any>(null)
@@ -124,6 +125,17 @@ export default function AuthorProfilePage() {
         .insert({ follower_id: user.id, following_id: authorId })
       setIsFollowing(true)
       setFollowersCount(prev => prev + 1)
+
+      // Notifica all'autore
+      createNotification({
+        supabase,
+        recipientId: authorId,
+        actorId: user.id,
+        actorName: profile?.author_pseudonym || profile?.name || 'Un lettore',
+        type: 'follow',
+        title: 'Nuovo follower',
+        message: `${profile?.author_pseudonym || profile?.name || 'Un lettore'} ha iniziato a seguirti`,
+      })
     }
 
     setFollowLoading(false)

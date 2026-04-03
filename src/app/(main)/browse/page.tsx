@@ -146,6 +146,7 @@ export default function BrowsePage() {
 
     switch (sort) {
       case 'trending':
+        // trending_score viene aggiornato dal cron che sincronizza dalla cache
         query = query.order('trending_score', { ascending: false })
         break
       case 'newest':
@@ -213,18 +214,46 @@ export default function BrowsePage() {
       }
     }
 
-    // 2. In tendenza
-    const { data: trendData } = await supabase
-      .from('books')
-      .select(`
-        *,
-        author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
-      `)
-      .in('status', ['published', 'ongoing', 'completed'])
-      .order('trending_score', { ascending: false })
+    // 2. In tendenza — legge dalla cache velocity per performance
+    const { data: cacheData } = await supabase
+      .from('trending_cache')
+      .select('book_id, score, position')
+      .order('position', { ascending: true })
       .limit(12)
 
-    if (trendData) setTrendingBooks(trendData)
+    if (cacheData && cacheData.length > 0) {
+      const bookIds = cacheData.map((c: any) => c.book_id)
+      const { data: trendData } = await supabase
+        .from('books')
+        .select(`
+          *,
+          author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+        `)
+        .in('id', bookIds)
+        .in('status', ['published', 'ongoing', 'completed'])
+
+      // Riordina in base alla posizione della cache e attacca la position
+      if (trendData) {
+        const posMap = new Map<string, number>(cacheData.map((c: any) => [c.book_id, Number(c.position)]))
+        const sorted = [...trendData]
+          .map(b => ({ ...b, _trendingPosition: posMap.get(b.id) || 99 }))
+          .sort((a, b) => a._trendingPosition - b._trendingPosition)
+        setTrendingBooks(sorted)
+      }
+    } else {
+      // Fallback: se la cache è vuota, usa il vecchio trending_score
+      const { data: trendData } = await supabase
+        .from('books')
+        .select(`
+          *,
+          author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+        `)
+        .in('status', ['published', 'ongoing', 'completed'])
+        .order('trending_score', { ascending: false })
+        .limit(12)
+
+      if (trendData) setTrendingBooks(trendData)
+    }
 
     // 3. Consigliati per te
     if (profile?.preferred_genres && profile.preferred_genres.length > 0) {
@@ -500,18 +529,18 @@ export default function BrowsePage() {
           {trendingBooks.length > 0 && (
             <section>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-sage-900">In tendenza</h2>
-                <button
-                  onClick={() => showFullCatalog('trending')}
-                  className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5"
+                <h2 className="text-base font-bold text-sage-900 dark:text-sage-100">In tendenza</h2>
+                <Link
+                  href="/trending"
+                  className="text-xs text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 font-medium flex items-center gap-0.5"
                 >
-                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+                  Classifica <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
               <HorizontalCarousel>
                 {trendingBooks.map((book: any) => (
                   <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
-                    <BookCard book={book} showTrending />
+                    <BookCard book={book} showTrending trendingPosition={book._trendingPosition} />
                   </div>
                 ))}
               </HorizontalCarousel>

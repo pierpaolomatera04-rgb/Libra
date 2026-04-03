@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
+import { createNotification } from '@/lib/notifications'
 import {
   ChevronLeft, ChevronRight, Heart, Bookmark, MessageCircle,
   Lock, Coins, Sun, Moon, Type, Loader2,
@@ -264,6 +265,21 @@ export default function ReaderPage() {
       setIsLocked(false)
       await refreshProfile()
       toast.success(`Blocco sbloccato! -${price} token`)
+
+      // Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'unlock',
+          title: 'Blocco sbloccato',
+          message: `${actorName} ha sbloccato il blocco ${blockNumber} di "${book.title}" (${price} token)`,
+          data: { book_id: bookId, book_title: book?.title, block_number: blockNumber, tokens_spent: price },
+        })
+      }
     } catch {
       toast.error('Errore nello sblocco')
     } finally {
@@ -278,6 +294,21 @@ export default function ReaderPage() {
       await supabase.from('likes').delete().eq('user_id', user.id).eq('book_id', bookId)
     } else {
       await supabase.from('likes').insert({ user_id: user.id, book_id: bookId })
+
+      // Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'like',
+          title: 'Nuovo like',
+          message: `${actorName} ha messo like a "${book.title}"`,
+          data: { book_id: bookId, book_title: book.title },
+        })
+      }
     }
     setLiked(!liked)
   }
@@ -290,6 +321,21 @@ export default function ReaderPage() {
       await supabase.from('user_library').upsert({
         user_id: user.id, book_id: bookId, status: 'saved', saved_at: new Date().toISOString(),
       }, { onConflict: 'user_id,book_id' })
+
+      // Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'save',
+          title: 'Libro salvato',
+          message: `${actorName} ha salvato "${book.title}" nella libreria`,
+          data: { book_id: bookId, book_title: book.title },
+        })
+      }
     }
     setSaved(!saved)
     toast.success(saved ? 'Rimosso dai salvati' : 'Salvato in libreria')
@@ -314,6 +360,21 @@ export default function ReaderPage() {
       setComments(prev => [comment, ...prev])
       setNewComment('')
       toast.success('Commento pubblicato')
+
+      // Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'comment',
+          title: 'Nuovo commento',
+          message: `${actorName} ha commentato "${book.title}" (blocco ${blockNumber})`,
+          data: { book_id: bookId, book_title: book?.title, block_number: blockNumber, comment_preview: newComment.trim().slice(0, 100) },
+        })
+      }
     }
   }
 
