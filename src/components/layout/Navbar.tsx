@@ -72,7 +72,7 @@ export default function Navbar() {
               }`}
             >
               <TrendingUp className="w-4 h-4" />
-              Tendenze
+              Classifiche
             </Link>
 
             <Link
@@ -394,7 +394,7 @@ export default function Navbar() {
               className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
             >
               <TrendingUp className="w-5 h-5 text-sage-500" />
-              <span className="font-medium">Tendenze</span>
+              <span className="font-medium">Classifiche</span>
             </Link>
 
             <Link
