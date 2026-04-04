@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import {
   BookOpen, Plus, Eye, Heart, MessageCircle, TrendingUp,
-  Calendar, Loader2, MoreVertical, Trash2, Edit3
+  Calendar, Loader2, Trash2, Edit3, Bookmark, Pencil, Check, X
 } from 'lucide-react'
 
 function formatNum(n: number): string {
@@ -20,8 +20,10 @@ export default function OperePage() {
   const supabase = createClient()
   const [books, setBooks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed' | 'draft'>('all')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingField, setEditingField] = useState<{ bookId: string; field: 'title' | 'genre' } | null>(null)
+  const [editingValue, setEditingValue] = useState('')
 
   useEffect(() => {
     if (authLoading) return
@@ -38,11 +40,11 @@ export default function OperePage() {
           .order('created_at', { ascending: false })
 
         if (error) {
-          console.error('❌ Errore fetch libri:', error.message)
+          console.error('Errore fetch libri:', error.message)
         }
         setBooks(data || [])
       } catch (err) {
-        console.error('💥 Errore imprevisto opere:', err)
+        console.error('Errore imprevisto opere:', err)
       } finally {
         setLoading(false)
       }
@@ -75,6 +77,7 @@ export default function OperePage() {
     const confirmed = window.confirm(`Sei sicuro di voler eliminare "${title}"? Questa azione è irreversibile.`)
     if (!confirmed) return
 
+    setDeletingId(bookId)
     const { error } = await supabase
       .from('books')
       .delete()
@@ -86,7 +89,35 @@ export default function OperePage() {
     } else {
       setBooks(prev => prev.filter(b => b.id !== bookId))
     }
-    setMenuOpen(null)
+    setDeletingId(null)
+  }
+
+  const startEditing = (bookId: string, field: 'title' | 'genre', currentValue: string) => {
+    setEditingField({ bookId, field })
+    setEditingValue(currentValue || '')
+  }
+
+  const cancelEditing = () => {
+    setEditingField(null)
+    setEditingValue('')
+  }
+
+  const saveEditing = async () => {
+    if (!editingField) return
+    const { bookId, field } = editingField
+    const trimmed = editingValue.trim()
+    if (field === 'title' && !trimmed) return
+
+    const { error } = await supabase
+      .from('books')
+      .update({ [field]: trimmed || null })
+      .eq('id', bookId)
+      .eq('author_id', user?.id)
+
+    if (!error) {
+      setBooks(prev => prev.map(b => b.id === bookId ? { ...b, [field]: trimmed || null } : b))
+    }
+    cancelEditing()
   }
 
   return (
@@ -155,11 +186,13 @@ export default function OperePage() {
         <div className="space-y-4">
           {filteredBooks.map((book) => {
             const badge = getStatusBadge(book.status)
+            const isEditingTitle = editingField?.bookId === book.id && editingField?.field === 'title'
+            const isEditingGenre = editingField?.bookId === book.id && editingField?.field === 'genre'
             return (
               <div key={book.id} className="bg-white rounded-2xl border border-sage-100 p-5 hover:shadow-sm transition-shadow">
                 <div className="flex gap-4">
-                  {/* Cover - click per statistiche */}
-                  <Link href={`/dashboard/analytics?libro=${book.id}`} className="flex-shrink-0 hover:opacity-80 transition-opacity">
+                  {/* Cover */}
+                  <div className="flex-shrink-0">
                     {book.cover_image_url ? (
                       <img src={book.cover_image_url} alt="" className="w-20 h-28 rounded-xl object-cover" />
                     ) : (
@@ -167,92 +200,137 @@ export default function OperePage() {
                         <BookOpen className="w-8 h-8 text-sage-300" />
                       </div>
                     )}
-                  </Link>
+                  </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-base font-semibold text-sage-900 truncate">{book.title}</h3>
+                    {/* Top row: title + date */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        {/* Titolo inline edit */}
+                        {isEditingTitle ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveEditing(); if (e.key === 'Escape') cancelEditing() }}
+                              className="text-base font-semibold text-sage-900 border border-sage-300 rounded-lg px-2 py-0.5 w-full focus:outline-none focus:ring-2 focus:ring-sage-400"
+                              autoFocus
+                            />
+                            <button onClick={saveEditing} className="p-1 text-sage-600 hover:text-sage-800"><Check className="w-4 h-4" /></button>
+                            <button onClick={cancelEditing} className="p-1 text-bark-400 hover:text-bark-600"><X className="w-4 h-4" /></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 group">
+                            <h3 className="text-base font-semibold text-sage-900 truncate">{book.title}</h3>
+                            <button
+                              onClick={() => startEditing(book.id, 'title', book.title)}
+                              className="p-0.5 text-bark-300 hover:text-sage-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Badges: stato + genere inline edit */}
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${badge.class}`}>
                             {badge.label}
                           </span>
-                          {book.genre && (
-                            <span className="text-[11px] text-bark-400 px-2 py-0.5 rounded-full bg-bark-50">
-                              {book.genre}
-                            </span>
+                          {isEditingGenre ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveEditing(); if (e.key === 'Escape') cancelEditing() }}
+                                placeholder="Genere"
+                                className="text-[11px] border border-sage-300 rounded-full px-2 py-0.5 w-24 focus:outline-none focus:ring-1 focus:ring-sage-400"
+                                autoFocus
+                              />
+                              <button onClick={saveEditing} className="p-0.5 text-sage-600 hover:text-sage-800"><Check className="w-3 h-3" /></button>
+                              <button onClick={cancelEditing} className="p-0.5 text-bark-400 hover:text-bark-600"><X className="w-3 h-3" /></button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/genre">
+                              {book.genre ? (
+                                <span className="text-[11px] text-bark-400 px-2 py-0.5 rounded-full bg-bark-50">
+                                  {book.genre}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-bark-300 italic">Nessun genere</span>
+                              )}
+                              <button
+                                onClick={() => startEditing(book.id, 'genre', book.genre || '')}
+                                className="p-0.5 text-bark-300 hover:text-sage-600 opacity-0 group-hover/genre:opacity-100 transition-opacity"
+                              >
+                                <Pencil className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Menu */}
-                      <div className="relative">
-                        <button
-                          onClick={() => setMenuOpen(menuOpen === book.id ? null : book.id)}
-                          className="p-1.5 rounded-lg hover:bg-sage-50 text-bark-400"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {menuOpen === book.id && (
-                          <>
-                            <div className="fixed inset-0" onClick={() => setMenuOpen(null)} />
-                            <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-sage-100 py-1 z-10">
-                              <Link
-                                href={`/reader/${book.id}/first`}
-                                onClick={() => setMenuOpen(null)}
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-bark-600 hover:bg-sage-50"
-                              >
-                                <Eye className="w-4 h-4" />
-                                Visualizza
-                              </Link>
-                              <Link
-                                href={`/dashboard/opere/${book.id}/edit`}
-                                onClick={() => setMenuOpen(null)}
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-bark-600 hover:bg-sage-50"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                                Modifica
-                              </Link>
-                              <button
-                                onClick={() => handleDelete(book.id, book.title)}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Elimina
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                      {/* Data pubblicazione top-right */}
+                      <span className="text-[11px] text-bark-400 whitespace-nowrap flex items-center gap-1 mt-0.5">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(book.created_at).toLocaleDateString('it-IT')}
+                      </span>
                     </div>
 
                     {book.description && (
                       <p className="text-xs text-bark-500 mt-2 line-clamp-2">{book.description}</p>
                     )}
 
-                    {/* Stats */}
-                    <div className="flex items-center flex-wrap gap-x-5 gap-y-1 mt-3">
-                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Letture totali">
-                        <Eye className="w-3.5 h-3.5 text-bark-400" />
-                        {formatNum(book.total_reads || 0)}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Like">
-                        <Heart className="w-3.5 h-3.5 text-bark-400" />
-                        {formatNum(book.total_likes || 0)}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Commenti">
-                        <MessageCircle className="w-3.5 h-3.5 text-bark-400" />
-                        {formatNum(book.total_comments || 0)}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Trending score">
-                        <TrendingUp className="w-3.5 h-3.5 text-bark-400" />
-                        {Math.round(book.trending_score || 0)}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-bark-500" title="Data creazione">
-                        <Calendar className="w-3.5 h-3.5 text-bark-400" />
-                        {new Date(book.created_at).toLocaleDateString('it-IT')}
-                      </div>
+                    {/* Stats con label */}
+                    <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-3">
+                      <span className="text-xs text-bark-500">
+                        <Eye className="w-3.5 h-3.5 text-bark-400 inline mr-1" />
+                        {formatNum(book.total_reads || 0)} Visualizzazioni
+                      </span>
+                      <span className="text-xs text-bark-500">
+                        <Heart className="w-3.5 h-3.5 text-bark-400 inline mr-1" />
+                        {formatNum(book.total_likes || 0)} Like
+                      </span>
+                      <span className="text-xs text-bark-500">
+                        <MessageCircle className="w-3.5 h-3.5 text-bark-400 inline mr-1" />
+                        {formatNum(book.total_comments || 0)} Commenti
+                      </span>
+                      <span className="text-xs text-bark-500">
+                        <Bookmark className="w-3.5 h-3.5 text-bark-400 inline mr-1" />
+                        {formatNum(book.total_saves || 0)} Salvati
+                      </span>
+                    </div>
+
+                    {/* Azioni esplicite */}
+                    <div className="flex items-center gap-2 mt-4 flex-wrap">
+                      <Link
+                        href={`/libro/${book.id}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-bark-600 bg-sage-50 hover:bg-sage-100 rounded-lg transition-colors border border-sage-200"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Visualizza Anteprima
+                      </Link>
+                      <Link
+                        href={`/dashboard/opere/${book.id}/edit`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-bark-600 bg-sage-50 hover:bg-sage-100 rounded-lg transition-colors border border-sage-200"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Gestisci / Modifica
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(book.id, book.title)}
+                        disabled={deletingId === book.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200 disabled:opacity-50"
+                      >
+                        {deletingId === book.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                        Elimina
+                      </button>
                     </div>
                   </div>
                 </div>
