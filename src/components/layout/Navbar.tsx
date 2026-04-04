@@ -191,15 +191,15 @@ export default function Navbar() {
                   </Link>
 
                   {/* Notifiche */}
-                  {profile?.is_author && (
+                  {user && (
                     <div className="relative">
                       <button
                         onClick={() => { setNotifMenuOpen(!notifMenuOpen); setProfileMenuOpen(false) }}
                         className="relative p-2 rounded-full text-bark-400 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
                       >
-                        <Bell className="w-4.5 h-4.5" />
+                        <Bell className="w-5 h-5" />
                         {unreadCount > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] px-1">
+                          <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] px-1">
                             {unreadCount > 99 ? '99+' : unreadCount}
                           </span>
                         )}
@@ -244,10 +244,25 @@ export default function Navbar() {
                                   const isTip = notif.type === 'tip'
                                   const timeAgo = getTimeAgo(notif.created_at)
 
+                                  // Build link based on notification type
+                                  const notifLink = notif.data?.book_id
+                                    ? notif.type === 'comment'
+                                      ? `/reader/${notif.data.book_id}/${notif.data.block_number || 1}`
+                                      : `/libro/${notif.data.book_id}`
+                                    : notif.type === 'follow' && notif.actor_id
+                                      ? `/autore/${notif.actor_id}`
+                                      : null
+
+                                  const handleNotifClick = () => {
+                                    if (!notif.read) markAsRead(notif.id)
+                                    setNotifMenuOpen(false)
+                                    if (notifLink) window.location.href = notifLink
+                                  }
+
                                   return (
                                     <div
                                       key={notif.id}
-                                      onClick={() => { if (!notif.read) markAsRead(notif.id) }}
+                                      onClick={handleNotifClick}
                                       className={`flex items-start gap-3 px-4 py-3 hover:bg-sage-50 dark:hover:bg-sage-800/50 transition-colors cursor-pointer ${
                                         !notif.read ? 'bg-sage-50/50 dark:bg-sage-800/30' : ''
                                       } ${isTip ? 'border-l-2 border-yellow-400' : ''}`}
@@ -483,22 +498,20 @@ export default function Navbar() {
                   <User className="w-5 h-5 text-sage-500" />
                   <span className="font-medium">Profilo</span>
                 </Link>
-                {profile?.is_author && (
-                  <div
-                    onClick={() => { setMobileMenuOpen(false); setNotifMenuOpen(true) }}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800 cursor-pointer"
-                  >
-                    <div className="relative">
-                      <Bell className="w-5 h-5 text-sage-500" />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                          {unreadCount > 9 ? '9+' : unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-medium">Notifiche</span>
+                <div
+                  onClick={() => { setMobileMenuOpen(false); setNotifMenuOpen(true) }}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800 cursor-pointer"
+                >
+                  <div className="relative">
+                    <Bell className="w-5 h-5 text-sage-500" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
                   </div>
-                )}
+                  <span className="font-medium">Notifiche</span>
+                </div>
                 {profile?.is_author && (
                   <Link
                     href="/dashboard"
