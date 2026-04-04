@@ -331,9 +331,14 @@ export default function BookDetailPage() {
                   </div>
                   <div>
                     <p className={`text-sm font-medium ${block.is_released ? 'text-sage-800' : 'text-bark-400'}`}>
-                      {block.title || `Blocco ${block.block_number}`}
+                      {block.is_released
+                        ? (block.title ? `${block.block_number}. ${block.title}` : `Blocco ${block.block_number}`)
+                        : `Blocco ${block.block_number}`
+                      }
                     </p>
-                    <p className="text-xs text-bark-400">~{readMin} min di lettura</p>
+                    {block.is_released && (
+                      <p className="text-xs text-bark-400">~{readMin} min di lettura</p>
+                    )}
                   </div>
                 </div>
                 <div>

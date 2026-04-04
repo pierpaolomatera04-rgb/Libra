@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Save, Loader2, BookOpen, Crown,
-  Unlock, Sparkles, Coins, ImagePlus, Info
+  Unlock, Sparkles, Coins, ImagePlus, Info,
+  Edit3, Check, X, Calendar, Layers
 } from 'lucide-react'
 
 const GENRES = [
@@ -31,6 +32,10 @@ export default function BookEditPage() {
   const [saving, setSaving] = useState(false)
   const [book, setBook] = useState<any>(null)
   const [blockCount, setBlockCount] = useState(0)
+  const [blocks, setBlocks] = useState<any[]>([])
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const [savingBlockId, setSavingBlockId] = useState<string | null>(null)
 
   // Editable fields
   const [title, setTitle] = useState('')
@@ -77,10 +82,49 @@ export default function BookEditPage() {
       setFirstBlockFree(data.first_block_free ?? true)
       setCoverPreview(data.cover_image_url || null)
       setBlockCount(data.blocks?.[0]?.count || data.total_blocks || 0)
+
+      // Fetch blocks
+      const { data: blocksData } = await supabase
+        .from('blocks')
+        .select('id, block_number, title, word_count, is_released, scheduled_date, released_at')
+        .eq('book_id', bookId)
+        .order('block_number')
+
+      if (blocksData) setBlocks(blocksData)
+
       setLoading(false)
     }
     fetchBook()
   }, [user, bookId])
+
+  const startEditingBlock = (block: any) => {
+    setEditingBlockId(block.id)
+    setEditingTitle(block.title || '')
+  }
+
+  const cancelEditingBlock = () => {
+    setEditingBlockId(null)
+    setEditingTitle('')
+  }
+
+  const saveBlockTitle = async (blockId: string) => {
+    setSavingBlockId(blockId)
+    const trimmed = editingTitle.trim()
+    const { error } = await supabase
+      .from('blocks')
+      .update({ title: trimmed || null })
+      .eq('id', blockId)
+
+    if (error) {
+      toast.error('Errore nel salvataggio del titolo')
+    } else {
+      setBlocks(prev => prev.map(b => b.id === blockId ? { ...b, title: trimmed || null } : b))
+      toast.success('Titolo aggiornato')
+    }
+    setEditingBlockId(null)
+    setEditingTitle('')
+    setSavingBlockId(null)
+  }
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -268,7 +312,107 @@ export default function BookEditPage() {
         </div>
       </section>
 
-      {/* Section 2: Tier */}
+      {/* Section 2: Blocchi — titoli inline editing */}
+      {blocks.length > 0 && (
+        <section className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-sage-800 dark:text-sage-200 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-sage-500" /> Blocchi ({blocks.length})
+            </h2>
+            <p className="text-xs text-bark-400 dark:text-sage-500">Clicca sulla matita per rinominare</p>
+          </div>
+
+          <div className="divide-y divide-sage-50 dark:divide-sage-800 rounded-xl border border-sage-100 dark:border-sage-800 overflow-hidden">
+            {blocks.map((block) => {
+              const isEditing = editingBlockId === block.id
+              const isSaving = savingBlockId === block.id
+              const wordCount = block.word_count || 0
+              const readMin = Math.ceil(wordCount / 200)
+
+              return (
+                <div key={block.id} className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-[#1e221c] hover:bg-sage-50/50 dark:hover:bg-sage-800/30 transition-colors">
+                  {/* Numero blocco */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                    block.is_released
+                      ? 'bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-300'
+                      : 'bg-bark-100 dark:bg-sage-900 text-bark-400 dark:text-sage-500'
+                  }`}>
+                    {block.block_number}
+                  </div>
+
+                  {/* Titolo / Input editing */}
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveBlockTitle(block.id)
+                            if (e.key === 'Escape') cancelEditingBlock()
+                          }}
+                          placeholder={`Blocco ${block.block_number}`}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-sage-300 dark:border-sage-600 bg-white dark:bg-[#252525] text-sm text-sage-900 dark:text-sage-100 focus:outline-none focus:ring-2 focus:ring-sage-300"
+                        />
+                        <button
+                          onClick={() => saveBlockTitle(block.id)}
+                          disabled={isSaving}
+                          className="p-1.5 rounded-lg bg-sage-500 text-white hover:bg-sage-600 transition-colors"
+                        >
+                          {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          onClick={cancelEditingBlock}
+                          className="p-1.5 rounded-lg text-bark-400 hover:bg-sage-100 dark:hover:bg-sage-800 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 group/title">
+                        <p className="text-sm font-medium text-sage-800 dark:text-sage-200 truncate">
+                          {block.title
+                            ? `${block.block_number}. ${block.title}`
+                            : `Blocco ${block.block_number}`
+                          }
+                        </p>
+                        <button
+                          onClick={() => startEditingBlock(block)}
+                          className="opacity-0 group-hover/title:opacity-100 p-1 rounded text-bark-400 hover:text-sage-600 dark:hover:text-sage-300 transition-all"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-bark-400 dark:text-sage-500 mt-0.5">
+                      {wordCount.toLocaleString()} parole &middot; ~{readMin} min
+                    </p>
+                  </div>
+
+                  {/* Stato */}
+                  <div className="flex-shrink-0">
+                    {block.is_released ? (
+                      <span className="text-[11px] font-medium text-sage-600 dark:text-sage-400 bg-sage-50 dark:bg-sage-800 px-2 py-1 rounded-full">
+                        Pubblicato
+                      </span>
+                    ) : block.scheduled_date ? (
+                      <span className="text-[11px] text-bark-400 dark:text-sage-500 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(block.scheduled_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-bark-300 dark:text-sage-600">Bozza</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Section 3: Tier */}
       <section className="bg-white rounded-2xl border border-sage-100 p-6 space-y-5">
         <h2 className="text-base font-semibold text-sage-800 flex items-center gap-2">
           <Crown className="w-5 h-5 text-sage-500" /> Livello di accesso
