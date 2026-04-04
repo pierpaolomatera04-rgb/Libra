@@ -10,7 +10,7 @@ import { createNotification } from '@/lib/notifications'
 import {
   ChevronLeft, ChevronRight, Heart, Bookmark, MessageCircle,
   Lock, Coins, Sun, Moon, Type, Loader2,
-  ArrowLeft, Send
+  ArrowLeft, Send, Flame, Sparkles, CheckCircle2
 } from 'lucide-react'
 
 export default function ReaderPage() {
@@ -36,6 +36,10 @@ export default function ReaderPage() {
   const [fontSize, setFontSize] = useState(16)
   const [blueLightFilter, setBlueLightFilter] = useState(false)
   const [readStartTime, setReadStartTime] = useState<number>(Date.now())
+  const [completionData, setCompletionData] = useState<{
+    xpEarned: number; streak: number; streakBonus: number; totalXp: number; isNewStreak: boolean
+  } | null>(null)
+  const [showCompletion, setShowCompletion] = useState(false)
 
   // Fetch book & block
   const fetchData = useCallback(async () => {
@@ -194,12 +198,59 @@ export default function ReaderPage() {
           user_id: user.id,
           block_id: block.id,
           book_id: bookId,
-          read_completed: readTime > 30, // Considera "letto" dopo 30 secondi
+          read_completed: readTime > 30,
           reading_time_seconds: readTime,
         }, { onConflict: 'user_id,block_id' })
       }
     }
   }, [user, block, isLocked, readStartTime, bookId, supabase])
+
+  // Record block completion for XP/streak after 30 seconds of reading
+  useEffect(() => {
+    if (!user || !block || isLocked) return
+    const timer = setTimeout(async () => {
+      try {
+        const { data: result } = await supabase.rpc('record_block_completion', {
+          p_user_id: user.id,
+          p_book_id: bookId,
+          p_block_id: block.id,
+          p_block_number: blockNumber,
+        })
+        if (result && !result.already_read) {
+          setCompletionData({
+            xpEarned: result.xp_earned,
+            streak: result.streak,
+            streakBonus: result.streak_bonus,
+            totalXp: result.total_xp,
+            isNewStreak: result.streak > 1,
+          })
+          setShowCompletion(true)
+          refreshProfile()
+
+          // Motivational toasts per milestone
+          if (result.streak === 2) {
+            toast('🔥 2° giorno di lettura continua!', {
+              description: 'Sei sulla strada giusta per creare una grande abitudine.',
+              duration: 6000,
+            })
+          } else if (result.streak === 7) {
+            toast('🎉 Una settimana di lettura!', {
+              description: 'Incredibile! 7 giorni consecutivi. Continua cosi!',
+              duration: 6000,
+            })
+          } else if (result.streak === 30) {
+            toast('🏆 Un mese di streak!', {
+              description: 'Sei un vero lettore. 30 giorni consecutivi!',
+              duration: 6000,
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Errore record completion:', err)
+      }
+    }, 30000) // 30 secondi
+    return () => clearTimeout(timer)
+  }, [user, block, isLocked, bookId, blockNumber, supabase, refreshProfile])
 
   // Unlock block
   const handleUnlock = async () => {
@@ -545,6 +596,41 @@ export default function ReaderPage() {
               </button>
             </div>
 
+            {/* Completion feedback */}
+            {showCompletion && completionData && (
+              <div className="my-6 p-5 bg-gradient-to-r from-sage-50 to-green-50 border border-sage-200 rounded-2xl animate-fade-in">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <h3 className="text-lg font-bold text-sage-900">Blocco completato!</h3>
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-sage-200">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-bold text-sage-800">+{completionData.xpEarned} XP</span>
+                  </div>
+                  {completionData.isNewStreak && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
+                      <Flame className="w-4 h-4 text-orange-500" />
+                      <span className="text-sm font-bold text-orange-600">
+                        {completionData.streak} giorni consecutivi!
+                      </span>
+                    </div>
+                  )}
+                  {completionData.streakBonus > 0 && (
+                    <div className="text-xs text-sage-600 font-medium">
+                      +{completionData.streakBonus} XP bonus streak
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowCompletion(false)}
+                  className="block mx-auto mt-3 text-xs text-bark-400 hover:text-bark-600"
+                >
+                  Chiudi
+                </button>
+              </div>
+            )}
+
             {/* Navigation */}
             <div className="flex items-center justify-between py-8">
               {blockNumber > 1 ? (
@@ -560,7 +646,7 @@ export default function ReaderPage() {
               {blockNumber < blocks.length ? (
                 <Link
                   href={`/reader/${bookId}/${blockNumber + 1}`}
-                  className="flex items-center gap-1 px-4 py-2 text-sm bg-sage-500 text-white rounded-xl hover:bg-sage-600"
+                  className="flex items-center gap-2 px-6 py-3 text-sm bg-sage-500 text-white rounded-xl hover:bg-sage-600 font-medium shadow-sm hover:shadow-md transition-all"
                 >
                   Prossimo blocco
                   <ChevronRight className="w-4 h-4" />
@@ -568,6 +654,12 @@ export default function ReaderPage() {
               ) : (
                 <div className="text-center py-4">
                   <p className="text-sm text-sage-600 font-medium">Hai letto tutti i blocchi disponibili!</p>
+                  <Link
+                    href={`/libro/${bookId}`}
+                    className="text-xs text-sage-500 hover:text-sage-700 mt-1 inline-block"
+                  >
+                    Torna alla pagina del libro
+                  </Link>
                 </div>
               )}
             </div>

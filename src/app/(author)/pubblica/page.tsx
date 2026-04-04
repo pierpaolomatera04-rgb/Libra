@@ -624,7 +624,12 @@ export default function PublishPage() {
                 <p className="text-sm font-medium text-sage-800">Anteprima blocchi:</p>
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                   {data.blocks.map((block) => {
-                    const readingMin = Math.max(1, Math.ceil(block.wordCount / 200))
+                    const readingMin = Math.max(1, Math.ceil(block.wordCount / 225))
+                    const semaphore = readingMin <= 10
+                      ? { color: 'bg-green-100 text-green-700 border-green-200', label: 'Zona Ideale', icon: '🔥' }
+                      : readingMin <= 14
+                        ? { color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Impegnativo', icon: '⚠️' }
+                        : { color: 'bg-red-100 text-red-700 border-red-200', label: 'Troppo lungo', icon: '🚫' }
                     return (
                       <div
                         key={block.number}
@@ -637,23 +642,31 @@ export default function PublishPage() {
                           <div>
                             <p className="text-sm font-medium text-sage-800">{block.title}</p>
                             <p className="text-xs text-bark-400">
-                              {block.wordCount.toLocaleString()} parole &bull; ~{readingMin} min di lettura
+                              {block.wordCount.toLocaleString()} parole &bull; ~{readingMin} min
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${semaphore.color}`}>
+                            {semaphore.icon} {semaphore.label}
+                          </span>
                           {block.startsAtChapter && (
                             <span className="text-xs bg-sage-200 text-sage-700 px-2 py-0.5 rounded-full">
                               Capitolo
                             </span>
                           )}
-                          <span className="text-[10px] text-bark-300">
-                            {block.characterCount.toLocaleString()} car.
-                          </span>
                         </div>
                       </div>
                     )
                   })}
+                </div>
+
+                {/* Tooltip strategico */}
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl mt-3">
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    <strong>Consiglio:</strong> Blocchi da 5-10 minuti mantengono alta l&apos;attenzione su mobile.
+                    Piu blocchi brevi = piu sblocchi, piu statistiche positive e lettori che tornano!
+                  </p>
                 </div>
               </div>
             </div>
@@ -686,7 +699,15 @@ export default function PublishPage() {
                       <div>
                         <p className="text-sm font-semibold text-sage-800">{block.title}</p>
                         <p className="text-xs text-bark-400">
-                          {block.wordCount} parole &bull; ~{Math.ceil(block.wordCount / 200)} min lettura
+                          {block.wordCount} parole &bull; ~{Math.ceil(block.wordCount / 225)} min lettura
+                          {(() => {
+                            const rm = Math.ceil(block.wordCount / 225)
+                            return rm <= 10
+                              ? <span className="ml-2 text-green-600 font-medium">🔥 Zona Ideale</span>
+                              : rm <= 14
+                                ? <span className="ml-2 text-amber-600 font-medium">⚠️ Impegnativo</span>
+                                : <span className="ml-2 text-red-600 font-medium">🚫 Troppo lungo</span>
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -737,12 +758,23 @@ export default function PublishPage() {
                         {(() => {
                           const wc = editContent.trim().split(/\s+/).filter(Boolean).length
                           const isTooShort = wc < 3000
+                          const editMin = Math.max(1, Math.ceil(wc / 225))
+                          const editSemaphore = editMin <= 10
+                            ? { color: 'text-green-600', label: '🔥 Zona Ideale — Perfetto per mobile' }
+                            : editMin <= 14
+                              ? { color: 'text-amber-600', label: '⚠️ Lettura impegnativa — Valuta di dividerlo' }
+                              : { color: 'text-red-600', label: '🚫 Troppo lungo — Rischio abbandono alto' }
                           return (
                             <>
                               <div className="flex items-center justify-between">
-                                <p className={`text-xs ${isTooShort ? 'text-red-500 font-medium' : 'text-bark-400'}`}>
-                                  {wc.toLocaleString()} / 3.000 parole {isTooShort ? '— troppo corto' : ''}
-                                </p>
+                                <div>
+                                  <p className={`text-xs ${isTooShort ? 'text-red-500 font-medium' : 'text-bark-400'}`}>
+                                    {wc.toLocaleString()} / 3.000 parole &bull; ~{editMin} min {isTooShort ? '— troppo corto' : ''}
+                                  </p>
+                                  <p className={`text-xs font-medium mt-0.5 ${editSemaphore.color}`}>
+                                    {editSemaphore.label}
+                                  </p>
+                                </div>
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={() => { setEditingBlock(null); setEditContent('') }}

@@ -22,6 +22,10 @@ interface UserProfile {
   preferred_genres: string[]
   completed_onboarding: boolean
   created_at: string
+  daily_streak: number
+  last_reading_date: string | null
+  total_xp: number
+  longest_streak: number
 }
 
 interface AuthContextType {

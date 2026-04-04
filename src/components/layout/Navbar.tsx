@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -8,10 +8,11 @@ import {
   Search, Library, User, Menu, X, Users, Wallet,
   LogOut, LayoutDashboard, PenTool, Settings, ChevronDown,
   Sun, Moon, Eye, EyeOff, Bell, Heart, Bookmark, MessageCircle,
-  UserPlus, Coins, Lock, TrendingUp
+  UserPlus, Coins, Lock, TrendingUp, Flame
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useNotifications } from '@/hooks/useNotifications'
+import { toast } from 'sonner'
 
 export default function Navbar() {
   const { user, profile, signOut, totalTokens, loading } = useAuth()
@@ -29,6 +30,37 @@ export default function Navbar() {
     }, 4000)
     return () => clearTimeout(timer)
   }, [loading])
+
+  // Streak loss aversion reminder
+  useEffect(() => {
+    if (!profile || !profile.daily_streak || profile.daily_streak < 2) return
+    if (!profile.last_reading_date) return
+
+    const lastRead = new Date(profile.last_reading_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    lastRead.setHours(0, 0, 0, 0)
+
+    const daysDiff = Math.floor((today.getTime() - lastRead.getTime()) / (1000 * 60 * 60 * 24))
+
+    // If last reading was yesterday and no reading today yet, show reminder
+    if (daysDiff === 1) {
+      const reminderKey = `streak_reminder_${today.toISOString().split('T')[0]}`
+      if (!sessionStorage.getItem(reminderKey)) {
+        sessionStorage.setItem(reminderKey, '1')
+        setTimeout(() => {
+          toast('🔥 Non spegnere la fiammella!', {
+            description: `Ti mancano solo 5 minuti per mantenere la tua serie di ${profile.daily_streak} giorni.`,
+            duration: 8000,
+            action: {
+              label: 'Leggi ora',
+              onClick: () => window.location.href = '/libreria',
+            },
+          })
+        }, 3000)
+      }
+    }
+  }, [profile])
 
   const isActive = (path: string) => pathname === path
 
@@ -138,6 +170,17 @@ export default function Navbar() {
                 </div>
               ) : user ? (
                 <>
+                  {/* Streak */}
+                  {(profile?.daily_streak ?? 0) > 0 && (
+                    <div
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
+                      title={`Serie di ${profile?.daily_streak} giorni di lettura consecutivi`}
+                    >
+                      <Flame className="w-4 h-4 text-orange-500" />
+                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{profile?.daily_streak}</span>
+                    </div>
+                  )}
+
                   {/* Wallet */}
                   <Link
                     href="/wallet"
@@ -416,6 +459,14 @@ export default function Navbar() {
                   <Library className="w-5 h-5 text-sage-500" />
                   <span className="font-medium">La mia libreria</span>
                 </Link>
+                {(profile?.daily_streak ?? 0) > 0 && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                    <Flame className="w-5 h-5 text-orange-500" />
+                    <span className="font-medium text-orange-600 dark:text-orange-400">
+                      Serie di {profile?.daily_streak} giorni
+                    </span>
+                  </div>
+                )}
                 <Link
                   href="/wallet"
                   onClick={() => setMobileMenuOpen(false)}

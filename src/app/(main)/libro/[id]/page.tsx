@@ -25,6 +25,7 @@ export default function BookDetailPage() {
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [saved, setSaved] = useState(false)
+  const [readBlocks, setReadBlocks] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchBook = async () => {
@@ -68,6 +69,16 @@ export default function BookDetailPage() {
           .eq('user_id', user.id)
           .single()
         setSaved(!!saveData)
+
+        // Fetch reading progress
+        const { data: progressData } = await supabase
+          .from('reading_progress')
+          .select('block_id')
+          .eq('user_id', user.id)
+          .eq('book_id', bookId)
+        if (progressData) {
+          setReadBlocks(new Set(progressData.map((p: any) => p.block_id)))
+        }
       }
 
       setLoading(false)
@@ -256,6 +267,27 @@ export default function BookDetailPage() {
             </div>
           </div>
 
+          {/* Progress bar lettura */}
+          {user && readBlocks.size > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-sage-700">Il tuo avanzamento</span>
+                <span className="text-xs text-bark-400">
+                  {readBlocks.size}/{releasedBlocks} blocchi letti — {releasedBlocks > 0 ? Math.round((readBlocks.size / releasedBlocks) * 100) : 0}%
+                </span>
+              </div>
+              <div className="h-2.5 bg-sage-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-sage-400 to-sage-600 rounded-full transition-all duration-500"
+                  style={{ width: `${releasedBlocks > 0 ? (readBlocks.size / releasedBlocks) * 100 : 0}%` }}
+                />
+              </div>
+              {readBlocks.size === releasedBlocks && releasedBlocks > 0 && (
+                <p className="text-xs text-sage-600 font-medium mt-1">Hai letto tutti i blocchi disponibili!</p>
+              )}
+            </div>
+          )}
+
           {/* Prezzo */}
           <div className="flex items-center gap-2 mb-6 text-sm text-bark-500">
             <Coins className="w-4 h-4 text-sage-500" />
@@ -318,16 +350,19 @@ export default function BookDetailPage() {
         <div className="bg-white rounded-2xl border border-sage-100 divide-y divide-sage-50">
           {blocks.map((block: any) => {
             const wordCount = block.word_count || 0
-            const readMin = Math.ceil(wordCount / 200)
+            const readMin = Math.max(1, Math.ceil(wordCount / 225))
+            const isRead = readBlocks.has(block.id)
             return (
-              <div key={block.id} className="flex items-center justify-between px-5 py-3.5">
+              <div key={block.id} className={`flex items-center justify-between px-5 py-3.5 ${isRead ? 'bg-sage-50/50' : ''}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                    block.is_released
-                      ? 'bg-sage-100 text-sage-700'
-                      : 'bg-bark-100 text-bark-400'
+                    isRead
+                      ? 'bg-sage-500 text-white'
+                      : block.is_released
+                        ? 'bg-sage-100 text-sage-700'
+                        : 'bg-bark-100 text-bark-400'
                   }`}>
-                    {block.block_number}
+                    {isRead ? '✓' : block.block_number}
                   </div>
                   <div>
                     <p className={`text-sm font-medium ${block.is_released ? 'text-sage-800' : 'text-bark-400'}`}>
@@ -337,7 +372,10 @@ export default function BookDetailPage() {
                       }
                     </p>
                     {block.is_released && (
-                      <p className="text-xs text-bark-400">~{readMin} min di lettura</p>
+                      <p className="text-xs text-bark-400">
+                        ~{readMin} min di lettura
+                        {isRead && <span className="ml-2 text-sage-500 font-medium">Letto</span>}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -345,9 +383,13 @@ export default function BookDetailPage() {
                   {block.is_released ? (
                     <Link
                       href={`/reader/${bookId}/${block.block_number}`}
-                      className="text-xs font-medium text-sage-600 hover:text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors"
+                      className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                        isRead
+                          ? 'text-bark-400 hover:text-sage-600 hover:bg-sage-50'
+                          : 'text-sage-600 hover:text-sage-700 hover:bg-sage-50 font-semibold'
+                      }`}
                     >
-                      Leggi
+                      {isRead ? 'Rileggi' : 'Leggi'}
                     </Link>
                   ) : (
                     <span className="text-xs text-bark-400 flex items-center gap-1">
