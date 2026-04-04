@@ -11,6 +11,7 @@ import {
   BookOpen, Heart, Clock, Layers, ArrowLeft, Play,
   Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark
 } from 'lucide-react'
+import { getGenreTagColor } from '@/lib/genres'
 
 export default function BookDetailPage() {
   const params = useParams()
@@ -217,7 +218,7 @@ export default function BookDetailPage() {
               {statusLabel}
             </span>
             {book.genre && (
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-cream-200 text-bark-600 border border-cream-300">
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getGenreTagColor(book.genre)}`}>
                 {book.genre}
               </span>
             )}

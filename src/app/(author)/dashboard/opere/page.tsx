@@ -8,6 +8,7 @@ import {
   BookOpen, Plus, Eye, Heart, MessageCircle, TrendingUp,
   Calendar, Loader2, Trash2, Edit3, Bookmark, Pencil, Check, X
 } from 'lucide-react'
+import { getGenreTagColor } from '@/lib/genres'
 
 function formatNum(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1).replace(/\.0$/, '')}M`
@@ -255,7 +256,7 @@ export default function OperePage() {
                           ) : (
                             <div className="flex items-center gap-1 group/genre">
                               {book.genre ? (
-                                <span className="text-[11px] text-bark-400 px-2 py-0.5 rounded-full bg-bark-50">
+                                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${getGenreTagColor(book.genre)}`}>
                                   {book.genre}
                                 </span>
                               ) : (

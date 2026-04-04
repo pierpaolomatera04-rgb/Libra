@@ -9,11 +9,7 @@ import {
   Search, Filter, TrendingUp, Clock, Sparkles, X, BookOpen,
   Timer, Radio, ChevronRight, ChevronLeft, BookMarked, Heart
 } from 'lucide-react'
-
-const GENRES = [
-  'Fantasy', 'Romanzo', 'Thriller', 'Horror', 'Sci-Fi',
-  'Avventura', 'Giallo', 'Storico', 'Poesia', 'Biografia', 'Self-help', 'Altro'
-]
+import { MACRO_AREAS, type MacroArea } from '@/lib/genres'
 
 const READING_TIMES = [
   { label: 'Veloce (< 10 blocchi)', max: 10 },
@@ -87,6 +83,7 @@ export default function BrowsePage() {
   const [books, setBooks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [activeMacro, setActiveMacro] = useState<MacroArea | null>(null)
   const [genre, setGenre] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [readingTime, setReadingTime] = useState<number | null>(null)
@@ -101,7 +98,7 @@ export default function BrowsePage() {
 
   const [viewAll, setViewAll] = useState(false)
 
-  const hasActiveFilters = genre || statusFilter !== 'all' || readingTime !== null
+  const hasActiveFilters = genre || activeMacro || statusFilter !== 'all' || readingTime !== null
   const isDiscoveryMode = !search && !hasActiveFilters && sort === 'trending' && !viewAll
 
   const showFullCatalog = (sortBy: SortOption) => {
@@ -136,6 +133,10 @@ export default function BrowsePage() {
 
     if (genre) {
       query = query.eq('genre', genre)
+    } else if (activeMacro) {
+      // Filtra per macro-area: cerca tutti i sotto-generi di quella macro
+      const subGenreValues = activeMacro.subGenres.map(sg => sg.value)
+      query = query.in('genre', subGenreValues)
     }
 
     if (readingTime !== null) {
@@ -165,7 +166,7 @@ export default function BrowsePage() {
     const { data } = await query
     if (data) setBooks(data)
     setLoading(false)
-  }, [supabase, search, genre, sort, statusFilter, readingTime])
+  }, [supabase, search, genre, activeMacro, sort, statusFilter, readingTime])
 
   /* ── Fetch discovery sections ── */
   const fetchDiscoverySections = useCallback(async () => {
@@ -311,9 +312,27 @@ export default function BrowsePage() {
   }, [search, fetchBooks])
 
   const clearAllFilters = () => {
+    setActiveMacro(null)
     setGenre(null)
     setStatusFilter('all')
     setReadingTime(null)
+  }
+
+  const handleMacroClick = (macro: MacroArea) => {
+    if (activeMacro?.value === macro.value) {
+      // Deselect macro
+      setActiveMacro(null)
+      setGenre(null)
+    } else {
+      setActiveMacro(macro)
+      setGenre(null) // reset sub-genre when switching macro
+    }
+    setViewAll(true)
+  }
+
+  const handleSubGenreClick = (subGenreValue: string) => {
+    setGenre(genre === subGenreValue ? null : subGenreValue)
+    setViewAll(true)
   }
 
   return (
@@ -374,35 +393,68 @@ export default function BrowsePage() {
           ))}
         </div>
 
-        {/* Riga 2: Genre pills — scrollabili orizzontalmente */}
+        {/* Livello 1: Macro-Aree con icone e colori */}
         <div
-          className="flex items-center gap-1.5 overflow-x-auto"
+          className="flex items-center gap-2 overflow-x-auto pb-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
           <button
-            onClick={() => setGenre(null)}
-            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
-              !genre
-                ? 'bg-sage-200 dark:bg-sage-700 text-sage-800 dark:text-sage-100'
-                : 'bg-sage-50 dark:bg-[#282828] text-bark-400 dark:text-[#aaaaaa] hover:bg-sage-100 dark:hover:bg-[#333333]'
+            onClick={() => { setActiveMacro(null); setGenre(null); setViewAll(false) }}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border ${
+              !activeMacro
+                ? 'bg-sage-600 text-white border-sage-600'
+                : 'bg-white dark:bg-[#282828] text-bark-500 dark:text-[#aaaaaa] border-sage-200 dark:border-sage-700 hover:bg-sage-50 dark:hover:bg-[#333333]'
             }`}
           >
             Tutti
           </button>
-          {GENRES.map((g) => (
+          {MACRO_AREAS.map((macro) => (
             <button
-              key={g}
-              onClick={() => setGenre(genre === g ? null : g)}
-              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
-                genre === g
-                  ? 'bg-sage-500 text-white'
-                  : 'bg-sage-50 dark:bg-[#282828] text-bark-400 dark:text-[#aaaaaa] hover:bg-sage-100 dark:hover:bg-[#333333] hover:text-sage-700 dark:hover:text-[#dddddd]'
+              key={macro.value}
+              onClick={() => handleMacroClick(macro)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border ${
+                activeMacro?.value === macro.value
+                  ? `${macro.color.bg} ${macro.color.text} border-transparent`
+                  : `${macro.color.bgLight} ${macro.color.textLight} ${macro.color.border} hover:opacity-80`
               }`}
             >
-              {g}
+              <span className="text-sm">{macro.icon}</span>
+              {macro.label}
             </button>
           ))}
         </div>
+
+        {/* Livello 2: Sotto-generi (visibili solo quando macro selezionata) */}
+        {activeMacro && (
+          <div
+            className="flex items-center gap-1.5 mt-2 overflow-x-auto animate-fade-in"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            <button
+              onClick={() => setGenre(null)}
+              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
+                !genre
+                  ? `${activeMacro.color.bg} ${activeMacro.color.text}`
+                  : 'bg-sage-50 dark:bg-[#282828] text-bark-400 dark:text-[#aaaaaa] hover:bg-sage-100 dark:hover:bg-[#333333]'
+              }`}
+            >
+              Tutti {activeMacro.label}
+            </button>
+            {activeMacro.subGenres.map((sg) => (
+              <button
+                key={sg.value}
+                onClick={() => handleSubGenreClick(sg.value)}
+                className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
+                  genre === sg.value
+                    ? `${activeMacro.color.bg} ${activeMacro.color.text}`
+                    : `${activeMacro.color.bgLight} ${activeMacro.color.textLight} hover:opacity-80`
+                }`}
+              >
+                {sg.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Filters panel (espandibile) ── */}

@@ -22,6 +22,7 @@ interface WizardData {
   blocks: Block[]
   title: string
   description: string
+  macroCategory: string
   genre: string
   mood: string
   coverImage: File | null
@@ -39,6 +40,7 @@ const INITIAL_DATA: WizardData = {
   blocks: [],
   title: '',
   description: '',
+  macroCategory: '',
   genre: '',
   mood: '',
   coverImage: null,
@@ -61,10 +63,7 @@ const STEPS = [
   { id: 8, label: 'Pubblica', icon: Check },
 ]
 
-const GENRES = [
-  'Fantasy', 'Romanzo', 'Thriller', 'Horror', 'Sci-Fi',
-  'Avventura', 'Giallo', 'Storico', 'Poesia', 'Biografia', 'Altro'
-]
+import { MACRO_AREAS, getMacroAreaByValue } from '@/lib/genres'
 
 const MOODS = [
   'Emozionante', 'Misterioso', 'Romantico', 'Avventuroso',
@@ -355,6 +354,7 @@ export default function PublishPage() {
         title: data.title,
         description: data.description || null,
         cover_image_url: coverUrl,
+        macro_category: data.macroCategory,
         genre: data.genre,
         mood: data.mood || null,
         total_blocks: data.blocks.length,
@@ -469,7 +469,7 @@ export default function PublishPage() {
       case 1: return data.blocks.length > 0
       case 2: return data.blocks.length >= 2
       case 3: return true
-      case 4: return data.title.length > 0 && data.genre.length > 0 && data.description.trim().length >= 150 && data.coverImage !== null
+      case 4: return data.title.length > 0 && data.macroCategory.length > 0 && data.genre.length > 0 && data.description.trim().length >= 150 && data.coverImage !== null
       case 5: return data.scheduledDays.length === data.blocks.length
       case 6: return true // Tier
       case 7: return true // Price
@@ -893,24 +893,58 @@ export default function PublishPage() {
                 </div>
               </div>
 
-              {/* Genere */}
+              {/* Macro-Area */}
               <div>
-                <label className="block text-sm font-medium text-sage-800 mb-1.5">Genere *</label>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">Reparto (Macro-Area) *</label>
                 <div className="flex flex-wrap gap-2">
-                  {GENRES.map((g) => (
+                  {MACRO_AREAS.map((macro) => (
                     <button
-                      key={g}
-                      onClick={() => setData(prev => ({ ...prev, genre: g }))}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        data.genre === g
-                          ? 'bg-sage-500 text-white'
-                          : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                      key={macro.value}
+                      onClick={() => setData(prev => ({ ...prev, macroCategory: macro.value, genre: '' }))}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+                        data.macroCategory === macro.value
+                          ? `${macro.color.bg} ${macro.color.text} border-transparent shadow-sm`
+                          : `${macro.color.bgLight} ${macro.color.textLight} ${macro.color.border} hover:opacity-80`
                       }`}
                     >
-                      {g}
+                      <span>{macro.icon}</span>
+                      {macro.label}
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Sotto-genere (condizionale) */}
+              <div>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">
+                  Sotto-genere *
+                  {!data.macroCategory && <span className="text-bark-400 font-normal ml-1">(scegli prima il reparto)</span>}
+                </label>
+                {data.macroCategory ? (
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const macro = getMacroAreaByValue(data.macroCategory)
+                      if (!macro) return null
+                      return macro.subGenres.map((sg) => (
+                        <button
+                          key={sg.value}
+                          onClick={() => setData(prev => ({ ...prev, genre: sg.value }))}
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                            data.genre === sg.value
+                              ? `${macro.color.bg} ${macro.color.text}`
+                              : `${macro.color.bgLight} ${macro.color.textLight} hover:opacity-80`
+                          }`}
+                        >
+                          {sg.label}
+                        </button>
+                      ))
+                    })()}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-sage-50 rounded-xl text-center">
+                    <p className="text-sm text-bark-400">Seleziona prima una Macro-Area per vedere i sotto-generi disponibili</p>
+                  </div>
+                )}
               </div>
 
               {/* Mood */}

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Heart, BookOpen, Bookmark, TrendingUp, Flame } from 'lucide-react'
+import { getGenreTagColor } from '@/lib/genres'
 
 interface BookCardProps {
   book: {
@@ -108,9 +109,9 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
 
         {/* Info */}
         <div className="p-4 flex flex-col flex-1">
-          {/* Genere — etichetta discreta sopra il titolo */}
+          {/* Genere — tag colorato per macro-area */}
           {book.genre && (
-            <span className="text-[10px] uppercase tracking-wider text-bark-400 font-medium mb-1">
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md w-fit mb-1 ${getGenreTagColor(book.genre)}`}>
               {book.genre}
             </span>
           )}

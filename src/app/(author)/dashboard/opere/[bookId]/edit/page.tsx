@@ -11,10 +11,7 @@ import {
   Edit3, Check, X, Calendar, Layers
 } from 'lucide-react'
 
-const GENRES = [
-  'Fantasy', 'Romanzo', 'Thriller', 'Horror', 'Sci-Fi',
-  'Avventura', 'Giallo', 'Storico', 'Poesia', 'Biografia', 'Altro'
-]
+import { MACRO_AREAS, getMacroAreaByValue, getMacroAreaByGenre } from '@/lib/genres'
 
 const MOODS = [
   'Emozionante', 'Misterioso', 'Romantico', 'Avventuroso',
@@ -40,6 +37,7 @@ export default function BookEditPage() {
   // Editable fields
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [macroCategory, setMacroCategory] = useState('')
   const [genre, setGenre] = useState('')
   const [mood, setMood] = useState('')
   const [accessLevel, setAccessLevel] = useState<'open' | 'silver_choice' | 'gold_exclusive'>('open')
@@ -75,6 +73,9 @@ export default function BookEditPage() {
       setTitle(data.title || '')
       setDescription(data.description || '')
       setGenre(data.genre || '')
+      // Derive macroCategory from genre or from saved macro_category
+      const savedMacro = data.macro_category || getMacroAreaByGenre(data.genre)?.value || ''
+      setMacroCategory(savedMacro)
       setMood(data.mood || '')
       setAccessLevel(data.access_level || 'open')
       setTokenPrice(data.token_price_per_block || 5)
@@ -164,6 +165,7 @@ export default function BookEditPage() {
         .update({
           title: title.trim(),
           description: description.trim() || null,
+          macro_category: macroCategory || null,
           genre,
           mood: mood || null,
           cover_image_url: coverUrl,
@@ -264,18 +266,49 @@ export default function BookEditPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-bark-600">Genere</label>
-            <select
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-sage-200 bg-sage-50/50 text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-300 text-sm"
-            >
-              <option value="">Seleziona...</option>
-              {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
+        {/* Macro-Area */}
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-bark-600">Reparto (Macro-Area)</label>
+          <div className="flex flex-wrap gap-2">
+            {MACRO_AREAS.map((macro) => (
+              <button
+                key={macro.value}
+                type="button"
+                onClick={() => { setMacroCategory(macro.value); setGenre('') }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                  macroCategory === macro.value
+                    ? `${macro.color.bg} ${macro.color.text} border-transparent`
+                    : `${macro.color.bgLight} ${macro.color.textLight} ${macro.color.border} hover:opacity-80`
+                }`}
+              >
+                <span>{macro.icon}</span>
+                {macro.label}
+              </button>
+            ))}
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* Sotto-genere */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-bark-600">Sotto-genere</label>
+            {macroCategory ? (
+              <select
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-sage-200 bg-sage-50/50 text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-300 text-sm"
+              >
+                <option value="">Seleziona...</option>
+                {getMacroAreaByValue(macroCategory)?.subGenres.map(sg => (
+                  <option key={sg.value} value={sg.value}>{sg.label}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-bark-400 py-2">Scegli prima il reparto</p>
+            )}
+          </div>
+
+          {/* Mood */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-bark-600">Mood</label>
             <select
