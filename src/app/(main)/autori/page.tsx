@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  Search, BookOpen, Users, X, Pencil, Award,
+  Search, BookOpen, Users, X, Pencil, Award, Heart, MessageCircle, Gift,
   ChevronLeft, ChevronRight, Sparkles, TrendingUp, Star,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,7 +30,12 @@ interface AuthorEntry {
   prestige_points: number
   totalBooks: number
   totalLikes: number
+  totalComments: number
+  totalUnlocks: number
+  totalReads: number
   totalFollowers: number
+  engagementScore: number
+  totalTipped: number
   genres: string[]
   booksByMacro: Record<string, number>
   certifiedIn: string[]
@@ -81,6 +86,7 @@ export default function AuthorsPage() {
   const [search, setSearch] = useState('')
   const [followedIds, setFollowedIds] = useState<string[]>([])
   const [viewTab, setViewTab] = useState<ViewTab>('scopri')
+  const [userReadGenres, setUserReadGenres] = useState<Set<string>>(new Set())
   const { user, profile } = useAuth()
   const supabase = createClient()
 
@@ -94,22 +100,49 @@ export default function AuthorsPage() {
     const { data } = await query
     if (data && data.length > 0) {
       const authorIds = data.map((a: any) => a.id)
-      const [allBooksRes, followersRes] = await Promise.all([
-        supabase.from('books').select('id, author_id, total_likes, genre, status').in('author_id', authorIds).in('status', ['published', 'ongoing', 'completed']),
+      const [allBooksRes, followersRes, donationsRes] = await Promise.all([
+        supabase.from('books').select('id, author_id, total_likes, total_reads, genre, status').in('author_id', authorIds).in('status', ['published', 'ongoing', 'completed']),
         supabase.from('follows').select('following_id').in('following_id', authorIds),
+        supabase.from('donations').select('author_id, amount').in('author_id', authorIds).gte('amount', 5),
       ])
       const allBooks = allBooksRes.data || []
       const allFollows = followersRes.data || []
+      const allDonations = donationsRes.data || []
+
+      // Bulk: commenti e sblocchi sui libri degli autori
+      const bookIds = allBooks.map((b: any) => b.id)
+      const commentsPerBook = new Map<string, number>()
+      const unlocksPerBook = new Map<string, number>()
+      if (bookIds.length > 0) {
+        const [commentsRes, unlocksRes] = await Promise.all([
+          supabase.from('comments').select('book_id').in('book_id', bookIds),
+          supabase.from('block_unlocks').select('book_id').in('book_id', bookIds),
+        ])
+        for (const c of commentsRes.data || []) {
+          commentsPerBook.set(c.book_id, (commentsPerBook.get(c.book_id) || 0) + 1)
+        }
+        for (const u of unlocksRes.data || []) {
+          unlocksPerBook.set(u.book_id, (unlocksPerBook.get(u.book_id) || 0) + 1)
+        }
+      }
+
       const booksByAuthor = new Map<string, any[]>()
       for (const b of allBooks) { const list = booksByAuthor.get(b.author_id) || []; list.push(b); booksByAuthor.set(b.author_id, list) }
       const followersCount = new Map<string, number>()
       for (const f of allFollows) { followersCount.set(f.following_id, (followersCount.get(f.following_id) || 0) + 1) }
+      const tippedByAuthor = new Map<string, number>()
+      for (const d of allDonations) { tippedByAuthor.set(d.author_id, (tippedByAuthor.get(d.author_id) || 0) + (d.amount || 0)) }
+
       const enriched: AuthorEntry[] = data.map((a: any) => {
         const books = booksByAuthor.get(a.id) || []
-        const totalLikes = books.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0)
+        let totalLikes = 0, totalReads = 0, totalComments = 0, totalUnlocks = 0
         const booksByMacro: Record<string, number> = {}
         const genres = new Set<string>()
         for (const b of books) {
+          totalLikes += b.total_likes || 0
+          totalReads += b.total_reads || 0
+          totalComments += commentsPerBook.get(b.id) || 0
+          totalUnlocks += unlocksPerBook.get(b.id) || 0
           if (b.genre) genres.add(b.genre)
           const macro = getMacroAreaByGenre(b.genre)
           if (macro) booksByMacro[macro.value] = (booksByMacro[macro.value] || 0) + 1
@@ -119,13 +152,46 @@ export default function AuthorsPage() {
         const certifiedIn = meetsGlobal
           ? Object.entries(booksByMacro).filter(([, count]) => count >= CERT_MIN_BOOKS).map(([value]) => value)
           : []
-        return { ...a, prestige_points: prestige, totalBooks: books.length, totalLikes, totalFollowers: followersCount.get(a.id) || 0, genres: Array.from(genres), booksByMacro, certifiedIn }
+        const engagementScore = totalLikes + totalComments + totalReads + totalUnlocks
+        return {
+          ...a,
+          prestige_points: prestige,
+          totalBooks: books.length,
+          totalLikes,
+          totalComments,
+          totalUnlocks,
+          totalReads,
+          totalFollowers: followersCount.get(a.id) || 0,
+          engagementScore,
+          totalTipped: tippedByAuthor.get(a.id) || 0,
+          genres: Array.from(genres),
+          booksByMacro,
+          certifiedIn,
+        }
       })
       setAuthors(enriched)
     } else { setAuthors([]) }
+
+    // Generi letti dall'utente negli ultimi 30 giorni (per "Consigliati per te")
     if (user) {
-      const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', user.id)
-      setFollowedIds(follows?.map((f: any) => f.following_id) || [])
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const [followsRes, recentReadsRes] = await Promise.all([
+        supabase.from('follows').select('following_id').eq('follower_id', user.id),
+        supabase.from('segment_reads')
+          .select('books!inner(genre)')
+          .eq('user_id', user.id)
+          .gte('created_at', thirtyDaysAgo)
+          .limit(500),
+      ])
+      setFollowedIds(followsRes.data?.map((f: any) => f.following_id) || [])
+      const readGenres = new Set<string>()
+      for (const r of (recentReadsRes.data as any[]) || []) {
+        const g = r?.books?.genre
+        if (g) readGenres.add(g)
+      }
+      setUserReadGenres(readGenres)
+    } else {
+      setUserReadGenres(new Set())
     }
     setLoading(false)
   }, [supabase, search, user])
@@ -154,18 +220,45 @@ export default function AuthorsPage() {
     return authors
   }, [authors, viewTab, followedIds, now])
 
+  // "Consigliati per te": autori con libri nei generi più letti dall'utente
+  // negli ultimi 30 giorni. Fallback ai preferred_genres del profilo se l'utente
+  // non ha ancora letto nulla recentemente.
   const recommended = useMemo(() => {
-    const prefs = profile?.preferred_genres || []
-    if (!prefs.length) return []
-    const prefMacros = new Set(prefs.map(g => getMacroAreaByGenre(g)?.value).filter(Boolean))
+    let targetGenres: Set<string>
+    if (userReadGenres.size > 0) {
+      targetGenres = userReadGenres
+    } else {
+      const prefs = profile?.preferred_genres || []
+      if (!prefs.length) return []
+      targetGenres = new Set(prefs)
+    }
+    // Matching esatto sui generi + fallback sulla macro-area
+    const targetMacros = new Set(
+      Array.from(targetGenres).map(g => getMacroAreaByGenre(g)?.value).filter(Boolean) as string[]
+    )
     return [...baseAuthors]
-      .filter(a => a.genres.some(g => { const m = getMacroAreaByGenre(g); return m ? prefMacros.has(m.value) : false }))
-      .sort((a, b) => b.prestige_points - a.prestige_points)
+      .filter(a => {
+        // Escludi l'utente corrente dalla sua stessa lista di consigliati
+        if (user && a.id === user.id) return false
+        const directMatch = a.genres.some(g => targetGenres.has(g))
+        const macroMatch = a.genres.some(g => {
+          const m = getMacroAreaByGenre(g)
+          return m ? targetMacros.has(m.value) : false
+        })
+        return directMatch || macroMatch
+      })
+      .sort((a, b) => b.engagementScore - a.engagementScore)
       .slice(0, 20)
-  }, [baseAuthors, profile?.preferred_genres])
+  }, [baseAuthors, profile?.preferred_genres, userReadGenres, user])
 
+  // "I Più Votati" → ora basato su engagement score (like + commenti + letture + sblocchi)
   const topVotati = useMemo(() =>
-    [...baseAuthors].filter(a => a.prestige_points > 0).sort((a, b) => b.prestige_points - a.prestige_points).slice(0, 20)
+    [...baseAuthors].filter(a => a.engagementScore > 0).sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
+  , [baseAuthors])
+
+  // "I Più Supportati" → autori che hanno ricevuto più mance (≥5 token) e boost
+  const topSupportati = useMemo(() =>
+    [...baseAuthors].filter(a => a.totalTipped > 0).sort((a, b) => b.totalTipped - a.totalTipped).slice(0, 20)
   , [baseAuthors])
 
   const nuovePromesse = useMemo(() =>
@@ -261,11 +354,30 @@ export default function AuthorsPage() {
                   <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-rose-500" /> I Più Votati
                   </h2>
-                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Gli autori con più Punti Prestigio sulla piattaforma</p>
+                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Gli autori con più like, commenti, letture e sblocchi</p>
                 </div>
               </div>
               <HorizontalCarousel>
                 {topVotati.map(a => (
+                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
+                ))}
+              </HorizontalCarousel>
+            </section>
+          )}
+
+          {/* 🎁 I Più Supportati */}
+          {topSupportati.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-amber-500" /> I Più Supportati
+                  </h2>
+                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Autori che hanno ricevuto più mance (≥5 token) e boost dai lettori</p>
+                </div>
+              </div>
+              <HorizontalCarousel>
+                {topSupportati.map(a => (
                   <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
                 ))}
               </HorizontalCarousel>
@@ -292,7 +404,7 @@ export default function AuthorsPage() {
           )}
 
           {/* Fallback se non ci sono sezioni */}
-          {recommended.length === 0 && topVotati.length === 0 && nuovePromesse.length === 0 && (
+          {recommended.length === 0 && topVotati.length === 0 && topSupportati.length === 0 && nuovePromesse.length === 0 && (
             <div className="text-center py-20">
               <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
               <p className="text-bark-500 dark:text-sage-400 text-lg">Nessun autore trovato</p>
@@ -419,15 +531,18 @@ function AuthorCard({
         {author.username && (
           <p className="text-[9px] text-white/60 text-center truncate mt-0.5">@{author.username}</p>
         )}
-        <div className="flex items-center justify-center gap-2.5 mt-1.5 text-[9px] text-white/70">
-          <span className="flex items-center gap-0.5" title="Libri">
+        <div className="flex items-center justify-center gap-2 mt-1.5 text-[9px] text-white/70">
+          <span className="flex items-center gap-0.5" title="Libri pubblicati">
             <BookOpen className="w-2.5 h-2.5" /> {author.totalBooks}
           </span>
-          <span className="flex items-center gap-0.5" title="Follower">
-            <Users className="w-2.5 h-2.5" /> {author.totalFollowers}
+          <span className="flex items-center gap-0.5 text-rose-300" title="Like totali">
+            <Heart className="w-2.5 h-2.5" /> {author.totalLikes}
+          </span>
+          <span className="flex items-center gap-0.5 text-sky-300" title="Commenti totali">
+            <MessageCircle className="w-2.5 h-2.5" /> {author.totalComments}
           </span>
           {author.prestige_points > 0 && (
-            <span className="flex items-center gap-0.5 text-amber-300" title="Prestigio">
+            <span className="flex items-center gap-0.5 text-amber-300" title="Punti Prestigio">
               <Award className="w-2.5 h-2.5" /> {author.prestige_points}
             </span>
           )}
