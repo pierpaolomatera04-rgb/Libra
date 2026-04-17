@@ -1,505 +1,459 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { Search, BookOpen, Users, Heart, X, Filter, Sparkles, Clock, Timer, Pencil } from 'lucide-react'
+import {
+  Search, BookOpen, Users, X, Pencil, Award,
+  ChevronLeft, ChevronRight, Sparkles, TrendingUp, Star,
+} from 'lucide-react'
 import { toast } from 'sonner'
+import { MACRO_AREAS, getMacroAreaByGenre, type MacroArea } from '@/lib/genres'
 
-const GENRES = [
-  'Fantasy', 'Romanzo', 'Thriller', 'Horror', 'Sci-Fi',
-  'Avventura', 'Giallo', 'Storico', 'Poesia', 'Biografia', 'Altro'
-]
+const CERT_MIN_BOOKS = 3
+const CERT_MIN_PRESTIGE = 100
+const CERT_MIN_LIKES = 50
+const TOP_PRESTIGE_THRESHOLD = 50
+const NEW_AUTHOR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
-type SortOption = 'newest' | 'oldest' | 'popular' | 'most_books'
-type ViewTab = 'scopri' | 'seguiti'
+type ViewTab = 'scopri' | 'seguiti' | 'nuovi'
+
+interface AuthorEntry {
+  id: string
+  name: string | null
+  username: string | null
+  author_pseudonym: string | null
+  avatar_url: string | null
+  author_banner_url: string | null
+  created_at: string
+  prestige_points: number
+  totalBooks: number
+  totalLikes: number
+  totalFollowers: number
+  genres: string[]
+  booksByMacro: Record<string, number>
+  certifiedIn: string[]
+}
+
+/* Carosello orizzontale (stesso pattern della pagina Sfoglia) */
+function HorizontalCarousel({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canLeft, setCanLeft] = useState(false)
+  const [canRight, setCanRight] = useState(false)
+  const check = () => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 0)
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }
+  useEffect(() => {
+    check()
+    const el = scrollRef.current
+    if (el) el.addEventListener('scroll', check)
+    return () => el?.removeEventListener('scroll', check)
+  }, [children])
+  const scroll = (dir: 'left' | 'right') => {
+    scrollRef.current?.scrollBy({ left: dir === 'left' ? -300 : 300, behavior: 'smooth' })
+  }
+  return (
+    <div className="relative group/carousel">
+      {canLeft && (
+        <button onClick={() => scroll('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 bg-white/90 dark:bg-[#1e221c]/90 backdrop-blur border border-sage-200 dark:border-sage-700 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity">
+          <ChevronLeft className="w-5 h-5 text-sage-700 dark:text-sage-300" />
+        </button>
+      )}
+      <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        {children}
+      </div>
+      {canRight && (
+        <button onClick={() => scroll('right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 bg-white/90 dark:bg-[#1e221c]/90 backdrop-blur border border-sage-200 dark:border-sage-700 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity">
+          <ChevronRight className="w-5 h-5 text-sage-700 dark:text-sage-300" />
+        </button>
+      )}
+    </div>
+  )
+}
 
 export default function AuthorsPage() {
-  const [authors, setAuthors] = useState<any[]>([])
+  const [authors, setAuthors] = useState<AuthorEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [followedIds, setFollowedIds] = useState<string[]>([])
-  const [sort, setSort] = useState<SortOption>('newest')
-  const [genreFilter, setGenreFilter] = useState<string | null>(null)
-  const [bookLengthFilter, setBookLengthFilter] = useState<string | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
   const [viewTab, setViewTab] = useState<ViewTab>('scopri')
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const supabase = createClient()
-
-  const hasActiveFilters = genreFilter !== null || bookLengthFilter !== null
 
   const fetchAuthors = useCallback(async () => {
     setLoading(true)
-
     let query = supabase
       .from('profiles')
-      .select('id, name, author_pseudonym, author_bio, avatar_url, author_banner_url, created_at')
+      .select('id, name, username, author_pseudonym, author_bio, avatar_url, author_banner_url, created_at, prestige_points')
       .eq('is_author', true)
-
-    if (search) {
-      query = query.or(`author_pseudonym.ilike.%${search}%,name.ilike.%${search}%`)
-    }
-
+    if (search) query = query.or(`author_pseudonym.ilike.%${search}%,name.ilike.%${search}%`)
     const { data } = await query
-
-    if (data) {
-      const authorsWithStats = await Promise.all(
-        data.map(async (author: any) => {
-          const [booksRes, followersRes] = await Promise.all([
-            supabase
-              .from('books')
-              .select('id, total_likes, genre, total_blocks, status')
-              .eq('author_id', author.id)
-              .in('status', ['published', 'ongoing', 'completed']),
-            supabase
-              .from('follows')
-              .select('id', { count: 'exact', head: true })
-              .eq('following_id', author.id),
-          ])
-
-          const books = booksRes.data || []
-          return {
-            ...author,
-            totalBooks: books.length,
-            totalLikes: books.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0),
-            totalFollowers: followersRes.count || 0,
-            genres: Array.from(new Set(books.map((b: any) => b.genre).filter(Boolean))),
-            avgBlocks: books.length > 0
-              ? Math.round(books.reduce((sum: number, b: any) => sum + (b.total_blocks || 0), 0) / books.length)
-              : 0,
-            hasOngoing: books.some((b: any) => b.status === 'ongoing' || b.status === 'published'),
-          }
-        })
-      )
-
-      setAuthors(authorsWithStats)
-    }
-
+    if (data && data.length > 0) {
+      const authorIds = data.map((a: any) => a.id)
+      const [allBooksRes, followersRes] = await Promise.all([
+        supabase.from('books').select('id, author_id, total_likes, genre, status').in('author_id', authorIds).in('status', ['published', 'ongoing', 'completed']),
+        supabase.from('follows').select('following_id').in('following_id', authorIds),
+      ])
+      const allBooks = allBooksRes.data || []
+      const allFollows = followersRes.data || []
+      const booksByAuthor = new Map<string, any[]>()
+      for (const b of allBooks) { const list = booksByAuthor.get(b.author_id) || []; list.push(b); booksByAuthor.set(b.author_id, list) }
+      const followersCount = new Map<string, number>()
+      for (const f of allFollows) { followersCount.set(f.following_id, (followersCount.get(f.following_id) || 0) + 1) }
+      const enriched: AuthorEntry[] = data.map((a: any) => {
+        const books = booksByAuthor.get(a.id) || []
+        const totalLikes = books.reduce((sum: number, b: any) => sum + (b.total_likes || 0), 0)
+        const booksByMacro: Record<string, number> = {}
+        const genres = new Set<string>()
+        for (const b of books) {
+          if (b.genre) genres.add(b.genre)
+          const macro = getMacroAreaByGenre(b.genre)
+          if (macro) booksByMacro[macro.value] = (booksByMacro[macro.value] || 0) + 1
+        }
+        const prestige = a.prestige_points || 0
+        const meetsGlobal = prestige >= CERT_MIN_PRESTIGE && totalLikes >= CERT_MIN_LIKES
+        const certifiedIn = meetsGlobal
+          ? Object.entries(booksByMacro).filter(([, count]) => count >= CERT_MIN_BOOKS).map(([value]) => value)
+          : []
+        return { ...a, prestige_points: prestige, totalBooks: books.length, totalLikes, totalFollowers: followersCount.get(a.id) || 0, genres: Array.from(genres), booksByMacro, certifiedIn }
+      })
+      setAuthors(enriched)
+    } else { setAuthors([]) }
     if (user) {
-      const { data: follows } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', user.id)
-
+      const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', user.id)
       setFollowedIds(follows?.map((f: any) => f.following_id) || [])
     }
-
     setLoading(false)
   }, [supabase, search, user])
 
-  useEffect(() => {
-    fetchAuthors()
-  }, [fetchAuthors])
-
-  useEffect(() => {
-    const timer = setTimeout(() => fetchAuthors(), 300)
-    return () => clearTimeout(timer)
-  }, [search, fetchAuthors])
-
-  // Filtra e ordina lato client
-  const filteredAuthors = useMemo(() => {
-    let result = [...authors]
-
-    // Filtro tab Seguiti
-    if (viewTab === 'seguiti') {
-      result = result.filter(a => followedIds.includes(a.id))
-    }
-
-    // Filtro genere
-    if (genreFilter) {
-      result = result.filter(a => a.genres.includes(genreFilter))
-    }
-
-    // Filtro lunghezza libri
-    if (bookLengthFilter === 'short') {
-      result = result.filter(a => a.avgBlocks > 0 && a.avgBlocks < 10)
-    } else if (bookLengthFilter === 'medium') {
-      result = result.filter(a => a.avgBlocks >= 10 && a.avgBlocks <= 25)
-    } else if (bookLengthFilter === 'long') {
-      result = result.filter(a => a.avgBlocks > 25)
-    }
-
-    // Ordinamento
-    switch (sort) {
-      case 'newest':
-        result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        break
-      case 'oldest':
-        result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        break
-      case 'popular':
-        result.sort((a, b) => (b.totalFollowers + b.totalLikes) - (a.totalFollowers + a.totalLikes))
-        break
-      case 'most_books':
-        result.sort((a, b) => b.totalBooks - a.totalBooks)
-        break
-    }
-
-    return result
-  }, [authors, sort, genreFilter, bookLengthFilter, viewTab, followedIds])
+  useEffect(() => { fetchAuthors() }, [fetchAuthors])
+  useEffect(() => { const t = setTimeout(() => fetchAuthors(), 300); return () => clearTimeout(t) }, [search, fetchAuthors])
 
   const toggleFollow = async (authorId: string) => {
-    if (!user) {
-      toast.error('Accedi per seguire un autore')
-      return
-    }
-
+    if (!user) { toast.error('Accedi per seguire un autore'); return }
     if (followedIds.includes(authorId)) {
       await supabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', authorId)
       setFollowedIds(prev => prev.filter(id => id !== authorId))
       setAuthors(prev => prev.map(a => a.id === authorId ? { ...a, totalFollowers: a.totalFollowers - 1 } : a))
-      toast.success('Non segui più questo autore')
     } else {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: authorId })
       setFollowedIds(prev => [...prev, authorId])
       setAuthors(prev => prev.map(a => a.id === authorId ? { ...a, totalFollowers: a.totalFollowers + 1 } : a))
-      toast.success('Ora segui questo autore!')
     }
   }
 
-  const clearAllFilters = () => {
-    setGenreFilter(null)
-    setBookLengthFilter(null)
-  }
+  const now = useMemo(() => Date.now(), [])
+
+  const baseAuthors = useMemo(() => {
+    if (viewTab === 'seguiti') return authors.filter(a => followedIds.includes(a.id))
+    if (viewTab === 'nuovi') return authors.filter(a => now - new Date(a.created_at).getTime() <= NEW_AUTHOR_WINDOW_MS)
+    return authors
+  }, [authors, viewTab, followedIds, now])
+
+  const recommended = useMemo(() => {
+    const prefs = profile?.preferred_genres || []
+    if (!prefs.length) return []
+    const prefMacros = new Set(prefs.map(g => getMacroAreaByGenre(g)?.value).filter(Boolean))
+    return [...baseAuthors]
+      .filter(a => a.genres.some(g => { const m = getMacroAreaByGenre(g); return m ? prefMacros.has(m.value) : false }))
+      .sort((a, b) => b.prestige_points - a.prestige_points)
+      .slice(0, 20)
+  }, [baseAuthors, profile?.preferred_genres])
+
+  const topVotati = useMemo(() =>
+    [...baseAuthors].filter(a => a.prestige_points > 0).sort((a, b) => b.prestige_points - a.prestige_points).slice(0, 20)
+  , [baseAuthors])
+
+  const nuovePromesse = useMemo(() =>
+    baseAuthors.filter(a => now - new Date(a.created_at).getTime() <= NEW_AUTHOR_WINDOW_MS && a.totalBooks >= 1)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 20)
+  , [baseAuthors, now])
+
+  const isDiscoveryMode = viewTab === 'scopri' && !search
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-sage-900">Autori</h1>
-          <p className="text-sm text-bark-400 mt-1">Scopri chi scrive le storie che ami</p>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300" />
+      {/* ── Sticky filter bar ── */}
+      <div
+        className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 pb-2.5 border-b border-sage-100/50 dark:border-sage-800/40"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--background) 88%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+      >
+        {/* Search */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300 dark:text-sage-500" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cerca autore..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm bg-white"
+              className="w-full pl-9 pr-9 py-2 rounded-lg border border-sage-200 dark:border-sage-700 focus:border-sage-400 dark:focus:border-sage-500 focus:ring-2 focus:ring-sage-200 dark:focus:ring-sage-700 outline-none transition-all text-sm bg-white dark:bg-[#252525] dark:text-gray-200"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="w-4 h-4 text-bark-300 hover:text-bark-500" />
+                <X className="w-4 h-4 text-bark-300 hover:text-bark-500 dark:text-sage-500 dark:hover:text-sage-300" />
               </button>
             )}
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`p-2.5 rounded-xl border transition-colors ${
-              showFilters || hasActiveFilters ? 'bg-sage-500 text-white border-sage-500' : 'border-sage-200 text-bark-500 hover:bg-sage-50'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-          </button>
+        </div>
+        {/* Tabs */}
+        <div className="flex items-center gap-1" style={{ scrollbarWidth: 'none' }}>
+          {([
+            { key: 'scopri' as ViewTab, label: '✨ Scopri' },
+            { key: 'seguiti' as ViewTab, label: `Seguiti${followedIds.length > 0 ? ` (${followedIds.length})` : ''}` },
+            { key: 'nuovi' as ViewTab, label: '🌱 Nuovi' },
+          ]).map(({ key, label }) => (
+            <button key={key} onClick={() => setViewTab(key)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${viewTab === key ? 'bg-sage-600 text-white' : 'text-bark-500 dark:text-[#b0b0b0] hover:bg-sage-100 dark:hover:bg-[#2e2e2e]'}`}
+            >{label}</button>
+          ))}
         </div>
       </div>
 
-      {/* Filtri unificati — riga singola scrollabile */}
-      <div
-        className="flex items-center gap-1.5 mb-6 overflow-x-auto pb-1"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-      >
-        {/* View tabs */}
-        {([
-          { key: 'scopri' as ViewTab, label: 'Scopri' },
-          { key: 'seguiti' as ViewTab, label: `Seguiti${followedIds.length > 0 ? ` (${followedIds.length})` : ''}` },
-        ] as const).map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setViewTab(key)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
-              viewTab === key
-                ? 'bg-sage-600 text-white'
-                : 'text-bark-500 dark:text-[#b0b0b0] hover:bg-sage-100 dark:hover:bg-[#2e2e2e]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-
-        {/* Separatore */}
-        <div className="w-px h-5 bg-sage-200 dark:bg-sage-700 mx-0.5 flex-shrink-0" />
-
-        {/* Sort tabs */}
-        {[
-          { key: 'newest' as SortOption, label: 'Nuovi' },
-          { key: 'popular' as SortOption, label: 'Più seguiti' },
-          { key: 'most_books' as SortOption, label: 'Più libri' },
-          { key: 'oldest' as SortOption, label: 'Meno recenti' },
-        ].map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setSort(key)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-              sort === key
-                ? 'bg-sage-500 text-white'
-                : 'text-bark-400 dark:text-[#aaaaaa] hover:bg-sage-50 dark:hover:bg-[#282828]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Filters panel */}
-      {showFilters && (
-        <div className="mb-6 p-5 bg-white rounded-xl border border-sage-100 animate-fade-in space-y-5">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-sage-800">Filtri</p>
-            {hasActiveFilters && (
-              <button
-                onClick={clearAllFilters}
-                className="text-xs text-red-400 hover:text-red-500 font-medium"
-              >
-                Rimuovi tutti
-              </button>
-            )}
-          </div>
-
-          {/* Genere libri */}
-          <div>
-            <p className="text-xs font-medium text-bark-400 mb-2">GENERE DEI LIBRI</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setGenreFilter(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  !genreFilter ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
-                }`}
-              >
-                Tutti
-              </button>
-              {GENRES.map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGenreFilter(genreFilter === g ? null : g)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    genreFilter === g ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
-                  }`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Lunghezza libri */}
-          <div>
-            <p className="text-xs font-medium text-bark-400 mb-2">LUNGHEZZA MEDIA DEI LIBRI</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setBookLengthFilter(null)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  !bookLengthFilter ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
-                }`}
-              >
-                Qualsiasi
-              </button>
-              {[
-                { key: 'short', label: 'Veloci (< 10 blocchi)' },
-                { key: 'medium', label: 'Medi (10-25 blocchi)' },
-                { key: 'long', label: 'Lunghi (25+ blocchi)' },
-              ].map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setBookLengthFilter(bookLengthFilter === key ? null : key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    bookLengthFilter === key ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
-                  }`}
-                >
-                  <Timer className="w-3 h-3" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Authors grid */}
+      {/* ── Loading skeleton ── */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="rounded-2xl overflow-hidden animate-pulse" style={{ border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <div className="h-24 bg-sage-100" />
-              <div className="px-5 pb-5 pt-8">
-                <div className="h-4 bg-sage-100 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-sage-50 rounded w-1/2 mb-3" />
-                <div className="h-10 bg-sage-50 rounded" />
+        <div className="mt-5 space-y-6">
+          {[1, 2, 3].map(i => (
+            <div key={i}>
+              <div className="h-5 w-48 bg-sage-100 dark:bg-sage-800 rounded mb-3 animate-pulse" />
+              <div className="flex gap-3 overflow-hidden">
+                {[1, 2, 3, 4, 5].map(j => (
+                  <div key={j} className="flex-shrink-0 bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" style={{ width: '140px', aspectRatio: '2/3' }} />
+                ))}
               </div>
             </div>
           ))}
         </div>
-      ) : filteredAuthors.length === 0 ? (
-        <div className="text-center py-20">
-          <Users className="w-16 h-16 text-sage-200 mx-auto mb-4" />
-          <p className="text-bark-500 text-lg">
-            {viewTab === 'seguiti'
-              ? 'Non segui ancora nessun autore'
-              : search || hasActiveFilters ? 'Nessun autore trovato' : 'Nessun autore ancora'}
-          </p>
-          <p className="text-bark-400 text-sm mt-1">
-            {viewTab === 'seguiti'
-              ? 'Esplora la sezione &quot;Scopri&quot; e inizia a seguire gli autori che ti piacciono!'
-              : search || hasActiveFilters ? 'Prova a modificare i filtri' : 'I primi autori stanno arrivando!'}
-          </p>
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="mt-4 text-sm text-sage-600 font-medium hover:text-sage-700"
-            >
-              Rimuovi tutti i filtri
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredAuthors.map((author) => {
-            const isFollowing = followedIds.includes(author.id)
-            const displayName = author.author_pseudonym || author.name
-            const initial = (displayName || '?').charAt(0).toUpperCase()
 
-            return (
-              <div
-                key={author.id}
-                className="bg-white dark:bg-[#1e221c] rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1"
-                style={{
-                  minHeight: '380px',
-                  border: '1px solid rgba(0,0,0,0.06)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
-              >
-                {/* Banner */}
-                <Link href={`/autore/${author.id}`} className="block flex-shrink-0">
-                  <div className="relative h-24 sm:h-28 overflow-hidden">
-                    {author.author_banner_url ? (
-                      <img
-                        src={author.author_banner_url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #4A6F62 0%, #7a9e6e 40%, #D8E3D8 100%)' }} />
-                    )}
-                  </div>
-                </Link>
+      ) : isDiscoveryMode ? (
+        /* ── Discovery mode: 3 sezioni a carosello ── */
+        <div className="mt-5 space-y-8">
 
-                {/* Avatar + Content */}
-                <div className="px-5 pb-5 flex flex-col flex-1">
-                  {/* Avatar */}
-                  <Link href={`/autore/${author.id}`} className="-mt-9 block w-[4.5rem] h-[4.5rem] relative mb-3 flex-shrink-0">
-                    <div className="w-full h-full rounded-full border-[3px] border-white dark:border-[#1e221c] overflow-hidden bg-sage-200 dark:bg-sage-700 flex items-center justify-center shadow-md">
-                      {author.avatar_url ? (
-                        <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-2xl font-bold text-sage-600 dark:text-sage-300">
-                          {initial}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-
-                  {/* Name + Follow/Modifica button */}
-                  <div className="flex items-start justify-between gap-2 mb-2 flex-shrink-0">
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/autore/${author.id}`}>
-                        <h3 className="font-bold text-sage-900 dark:text-sage-100 truncate text-base hover:text-sage-600 dark:hover:text-sage-300 transition-colors">
-                          {displayName}
-                        </h3>
-                      </Link>
-                      {author.author_pseudonym && author.name && author.author_pseudonym !== author.name && (
-                        <p className="text-xs text-bark-500 dark:text-[#aaaaaa] truncate">@{author.name}</p>
-                      )}
-                    </div>
-
-                    {user && user.id === author.id && (
-                      <Link
-                        href="/dashboard/profilo-autore"
-                        className="flex-shrink-0 flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-200 dark:border-sage-700 transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" />
-                        Modifica
-                      </Link>
-                    )}
-
-                    {user && user.id !== author.id && (
-                      <button
-                        onClick={() => toggleFollow(author.id)}
-                        className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                          isFollowing
-                            ? 'bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-300 hover:bg-sage-200 dark:hover:bg-sage-700'
-                            : 'bg-sage-500 text-white hover:bg-sage-600'
-                        }`}
-                      >
-                        {isFollowing ? 'Seguito' : 'Segui'}
-                      </button>
-                    )}
-
-                    {!user && (
-                      <Link
-                        href={`/autore/${author.id}`}
-                        className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sage-50 dark:bg-sage-800 text-sage-700 dark:text-sage-300 hover:bg-sage-100 dark:hover:bg-sage-700 transition-colors"
-                      >
-                        Profilo
-                      </Link>
-                    )}
-                  </div>
-
-                  {/* Bio — altezza fissa */}
-                  <div className="flex-shrink-0" style={{ minHeight: '3rem' }}>
-                    {author.author_bio && (
-                      <p className="text-xs text-bark-500 dark:text-[#aaaaaa] line-clamp-3 leading-relaxed">
-                        {author.author_bio}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Generi — spazio flessibile che spinge stats in basso */}
-                  <div className="flex-1 mt-2">
-                    {author.genres.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {author.genres.slice(0, 3).map((g: string) => (
-                          <span key={g} className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-600 dark:text-sage-300 rounded-full">
-                            {g}
-                          </span>
-                        ))}
-                        {author.genres.length > 3 && (
-                          <span className="text-[10px] px-2 py-0.5 bg-sage-50 dark:bg-sage-800 text-sage-500 dark:text-sage-400 rounded-full">
-                            +{author.genres.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Stats — ancorati in basso */}
-                  <div className="flex items-center gap-4 text-xs pt-3 mt-auto border-t border-sage-50 dark:border-sage-800">
-                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#aaaaaa]">
-                      <BookOpen className="w-4 h-4" />
-                      {author.totalBooks} {author.totalBooks === 1 ? 'libro' : 'libri'}
-                    </span>
-                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#aaaaaa]">
-                      <Heart className="w-4 h-4" />
-                      {author.totalLikes}
-                    </span>
-                    <span className="flex items-center gap-1 text-[#4A6F62] dark:text-[#aaaaaa]">
-                      <Users className="w-4 h-4" />
-                      {author.totalFollowers}
-                    </span>
-                  </div>
+          {/* ✨ Consigliati per te */}
+          {recommended.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500" /> Consigliati per te
+                  </h2>
+                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">In base ai tuoi generi preferiti</p>
                 </div>
               </div>
-            )
-          })}
+              <HorizontalCarousel>
+                {recommended.map(a => (
+                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
+                ))}
+              </HorizontalCarousel>
+            </section>
+          )}
+
+          {/* 🏆 I Più Votati */}
+          {topVotati.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-rose-500" /> I Più Votati
+                  </h2>
+                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Gli autori con più Punti Prestigio sulla piattaforma</p>
+                </div>
+              </div>
+              <HorizontalCarousel>
+                {topVotati.map(a => (
+                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
+                ))}
+              </HorizontalCarousel>
+            </section>
+          )}
+
+          {/* 🌟 Nuove Promesse */}
+          {nuovePromesse.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
+                    <Star className="w-4 h-4 text-emerald-500" /> Nuove Promesse
+                  </h2>
+                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Iscritti negli ultimi 30 giorni con almeno un libro pubblicato</p>
+                </div>
+              </div>
+              <HorizontalCarousel>
+                {nuovePromesse.map(a => (
+                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
+                ))}
+              </HorizontalCarousel>
+            </section>
+          )}
+
+          {/* Fallback se non ci sono sezioni */}
+          {recommended.length === 0 && topVotati.length === 0 && nuovePromesse.length === 0 && (
+            <div className="text-center py-20">
+              <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
+              <p className="text-bark-500 dark:text-sage-400 text-lg">Nessun autore trovato</p>
+            </div>
+          )}
+        </div>
+
+      ) : (
+        /* ── Grid mode: ricerca attiva o tab Seguiti/Nuovi ── */
+        <div className="mt-6">
+          {baseAuthors.length === 0 ? (
+            <div className="text-center py-20">
+              <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
+              <p className="text-bark-500 dark:text-sage-400 text-lg">
+                {viewTab === 'seguiti' ? 'Non segui ancora nessun autore' : 'Nessun autore trovato'}
+              </p>
+              <p className="text-bark-400 dark:text-sage-500 text-sm mt-1">
+                {viewTab === 'seguiti'
+                  ? 'Vai su "Scopri" e inizia a seguire gli autori che ti piacciono!'
+                  : 'Prova a modificare la ricerca'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
+              {[...baseAuthors]
+                .sort((a, b) => b.prestige_points - a.prestige_points)
+                .map(a => (
+                  <AuthorCard key={a.id} author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} />
+                ))}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ============================================
+// COMPONENT: AuthorCard
+// ============================================
+// ============================================
+// COMPONENT: AuthorCard - formato 2:3, full-bleed con overlay
+// ============================================
+function AuthorCard({
+  author, highlightedMacro, user, isFollowing, onToggleFollow,
+}: {
+  author: AuthorEntry
+  highlightedMacro?: MacroArea
+  user: any
+  isFollowing: boolean
+  onToggleFollow: (id: string) => void
+}) {
+  const displayName = author.author_pseudonym || author.name
+  const initial = (displayName || '?').charAt(0).toUpperCase()
+  const profileHref = `/profile/${author.username || author.id}`
+
+  const certMacroValue = highlightedMacro && author.certifiedIn.includes(highlightedMacro.value)
+    ? highlightedMacro.value
+    : author.certifiedIn[0]
+  const certMacro = certMacroValue
+    ? MACRO_AREAS.find(m => m.value === certMacroValue)
+    : undefined
+  const isCertified = !!certMacro
+  const isTopAuthor = author.prestige_points >= TOP_PRESTIGE_THRESHOLD
+  const goldGlow = isTopAuthor
+    ? 'shadow-[0_14px_36px_rgba(251,191,36,0.38)]' : ''
+
+  return (
+    <div
+      className={`group snap-start flex-shrink-0 relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-[5px] ${goldGlow}`}
+      style={{ width: '140px', aspectRatio: '2/3' }}
+    >
+      {/* Background: banner o gradiente */}
+      <Link href={profileHref} className="absolute inset-0 block">
+        {author.author_banner_url ? (
+          <img src={author.author_banner_url} alt="" className="w-full h-full object-cover" />
+        ) : author.avatar_url ? (
+          <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div
+            className="w-full h-full"
+            style={{ background: 'linear-gradient(160deg, #4A6F62 0%, #7a9e6e 45%, #D8E3D8 100%)' }}
+          />
+        )}
+        {/* Dark overlay dal basso */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+      </Link>
+
+      {/* Badges angolo in alto a destra */}
+      <div className="absolute top-2 right-2 flex flex-col items-end gap-1 z-10">
+        {isCertified && certMacro && (
+          <span
+            title={`Autore Certificato in ${certMacro.label}`}
+            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-[0_0_8px_rgba(251,191,36,0.6)]"
+          >
+            <Award className="w-3.5 h-3.5 text-amber-900" strokeWidth={2.5} />
+          </span>
+        )}
+        {!isCertified && isTopAuthor && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-400/90 text-amber-900 text-[9px] font-black tracking-wide uppercase">
+            TOP
+          </span>
+        )}
+      </div>
+
+      {/* Avatar centrato */}
+      <Link href={profileHref} className="absolute left-1/2 -translate-x-1/2 top-[18%] z-10 block">
+        <div className="w-16 h-16 rounded-full border-[3px] border-white/80 overflow-hidden bg-sage-200 dark:bg-sage-700 flex items-center justify-center shadow-lg">
+          {author.avatar_url ? (
+            <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-xl font-bold text-sage-600">{initial}</span>
+          )}
+        </div>
+      </Link>
+
+      {/* Info overlay in basso */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-2.5 pb-2.5 pt-6">
+        <Link href={profileHref}>
+          <h3 className="font-bold text-white text-xs text-center truncate leading-tight group-hover:text-amber-200 transition-colors">
+            {displayName}
+          </h3>
+        </Link>
+        {author.username && (
+          <p className="text-[9px] text-white/60 text-center truncate mt-0.5">@{author.username}</p>
+        )}
+        <div className="flex items-center justify-center gap-2.5 mt-1.5 text-[9px] text-white/70">
+          <span className="flex items-center gap-0.5" title="Libri">
+            <BookOpen className="w-2.5 h-2.5" /> {author.totalBooks}
+          </span>
+          <span className="flex items-center gap-0.5" title="Follower">
+            <Users className="w-2.5 h-2.5" /> {author.totalFollowers}
+          </span>
+          {author.prestige_points > 0 && (
+            <span className="flex items-center gap-0.5 text-amber-300" title="Prestigio">
+              <Award className="w-2.5 h-2.5" /> {author.prestige_points}
+            </span>
+          )}
+        </div>
+        <div className="mt-2">
+          {user && user.id === author.id ? (
+            <Link
+              href="/dashboard/profilo-autore"
+              className="flex items-center justify-center gap-1 w-full px-2 py-1 rounded-full text-[10px] font-semibold text-white/80 hover:text-white border border-white/30 hover:border-white/60 transition-colors bg-white/10"
+            >
+              <Pencil className="w-2.5 h-2.5" /> Modifica
+            </Link>
+          ) : user ? (
+            <button
+              onClick={(e) => { e.preventDefault(); onToggleFollow(author.id) }}
+              className={`w-full px-2 py-1 rounded-full text-[10px] font-semibold transition-colors ${isFollowing ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-white text-sage-800 hover:bg-amber-100'}`}
+            >
+              {isFollowing ? 'Seguito' : 'Segui'}
+            </button>
+          ) : (
+            <Link href={profileHref} className="block text-center w-full px-2 py-1 rounded-full text-[10px] font-semibold bg-white/20 text-white hover:bg-white/30 transition-colors">
+              Vedi profilo
+            </Link>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
