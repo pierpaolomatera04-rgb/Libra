@@ -9,9 +9,12 @@ import { toast } from 'sonner'
 import { createNotification } from '@/lib/notifications'
 import {
   BookOpen, Heart, Clock, Layers, ArrowLeft, Play,
-  Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark
+  Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark,
+  Lock, LockOpen, Zap, Sparkles
 } from 'lucide-react'
 import { getGenreTagColor } from '@/lib/genres'
+import { awardXp } from '@/lib/xp'
+import { XP_VALUES } from '@/lib/badges'
 
 export default function BookDetailPage() {
   const params = useParams()
@@ -23,16 +26,22 @@ export default function BookDetailPage() {
   const [book, setBook] = useState<any>(null)
   const [blocks, setBlocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  // Flag specifico per bozza non accessibile (gli utenti non-autore ricevono 404)
+  const [notPublished, setNotPublished] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [saved, setSaved] = useState(false)
   const [readBlocks, setReadBlocks] = useState<Set<string>>(new Set())
+  const [unlockedBlocks, setUnlockedBlocks] = useState<Set<string>>(new Set())
+  const [boosting, setBoosting] = useState(false)
+  const [canBoost, setCanBoost] = useState(true)
+  const [hoursUntilBoost, setHoursUntilBoost] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchBook = async () => {
       const { data: bookData } = await supabase
         .from('books')
-        .select('*, author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url, author_bio)')
+        .select('*, author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url, author_bio)')
         .eq('id', bookId)
         .single()
 
@@ -40,13 +49,22 @@ export default function BookDetailPage() {
         router.push('/browse')
         return
       }
+
+      // ── Draft protection: se il libro è in bozza, l'accesso è consentito
+      //    SOLO all'autore stesso. Altrimenti mostriamo un 404 grafico.
+      if (bookData.status === 'draft' && bookData.author_id !== user?.id) {
+        setNotPublished(true)
+        setLoading(false)
+        return
+      }
+
       setBook(bookData)
       setLikeCount(bookData.total_likes || 0)
 
       // Fetch blocks metadata
       const { data: blocksData } = await supabase
         .from('blocks')
-        .select('id, block_number, title, character_count, word_count, is_released, scheduled_date')
+        .select('id, block_number, title, character_count, word_count, is_released, scheduled_date, is_extra, token_price')
         .eq('book_id', bookId)
         .order('block_number')
 
@@ -80,6 +98,37 @@ export default function BookDetailPage() {
         if (progressData) {
           setReadBlocks(new Set(progressData.map((p: any) => p.block_id)))
         }
+
+        // Fetch block unlocks (blocchi gia acquistati / sbloccati)
+        const { data: unlocksData } = await supabase
+          .from('block_unlocks')
+          .select('block_id')
+          .eq('user_id', user.id)
+          .eq('book_id', bookId)
+        if (unlocksData) {
+          setUnlockedBlocks(new Set(unlocksData.map((u: any) => u.block_id)))
+        }
+
+        // Verifica se l'utente ha gia boostato negli ultimi 24h
+        const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        const { data: recentBoost } = await supabase
+          .from('book_boosts')
+          .select('created_at')
+          .eq('user_id', user.id)
+          .eq('book_id', bookId)
+          .gte('created_at', since24h)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (recentBoost) {
+          setCanBoost(false)
+          const elapsedMs = Date.now() - new Date(recentBoost.created_at).getTime()
+          const remainingHours = Math.ceil((24 * 60 * 60 * 1000 - elapsedMs) / (60 * 60 * 1000))
+          setHoursUntilBoost(remainingHours)
+        } else {
+          setCanBoost(true)
+          setHoursUntilBoost(null)
+        }
       }
 
       setLoading(false)
@@ -87,6 +136,28 @@ export default function BookDetailPage() {
 
     fetchBook()
   }, [bookId, user])
+
+  // Refetch unlocks/reads quando l'utente torna sulla pagina (es. dopo aver sbloccato un blocco nel reader)
+  useEffect(() => {
+    if (!user) return
+    const refetchProgress = async () => {
+      const [{ data: progressData }, { data: unlocksData }] = await Promise.all([
+        supabase.from('reading_progress').select('block_id').eq('user_id', user.id).eq('book_id', bookId),
+        supabase.from('block_unlocks').select('block_id').eq('user_id', user.id).eq('book_id', bookId),
+      ])
+      if (progressData) setReadBlocks(new Set(progressData.map((p: any) => p.block_id)))
+      if (unlocksData) setUnlockedBlocks(new Set(unlocksData.map((u: any) => u.block_id)))
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refetchProgress()
+    }
+    window.addEventListener('focus', refetchProgress)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('focus', refetchProgress)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [bookId, user, supabase])
 
   const handleLike = async () => {
     if (!user) return router.push('/login')
@@ -114,6 +185,52 @@ export default function BookDetailPage() {
           data: { book_id: bookId, book_title: book.title },
         })
       }
+    }
+  }
+
+  const handleBoost = async () => {
+    if (!user) return router.push('/login')
+    if (!canBoost || boosting) return
+
+    setBoosting(true)
+    try {
+      const { data, error } = await (supabase.rpc as any)('boost_book', {
+        p_user_id: user.id,
+        p_book_id: bookId,
+      })
+      if (error) {
+        toast.error('Errore boost', { description: error.message })
+        return
+      }
+      if (!data?.success) {
+        toast.error('Boost non riuscito', { description: data?.error || 'Errore sconosciuto' })
+        return
+      }
+      toast.success('Boost attivato!', {
+        description: `+${data.visibility_added} visibilita per "${book.title}"`,
+      })
+      setCanBoost(false)
+      setHoursUntilBoost(24)
+      // +10 XP per boost
+      awardXp(supabase, user.id, XP_VALUES.BOOST, 'boost', true)
+      // Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'like',
+          title: 'Boost ricevuto',
+          message: `${actorName} ha boostato "${book.title}" (+10 visibilita)`,
+          data: { book_id: bookId, book_title: book.title },
+        })
+      }
+    } catch (e: any) {
+      toast.error('Errore boost', { description: e?.message || 'Riprova' })
+    } finally {
+      setBoosting(false)
     }
   }
 
@@ -158,12 +275,44 @@ export default function BookDetailPage() {
     )
   }
 
+  // Libro in bozza non ancora pubblicato (visualizzato come 404 elegante)
+  if (notPublished) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-16 text-center">
+        <div className="w-20 h-20 mx-auto mb-6 bg-sage-100 dark:bg-sage-800 rounded-full flex items-center justify-center">
+          <Lock className="w-10 h-10 text-sage-400" />
+        </div>
+        <h1 className="text-2xl font-bold text-sage-900 dark:text-sage-100 mb-3">
+          Questo libro non è ancora stato pubblicato
+        </h1>
+        <p className="text-bark-500 dark:text-sage-400 mb-8">
+          L&apos;autore sta ancora preparando questa opera. Torna presto a sfogliare il catalogo!
+        </p>
+        <Link
+          href="/browse"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Torna al catalogo
+        </Link>
+      </div>
+    )
+  }
+
   if (!book) return null
 
   const authorName = book.author?.author_pseudonym || book.author?.name || 'Autore'
   const totalWords = blocks.reduce((sum: number, b: any) => sum + (b.word_count || 0), 0)
   const readingTimeMin = Math.ceil(totalWords / 200)
-  const releasedBlocks = blocks.filter((b: any) => b.is_released).length
+  const now = new Date()
+  const isBlockAvailable = (b: any) => b.is_released || (b.scheduled_date && new Date(b.scheduled_date) <= now)
+  const releasedBlocks = blocks.filter((b: any) => isBlockAvailable(b)).length
+  const isOpenBook = book.access_level === 'open' || book.tier === 'free'
+  // Un blocco e' "sbloccato" se: e' il primo (gratuito), il libro e' open/free, o l'utente lo ha acquistato
+  const isBlockUnlocked = (b: any) =>
+    (b.block_number === 1 && book.first_block_free !== false) ||
+    isOpenBook ||
+    unlockedBlocks.has(b.id)
 
   const accessLabel = book.access_level === 'gold_exclusive'
     ? 'Solo Gold'
@@ -228,7 +377,7 @@ export default function BookDetailPage() {
 
           {/* Author */}
           <Link
-            href={`/autore/${book.author?.id}`}
+            href={book.author?.username ? `/profile/${book.author.username}` : `/autore/${book.author?.id}`}
             className="flex items-center gap-3 mb-5 group"
           >
             {book.author?.avatar_url ? (
@@ -246,22 +395,22 @@ export default function BookDetailPage() {
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white rounded-xl border border-sage-100 p-3 text-center">
+            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
               <Layers className="w-4 h-4 text-sage-500 mx-auto mb-1" />
               <p className="text-lg font-bold text-sage-800">{book.total_blocks}</p>
               <p className="text-[11px] text-bark-400">Blocchi totali</p>
             </div>
-            <div className="bg-white rounded-xl border border-sage-100 p-3 text-center">
+            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
               <Clock className="w-4 h-4 text-blue-500 mx-auto mb-1" />
               <p className="text-lg font-bold text-sage-800">~{readingTimeMin} min</p>
               <p className="text-[11px] text-bark-400">Tempo lettura</p>
             </div>
-            <div className="bg-white rounded-xl border border-sage-100 p-3 text-center">
+            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
               <Eye className="w-4 h-4 text-purple-500 mx-auto mb-1" />
               <p className="text-lg font-bold text-sage-800">{book.total_reads || 0}</p>
               <p className="text-[11px] text-bark-400">Letture</p>
             </div>
-            <div className="bg-white rounded-xl border border-sage-100 p-3 text-center">
+            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
               <Heart className="w-4 h-4 text-red-500 mx-auto mb-1" />
               <p className="text-lg font-bold text-sage-800">{likeCount}</p>
               <p className="text-[11px] text-bark-400">Like</p>
@@ -300,19 +449,31 @@ export default function BookDetailPage() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-3">
-            <Link
-              href={`/reader/${book.id}/1`}
-              className="flex items-center gap-2 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
-            >
-              <Play className="w-4 h-4" />
-              {book.first_block_free ? 'Inizia a leggere gratis' : 'Inizia a leggere'}
-            </Link>
+            {user ? (
+              <Link
+                href={`/reader/${book.id}/1`}
+                className="flex items-center gap-2 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+              >
+                <Play className="w-4 h-4" />
+                {book.first_block_free ? 'Inizia a leggere gratis' : 'Inizia a leggere'}
+              </Link>
+            ) : (
+              // Guest Block: utente non registrato → invito alla registrazione con
+              // redirect di ritorno al libro. La lettura è riservata agli iscritti.
+              <Link
+                href={`/signup?redirect=${encodeURIComponent(`/reader/${book.id}/1`)}`}
+                className="flex items-center gap-2 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+              >
+                <Play className="w-4 h-4" />
+                Registrati per leggere gratuitamente
+              </Link>
+            )}
             <button
               onClick={handleLike}
               className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors border ${
                 liked
                   ? 'bg-red-50 border-red-200 text-red-600'
-                  : 'bg-white border-sage-200 text-bark-500 hover:bg-sage-50'
+                  : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
               }`}
             >
               <Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
@@ -323,11 +484,30 @@ export default function BookDetailPage() {
               className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors border ${
                 saved
                   ? 'bg-sage-50 border-sage-300 text-sage-700'
-                  : 'bg-white border-sage-200 text-bark-500 hover:bg-sage-50'
+                  : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
               }`}
             >
               <Bookmark className={`w-4 h-4 ${saved ? 'fill-sage-500 text-sage-500' : ''}`} />
               <span className="hidden sm:inline">{saved ? 'Salvato' : 'Salva'}</span>
+            </button>
+            <button
+              onClick={handleBoost}
+              disabled={!canBoost || boosting}
+              title={canBoost ? 'Spendi 10 token per dare visibilita al libro' : `Hai gia boostato. Riprova tra ${hoursUntilBoost ?? 24}h`}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors border whitespace-nowrap shrink-0 ${
+                canBoost && !boosting
+                  ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                  : 'bg-bark-50 border-bark-200 text-bark-400 cursor-not-allowed'
+              }`}
+            >
+              {boosting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Zap className={`w-4 h-4 ${canBoost ? 'fill-amber-300 text-amber-600' : ''}`} />
+              )}
+              <span className="hidden sm:inline whitespace-nowrap">
+                {canBoost ? 'Boost (10 tk)' : `Tra ${hoursUntilBoost ?? 24}h`}
+              </span>
             </button>
           </div>
         </div>
@@ -337,8 +517,8 @@ export default function BookDetailPage() {
       {book.description && (
         <div className="mt-10">
           <h2 className="text-lg font-bold text-sage-900 mb-3">Trama</h2>
-          <div className="bg-white rounded-2xl border border-sage-100 p-6">
-            <p className="text-sm text-bark-600 leading-relaxed whitespace-pre-line">{book.description}</p>
+          <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-6">
+            <p className="text-sm text-bark-600 dark:text-sage-300 leading-relaxed whitespace-pre-line">{book.description}</p>
           </div>
         </div>
       )}
@@ -348,49 +528,96 @@ export default function BookDetailPage() {
         <h2 className="text-lg font-bold text-sage-900 mb-3">
           Blocchi ({releasedBlocks}/{book.total_blocks} pubblicati)
         </h2>
-        <div className="bg-white rounded-2xl border border-sage-100 divide-y divide-sage-50">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 divide-y divide-sage-50 dark:divide-sage-800">
           {blocks.map((block: any) => {
             const wordCount = block.word_count || 0
             const readMin = Math.max(1, Math.ceil(wordCount / 225))
             const isRead = readBlocks.has(block.id)
+            const available = isBlockAvailable(block)
+            const unlocked = isBlockUnlocked(block)
             return (
               <div key={block.id} className={`flex items-center justify-between px-5 py-3.5 ${isRead ? 'bg-sage-50/50' : ''}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
                     isRead
                       ? 'bg-sage-500 text-white'
-                      : block.is_released
+                      : available
                         ? 'bg-sage-100 text-sage-700'
                         : 'bg-bark-100 text-bark-400'
                   }`}>
                     {isRead ? '✓' : block.block_number}
                   </div>
+
+                  {/* Icona stato accesso */}
+                  {available && (
+                    unlocked ? (
+                      <span
+                        title="Blocco sbloccato"
+                        aria-label="Blocco sbloccato"
+                        className="flex-shrink-0 text-emerald-500"
+                      >
+                        <LockOpen className="w-4 h-4" strokeWidth={2.2} />
+                      </span>
+                    ) : (
+                      <span
+                        title="Sblocca questo blocco per continuare la lettura"
+                        aria-label="Sblocca questo blocco per continuare la lettura"
+                        className="flex-shrink-0 text-amber-500 cursor-help"
+                      >
+                        <Lock className="w-4 h-4" strokeWidth={2.2} />
+                      </span>
+                    )
+                  )}
+
                   <div>
-                    <p className={`text-sm font-medium ${block.is_released ? 'text-sage-800' : 'text-bark-400'}`}>
-                      {block.is_released
-                        ? (block.title ? `${block.block_number}. ${block.title}` : `Blocco ${block.block_number}`)
-                        : `Blocco ${block.block_number}`
-                      }
-                    </p>
-                    {block.is_released && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className={`text-sm font-medium ${available ? 'text-sage-800 dark:text-sage-200' : 'text-bark-400'}`}>
+                        {available
+                          ? (block.title ? `${block.block_number}. ${block.title}` : `Blocco ${block.block_number}`)
+                          : `Blocco ${block.block_number}`
+                        }
+                      </p>
+                      {block.is_extra && (
+                        <span
+                          title="Blocco EXTRA — non incluso negli abbonamenti, sblocco solo con token reali"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-sm"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          Extra
+                        </span>
+                      )}
+                    </div>
+                    {available && (
                       <p className="text-xs text-bark-400">
                         ~{readMin} min di lettura
                         {isRead && <span className="ml-2 text-sage-500 font-medium">Letto</span>}
+                        {!isRead && !unlocked && (
+                          <span className="ml-2 text-amber-600 font-medium">
+                            {block.token_price || book.token_price_per_block || 5} token
+                            {block.is_extra && <span className="ml-1 text-[10px]">(reali)</span>}
+                          </span>
+                        )}
                       </p>
                     )}
                   </div>
                 </div>
                 <div>
-                  {block.is_released ? (
+                  {available ? (
                     <Link
-                      href={`/reader/${bookId}/${block.block_number}`}
+                      // Guest Block: se l'utente non è loggato, indirizza al signup con
+                      // redirect di ritorno al blocco corrente.
+                      href={
+                        user
+                          ? `/reader/${bookId}/${block.block_number}`
+                          : `/signup?redirect=${encodeURIComponent(`/reader/${bookId}/${block.block_number}`)}`
+                      }
                       className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                         isRead
                           ? 'text-bark-400 hover:text-sage-600 hover:bg-sage-50'
                           : 'text-sage-600 hover:text-sage-700 hover:bg-sage-50 font-semibold'
                       }`}
                     >
-                      {isRead ? 'Rileggi' : 'Leggi'}
+                      {user ? (isRead ? 'Rileggi' : 'Leggi') : 'Registrati'}
                     </Link>
                   ) : (
                     <span className="text-xs text-bark-400 flex items-center gap-1">
@@ -411,7 +638,7 @@ export default function BookDetailPage() {
       {book.author?.author_bio && (
         <div className="mt-8">
           <h2 className="text-lg font-bold text-sage-900 mb-3">L&apos;autore</h2>
-          <div className="bg-white rounded-2xl border border-sage-100 p-6">
+          <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-6">
             <div className="flex items-center gap-3 mb-3">
               {book.author?.avatar_url ? (
                 <img src={book.author.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover" />

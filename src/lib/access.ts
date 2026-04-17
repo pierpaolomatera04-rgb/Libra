@@ -39,7 +39,7 @@ export async function canAccessBlock(
   // Fetch blocco e libro
   const { data: block, error: blockErr } = await supabase
     .from('blocks')
-    .select('id, block_number, is_first_block, release_at, silver_release_at, gold_release_at, is_released')
+    .select('id, block_number, is_first_block, release_at, silver_release_at, gold_release_at, is_released, scheduled_date')
     .eq('book_id', bookId)
     .eq('block_number', blockNumber)
     .single()
@@ -50,12 +50,21 @@ export async function canAccessBlock(
 
   const { data: book, error: bookErr } = await supabase
     .from('books')
-    .select('id, tier, status, price_per_block, author_id')
+    .select('id, tier, access_level, status, price_per_block, author_id')
     .eq('id', bookId)
     .single()
 
   if (bookErr || !book) {
     return { access: 'LOCKED_NOT_RELEASED', canRead: false, message: 'Libro non trovato' }
+  }
+
+  // REGOLA 0: Draft protection — solo l'autore può accedere a libri in bozza
+  if (book.status === 'draft' && book.author_id !== userId) {
+    return {
+      access: 'LOCKED_NOT_RELEASED',
+      canRead: false,
+      message: 'Questo libro non è ancora stato pubblicato',
+    }
   }
 
   // REGOLA 1: Il 1° blocco è SEMPRE gratuito per tutti
@@ -80,7 +89,10 @@ export async function canAccessBlock(
   // L'anteprima NON è acquistabile con token — beneficio esclusivo abbonati
   let isPreviewOnly = false
 
-  if (block.release_at && new Date(block.release_at) > now) {
+  // Se scheduled_date è passata, il blocco è considerato disponibile anche senza release_at
+  const scheduledPassed = block.scheduled_date && new Date(block.scheduled_date) <= now
+
+  if (block.release_at && new Date(block.release_at) > now && !scheduledPassed) {
     // Blocco non ancora rilasciato pubblicamente
     // Ma Gold/Silver potrebbero avere accesso anticipato
     if (block.gold_release_at && new Date(block.gold_release_at) <= now) {
@@ -131,8 +143,11 @@ export async function canAccessBlock(
     return { access: 'GRANTED_PLAN', canRead: true, message: 'Accesso tramite abbonamento' }
   }
 
-  // REGOLA 5: Libro FREE tier — accessibile a tutti dopo rilascio
-  if (book.tier === 'free' && block.is_released) {
+  // REGOLA 5: Libro FREE tier (o access_level=open) — accessibile a tutti dopo rilascio
+  // Considera disponibile anche se scheduled_date è passata (cron non ancora eseguito)
+  const blockEffectivelyReleased = block.is_released || (block.scheduled_date && new Date(block.scheduled_date) <= now)
+  const isOpenBook = book.tier === 'free' || book.access_level === 'open'
+  if (isOpenBook && blockEffectivelyReleased) {
     return { access: 'GRANTED_FREE', canRead: true, message: 'Contenuto gratuito' }
   }
 

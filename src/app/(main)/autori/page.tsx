@@ -220,33 +220,41 @@ export default function AuthorsPage() {
     return authors
   }, [authors, viewTab, followedIds, now])
 
-  // "Consigliati per te": autori con libri nei generi più letti dall'utente
-  // negli ultimi 30 giorni. Fallback ai preferred_genres del profilo se l'utente
-  // non ha ancora letto nulla recentemente.
+  // "Consigliati per te": priorità generi letti ultimi 30gg → preferred_genres →
+  // fallback: autori con libri pubblicati ordinati per engagement (così la sezione
+  // compare sempre anche per utenti nuovi/ospiti).
   const recommended = useMemo(() => {
-    let targetGenres: Set<string>
+    let targetGenres: Set<string> | null = null
     if (userReadGenres.size > 0) {
       targetGenres = userReadGenres
     } else {
       const prefs = profile?.preferred_genres || []
-      if (!prefs.length) return []
-      targetGenres = new Set(prefs)
+      if (prefs.length) targetGenres = new Set(prefs)
     }
-    // Matching esatto sui generi + fallback sulla macro-area
-    const targetMacros = new Set(
-      Array.from(targetGenres).map(g => getMacroAreaByGenre(g)?.value).filter(Boolean) as string[]
-    )
-    return [...baseAuthors]
-      .filter(a => {
-        // Escludi l'utente corrente dalla sua stessa lista di consigliati
-        if (user && a.id === user.id) return false
-        const directMatch = a.genres.some(g => targetGenres.has(g))
+
+    const excludeSelf = (a: AuthorEntry) => !(user && a.id === user.id)
+
+    if (targetGenres) {
+      const targetMacros = new Set(
+        Array.from(targetGenres).map(g => getMacroAreaByGenre(g)?.value).filter(Boolean) as string[]
+      )
+      const matched = baseAuthors.filter(a => {
+        if (!excludeSelf(a)) return false
+        const directMatch = a.genres.some(g => targetGenres!.has(g))
         const macroMatch = a.genres.some(g => {
           const m = getMacroAreaByGenre(g)
           return m ? targetMacros.has(m.value) : false
         })
         return directMatch || macroMatch
       })
+      if (matched.length > 0) {
+        return [...matched].sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
+      }
+    }
+
+    // Fallback: top autori per engagement con almeno 1 libro pubblicato
+    return [...baseAuthors]
+      .filter(a => excludeSelf(a) && a.totalBooks >= 1)
       .sort((a, b) => b.engagementScore - a.engagementScore)
       .slice(0, 20)
   }, [baseAuthors, profile?.preferred_genres, userReadGenres, user])

@@ -1,13 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
+  // Suspense boundary richiesto da Next.js per useSearchParams in pagine statiche
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -17,6 +26,15 @@ export default function LoginPage() {
   const [resetSent, setResetSent] = useState(false)
   const { signIn, resetPassword } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Preserva ?redirect=... tra signup ↔ login per ricondurre l'utente al
+  // contenuto originale. Solo path interni ("/...") sono ammessi per evitare
+  // open-redirect esterni.
+  const rawRedirect = searchParams.get('redirect') || ''
+  const safeRedirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : ''
+  const signupHref = safeRedirect ? `/signup?redirect=${encodeURIComponent(safeRedirect)}` : '/signup'
+  const postLoginTarget = safeRedirect || '/browse'
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,7 +47,7 @@ export default function LoginPage() {
         toast.error(error, {
           action: {
             label: 'Registrati',
-            onClick: () => router.push('/signup'),
+            onClick: () => router.push(signupHref),
           },
         })
       } else if (error.includes('Password non corretta')) {
@@ -47,7 +65,7 @@ export default function LoginPage() {
       }
     } else {
       toast.success('Bentornato!')
-      router.push('/browse')
+      router.push(postLoginTarget)
     }
 
     setLoading(false)
@@ -64,7 +82,7 @@ export default function LoginPage() {
         toast.error('Nessun account trovato con questa email.', {
           action: {
             label: 'Registrati',
-            onClick: () => router.push('/signup'),
+            onClick: () => router.push(signupHref),
           },
         })
       } else {
@@ -236,7 +254,7 @@ export default function LoginPage() {
 
         <p className="text-center mt-6 text-sm text-bark-500">
           Non hai un account?{' '}
-          <Link href="/signup" className="text-sage-600 font-medium hover:text-sage-700">
+          <Link href={signupHref} className="text-sage-600 font-medium hover:text-sage-700">
             Registrati gratis
           </Link>
         </p>

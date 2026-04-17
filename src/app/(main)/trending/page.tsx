@@ -78,9 +78,11 @@ export default function TrendingPage() {
       .select(`
         id, title, cover_image_url, genre, total_blocks, total_likes,
         total_reads, total_saves, status,
-        author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+        author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
       `)
       .in('id', bookIds)
+      // Esclude tassativamente i libri in bozza dal feed pubblico
+      .in('status', ['published', 'ongoing', 'completed'])
 
     if (!booksData) {
       setItems([])

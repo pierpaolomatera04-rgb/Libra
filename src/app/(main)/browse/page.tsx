@@ -114,7 +114,7 @@ export default function BrowsePage() {
       .from('books')
       .select(`
         *,
-        author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+        author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
       `)
 
     if (sort === 'serializations') {
@@ -182,7 +182,7 @@ export default function BrowsePage() {
             id, title, description, cover_image_url, genre, total_blocks,
             total_likes, total_reads, trending_score, access_level,
             first_block_free, status, published_at,
-            author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+            author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
           )
         `)
         .eq('user_id', user.id)
@@ -228,7 +228,7 @@ export default function BrowsePage() {
         .from('books')
         .select(`
           *,
-          author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
         `)
         .in('id', bookIds)
         .in('status', ['published', 'ongoing', 'completed'])
@@ -247,7 +247,7 @@ export default function BrowsePage() {
         .from('books')
         .select(`
           *,
-          author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
         `)
         .in('status', ['published', 'ongoing', 'completed'])
         .order('trending_score', { ascending: false })
@@ -262,7 +262,7 @@ export default function BrowsePage() {
         .from('books')
         .select(`
           *,
-          author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
         `)
         .in('genre', profile.preferred_genres)
         .in('status', ['published', 'ongoing', 'completed'])
@@ -275,7 +275,7 @@ export default function BrowsePage() {
         .from('books')
         .select(`
           *,
-          author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
         `)
         .in('status', ['published', 'ongoing', 'completed'])
         .order('total_likes', { ascending: false })
@@ -289,7 +289,7 @@ export default function BrowsePage() {
       .from('books')
       .select(`
         *,
-        author:profiles!books_author_id_fkey(id, name, author_pseudonym, avatar_url)
+        author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
       `)
       .in('status', ['published', 'ongoing', 'completed'])
       .order('total_likes', { ascending: false })

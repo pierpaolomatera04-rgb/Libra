@@ -43,7 +43,7 @@ export default function RootLayout({
           `
         }} />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-cream-50 dark:bg-[#1a1a1a] min-h-screen transition-colors duration-300`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-cream-50 dark:bg-[#161a14] min-h-screen transition-colors duration-300`}>
         <ThemeProvider>
           <AuthProvider>
             {children}

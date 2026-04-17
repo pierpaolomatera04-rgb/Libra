@@ -110,7 +110,7 @@ export default function DiventaAutorePage() {
                 step: '3',
                 icon: Calendar,
                 title: 'Programma le uscite',
-                desc: 'Scegli quando pubblicare ogni blocco con il calendario. Massimo 2 blocchi a settimana per 8 settimane.',
+                desc: 'Scegli quando pubblicare ogni blocco con il calendario. Massimo 3 blocchi a settimana per 13 settimane (~3 mesi).',
               },
               {
                 step: '4',

@@ -62,7 +62,7 @@ export default function LibraryPage() {
             key={key}
             onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              tab === key ? 'bg-sage-500 text-white' : 'bg-white text-bark-500 border border-sage-200 hover:bg-sage-50'
+              tab === key ? 'bg-sage-500 text-white' : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 border border-sage-200 dark:border-sage-700 hover:bg-sage-50 dark:hover:bg-sage-800'
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -74,7 +74,7 @@ export default function LibraryPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="bg-white rounded-xl border border-sage-100 p-4 animate-pulse">
+            <div key={i} className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-4 animate-pulse">
               <div className="flex gap-3">
                 <div className="w-16 h-22 bg-sage-100 rounded-lg" />
                 <div className="flex-1 space-y-2">
@@ -99,7 +99,7 @@ export default function LibraryPage() {
             <Link
               key={item.id}
               href={`/reader/${item.book?.id}/1`}
-              className="bg-white rounded-xl border border-sage-100 p-4 hover:border-sage-300 hover:shadow-sm transition-all relative"
+              className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-4 hover:border-sage-300 dark:hover:border-sage-600 hover:shadow-sm transition-all relative"
             >
               <div className="flex gap-3">
                 {item.book?.cover_image_url ? (

@@ -1,13 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function SignupPage() {
+  // Suspense boundary richiesto da Next.js per useSearchParams in pagine statiche
+  return (
+    <Suspense fallback={null}>
+      <SignupPageInner />
+    </Suspense>
+  )
+}
+
+function SignupPageInner() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,6 +25,14 @@ export default function SignupPage() {
   const [success, setSuccess] = useState(false)
   const { signUp } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Preserva il parametro ?redirect=... per ricondurre l'utente al contenuto
+  // da cui è arrivato (es. pagina libro, reader). Validato lato client:
+  // accettiamo solo path interni (che iniziano con "/") per evitare open-redirect.
+  const rawRedirect = searchParams.get('redirect') || ''
+  const safeRedirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : ''
+  const loginHref = safeRedirect ? `/login?redirect=${encodeURIComponent(safeRedirect)}` : '/login'
 
   const passwordChecks = {
     length: password.length >= 6,
@@ -39,7 +56,7 @@ export default function SignupPage() {
         toast.error(error, {
           action: {
             label: 'Vai al login',
-            onClick: () => router.push('/login'),
+            onClick: () => router.push(loginHref),
           },
         })
       } else {
@@ -69,7 +86,7 @@ export default function SignupPage() {
               Non trovi l&apos;email? Controlla la cartella spam.
             </p>
             <Link
-              href="/login"
+              href={loginHref}
               className="inline-flex items-center gap-2 text-sage-600 font-medium hover:text-sage-700"
             >
               Vai al login
@@ -181,7 +198,7 @@ export default function SignupPage() {
 
         <p className="text-center mt-6 text-sm text-bark-500">
           Hai già un account?{' '}
-          <Link href="/login" className="text-sage-600 font-medium hover:text-sage-700">
+          <Link href={loginHref} className="text-sage-600 font-medium hover:text-sage-700">
             Accedi
           </Link>
         </p>

@@ -132,11 +132,21 @@ export async function POST(request: NextRequest) {
       data: { actor_name: actorName, amount, author_payout: authorPayout },
     })
 
+    // Award XP al donatore
+    const xpAmount = amount >= 10 ? 10 : 1
+    const { data: xpResult } = await supabase.rpc('award_xp', {
+      p_user_id: user.id,
+      p_amount: xpAmount,
+      p_reason: 'tip',
+    })
+
     return NextResponse.json({
       success: true,
       amount,
       authorPayout,
       platformPayout,
+      xpAwarded: xpAmount,
+      xpResult: xpResult || null,
     })
   } catch (err: any) {
     console.error('Errore POST /api/tips:', err)

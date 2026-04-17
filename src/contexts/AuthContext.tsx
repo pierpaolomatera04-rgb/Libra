@@ -21,6 +21,8 @@ interface UserProfile {
   bonus_tokens_expire_date: string | null
   preferred_genres: string[]
   completed_onboarding: boolean
+  bio: string | null
+  library_public: boolean
   created_at: string
   daily_streak: number
   last_reading_date: string | null

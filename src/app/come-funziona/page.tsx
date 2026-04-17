@@ -45,7 +45,7 @@ export default function ComeFunzionaPage() {
             </p>
             <p>
               Gli autori caricano i loro libri divisi in blocchi da almeno 15 minuti di lettura ciascuno.
-              Ogni libro pu&ograve; avere fino a 16 blocchi, pubblicati con un calendario settimanale.
+              Ogni libro pu&ograve; avere fino a 36 blocchi, pubblicati con un calendario settimanale (max 3 a settimana, entro 3 mesi).
             </p>
             <p>
               Il primo blocco di ogni libro &egrave; <strong>sempre gratuito</strong>: puoi iniziare a leggere
@@ -165,38 +165,59 @@ export default function ComeFunzionaPage() {
           </div>
           <div className="space-y-4 text-bark-600 leading-relaxed">
             <p>
-              I <strong>token</strong> sono la valuta di Libra. <strong>1 token = &euro;0,10</strong>.
-              Li usi per sbloccare blocchi premium e inviare mance agli autori.
+              I <strong>token</strong> sono la valuta di Libra. Tasso fisso: <strong>10 token = &euro;1,00</strong>.
+              Esistono due tipologie di token, con regole di utilizzo diverse.
             </p>
+
             <div className="grid sm:grid-cols-2 gap-4 mt-6">
-              <div className="bg-sage-50 rounded-xl p-4">
+              {/* TOKEN PREMIUM */}
+              <div className="bg-sage-50 rounded-xl p-4 border border-sage-200">
                 <h4 className="font-semibold text-sage-800 mb-2 flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-sage-500" />
-                  Come si ottengono
+                  <Coins className="w-4 h-4 text-sage-600" />
+                  Token Premium
                 </h4>
+                <p className="text-xs text-bark-500 mb-2">
+                  Ottenuti acquistando un pacchetto dal Wallet con pagamento reale. <strong>Non scadono mai</strong>.
+                </p>
                 <ul className="text-sm space-y-1.5">
-                  <li>&bull; 10 Welcome Token alla registrazione (gratuiti)</li>
-                  <li>&bull; Token mensili con piano Silver (10) o Gold (20)</li>
-                  <li>&bull; Bonus annuale: Silver 40, Gold 80 token</li>
-                  <li>&bull; Acquisto diretto dal Wallet</li>
+                  <li>&bull; Sblocco blocchi singoli</li>
+                  <li>&bull; Acquisto libro intero</li>
+                  <li>&bull; <strong>Mance agli autori</strong> (consentite)</li>
+                  <li>&bull; Generano guadagno reale per l&apos;autore</li>
                 </ul>
               </div>
-              <div className="bg-sage-50 rounded-xl p-4">
+
+              {/* TOKEN BONUS */}
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                 <h4 className="font-semibold text-sage-800 mb-2 flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-sage-500" />
-                  Come si usano
+                  <Gift className="w-4 h-4 text-amber-600" />
+                  Token Bonus
                 </h4>
+                <p className="text-xs text-bark-500 mb-2">
+                  Ricevuti gratis dai piani VIP (Silver/Gold) o come Welcome Token. <strong>Scadono dopo 30 giorni</strong>.
+                </p>
                 <ul className="text-sm space-y-1.5">
-                  <li>&bull; Sblocco blocchi: 5-30 token per blocco</li>
-                  <li>&bull; Acquisto libro intero: 20-200 token</li>
-                  <li>&bull; Mance agli autori (min 1 token)</li>
-                  <li>&bull; Silver/Gold: sconti 15-30% automatici</li>
+                  <li>&bull; Sblocco blocchi premium</li>
+                  <li>&bull; Boost / interazioni social</li>
+                  <li>&bull; <strong>Non utilizzabili per mance</strong></li>
+                  <li>&bull; <strong>Non utilizzabili per acquisto libro intero</strong></li>
                 </ul>
               </div>
             </div>
+
+            <div className="bg-sage-100 dark:bg-sage-900/20 border border-sage-200 rounded-xl p-4 mt-4">
+              <p className="text-sm text-sage-800">
+                <strong>Visibilita&apos; e guadagno autore.</strong> Quando sblocchi un blocco con
+                <strong> Token Bonus</strong>, dai visibilita&apos; all&apos;autore (lettura, statistiche,
+                presenza in classifica) ma <em>non</em> generi un compenso diretto. Per far guadagnare
+                davvero un autore servono soldi reali: pacchetti acquistati, abbonamenti VIP (pool
+                redistribuito agli autori) o mance pagate con Token Premium.
+              </p>
+            </div>
+
             <p className="text-sm text-bark-400 mt-4">
-              I token mensili scadono dopo 30 giorni. L&apos;ordine di spesa &egrave;: mensili &rarr; bonus annuale &rarr; acquistati.
-              I Welcome Token non possono essere usati per mance.
+              Ordine di spesa automatico: <strong>Token Bonus prima</strong> (per evitarne la scadenza),
+              poi Token Premium. I Welcome Token non possono essere usati per mance ne&apos; per acquisti totali.
             </p>
           </div>
         </div>
@@ -218,7 +239,7 @@ export default function ComeFunzionaPage() {
               {
                 icon: Layers,
                 title: 'Pubblica a blocchi',
-                desc: 'Carica il tuo libro e dividilo in blocchi (max 16). Scegli il calendario di pubblicazione.',
+                desc: 'Carica il tuo libro e dividilo in blocchi (max 36). Scegli il calendario di pubblicazione.',
               },
               {
                 icon: Coins,

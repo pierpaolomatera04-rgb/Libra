@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  Search, Library, User, Menu, X, Users, Wallet,
+  Search, Library, User, Users, Wallet,
   LogOut, LayoutDashboard, PenTool, Settings, ChevronDown,
   Sun, Moon, Eye, EyeOff, Bell, Heart, Bookmark, MessageCircle,
-  UserPlus, Coins, Lock, TrendingUp, Flame
+  UserPlus, Coins, Lock, TrendingUp, Flame, X
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -17,9 +17,9 @@ import { toast } from 'sonner'
 export default function Navbar() {
   const { user, profile, signOut, totalTokens, loading } = useAuth()
   const { theme, toggleTheme, blueLightFilter, toggleBlueLightFilter } = useTheme()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [notifMenuOpen, setNotifMenuOpen] = useState(false)
+  const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   const [authTimeout, setAuthTimeout] = useState(false)
   const pathname = usePathname()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.id)
@@ -43,7 +43,6 @@ export default function Navbar() {
 
     const daysDiff = Math.floor((today.getTime() - lastRead.getTime()) / (1000 * 60 * 60 * 24))
 
-    // If last reading was yesterday and no reading today yet, show reminder
     if (daysDiff === 1) {
       const reminderKey = `streak_reminder_${today.toISOString().split('T')[0]}`
       if (!sessionStorage.getItem(reminderKey)) {
@@ -76,93 +75,188 @@ export default function Navbar() {
     return new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
   }
 
+  // Chiudi menu mobile quando cambia la pagina
+  useEffect(() => {
+    setMobileProfileOpen(false)
+    setNotifMenuOpen(false)
+    setProfileMenuOpen(false)
+  }, [pathname])
+
   return (
-    <nav className="sticky top-0 z-50 bg-cream-50/80 dark:bg-[#161a14]/90 backdrop-blur-md border-b border-sage-200/50 dark:border-sage-800/50 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href={user ? '/browse' : '/'} className="flex items-center">
-            <img src="/logo.png" alt="Libra" className="h-10 sm:h-11 dark:invert dark:brightness-90" />
-          </Link>
-
-          {/* Nav desktop */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link
-              href="/browse"
-              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                isActive('/browse') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
-              }`}
-            >
-              <Search className="w-4 h-4" />
-              Sfoglia
+    <>
+      <nav className="sticky top-0 z-50 bg-cream-50/80 dark:bg-[#161a14]/90 backdrop-blur-md border-b border-sage-200/50 dark:border-sage-800/50 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16">
+            {/* Logo */}
+            <Link href={user ? '/browse' : '/'} className="flex items-center">
+              <img src="/logo.png" alt="Libra" className="h-9 sm:h-11 dark:invert dark:brightness-90" />
             </Link>
 
-            <Link
-              href="/trending"
-              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                isActive('/trending') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              Classifiche
-            </Link>
-
-            <Link
-              href="/autori"
-              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                isActive('/autori') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              Autori
-            </Link>
-
-            {user && (
+            {/* Nav desktop — solo md+ */}
+            <div className="hidden md:flex items-center gap-6">
               <Link
-                href="/libreria"
+                href="/browse"
                 className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                  isActive('/libreria') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
+                  isActive('/browse') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
                 }`}
               >
-                <Library className="w-4 h-4" />
-                La mia libreria
+                <Search className="w-4 h-4" />
+                Sfoglia
               </Link>
-            )}
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1.5">
-            {/* Theme + Eye Care toggles — sempre visibili */}
-            <button
-              onClick={toggleBlueLightFilter}
-              className={`p-2 rounded-full transition-colors ${
-                blueLightFilter
-                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                  : 'text-bark-400 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800'
-              }`}
-              title={blueLightFilter ? 'Disattiva filtro luce blu' : 'Attiva filtro luce blu'}
-            >
-              {blueLightFilter ? (
-                <EyeOff className="w-4 h-4" />
-              ) : (
-                <Eye className="w-4 h-4" />
+              <Link
+                href="/classifica"
+                className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                  isActive('/classifica') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                Classifica
+              </Link>
+
+              <Link
+                href="/autori"
+                className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                  isActive('/autori') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Autori
+              </Link>
+
+              {user && (
+                <Link
+                  href="/libreria"
+                  className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                    isActive('/libreria') ? 'text-sage-700' : 'text-bark-500 hover:text-sage-600'
+                  }`}
+                >
+                  <Library className="w-4 h-4" />
+                  La mia libreria
+                </Link>
               )}
-            </button>
+            </div>
 
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full text-bark-400 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
-              title={theme === 'light' ? 'Modalit\u00E0 scura' : 'Modalit\u00E0 chiara'}
-            >
-              {theme === 'light' ? (
-                <Moon className="w-4 h-4" />
+            {/* === MOBILE: icone in riga (md:hidden) === */}
+            <div className="flex md:hidden items-center gap-0.5">
+              {(loading && !authTimeout) ? (
+                <div className="flex items-center gap-1">
+                  <div className="w-8 h-8 rounded-full bg-sage-100 animate-pulse" />
+                  <div className="w-8 h-8 rounded-full bg-sage-100 animate-pulse" />
+                </div>
+              ) : user ? (
+                <>
+                  {/* Wallet */}
+                  <Link
+                    href="/wallet"
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-full text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+                  >
+                    <Wallet className="w-[18px] h-[18px]" />
+                    <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{totalTokens}</span>
+                  </Link>
+
+                  {/* Notifiche */}
+                  <button
+                    onClick={() => { setNotifMenuOpen(!notifMenuOpen); setMobileProfileOpen(false) }}
+                    className="relative p-2 rounded-full text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+                  >
+                    <Bell className="w-[18px] h-[18px]" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Filtro luce blu */}
+                  <button
+                    onClick={toggleBlueLightFilter}
+                    className={`p-2 rounded-full transition-colors ${
+                      blueLightFilter
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-bark-400 dark:text-sage-400'
+                    }`}
+                  >
+                    {blueLightFilter ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+                  </button>
+
+                  {/* Tema giorno/notte */}
+                  <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-full text-bark-400 dark:text-sage-400 transition-colors"
+                  >
+                    {theme === 'light' ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px] text-amber-400" />}
+                  </button>
+
+                  {/* Avatar — apre foglio profilo */}
+                  <button
+                    onClick={() => { setMobileProfileOpen(!mobileProfileOpen); setNotifMenuOpen(false) }}
+                    className="p-1 rounded-full hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors ml-0.5"
+                  >
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-sage-500 flex items-center justify-center text-white text-xs font-bold">
+                        {(profile?.name || user?.email || 'U').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
+                </>
               ) : (
-                <Sun className="w-4 h-4 text-amber-400" />
+                <>
+                  <button
+                    onClick={toggleBlueLightFilter}
+                    className={`p-2 rounded-full transition-colors ${
+                      blueLightFilter ? 'text-amber-600' : 'text-bark-400'
+                    }`}
+                  >
+                    {blueLightFilter ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+                  </button>
+                  <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-full text-bark-400 dark:text-sage-400 transition-colors"
+                  >
+                    {theme === 'light' ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px] text-amber-400" />}
+                  </button>
+                  <Link
+                    href="/login"
+                    className="px-3 py-1.5 text-xs font-medium text-sage-700 dark:text-sage-300"
+                  >
+                    Accedi
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="px-3 py-1.5 text-xs font-medium bg-sage-500 text-white rounded-lg"
+                  >
+                    Registrati
+                  </Link>
+                </>
               )}
-            </button>
+            </div>
 
-            {/* Desktop-only actions */}
-            <div className="hidden md:flex items-center gap-1.5 ml-1">
+            {/* === DESKTOP: azioni (md+) === */}
+            <div className="hidden md:flex items-center gap-1.5">
+              {/* Filtri */}
+              <button
+                onClick={toggleBlueLightFilter}
+                className={`p-2 rounded-full transition-colors ${
+                  blueLightFilter
+                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                    : 'text-bark-400 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800'
+                }`}
+                title={blueLightFilter ? 'Disattiva filtro luce blu' : 'Attiva filtro luce blu'}
+              >
+                {blueLightFilter ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-full text-bark-400 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+                title={theme === 'light' ? 'Modalità scura' : 'Modalità chiara'}
+              >
+                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-400" />}
+              </button>
+
               {(loading && !authTimeout) ? (
                 <div className="flex items-center gap-2">
                   <div className="w-20 h-8 rounded-full bg-sage-100 animate-pulse" />
@@ -190,119 +284,113 @@ export default function Navbar() {
                     <span className="text-sm font-semibold text-sage-700 dark:text-sage-200">{totalTokens}</span>
                   </Link>
 
-                  {/* Notifiche */}
-                  {user && (
-                    <div className="relative">
-                      <button
-                        onClick={() => { setNotifMenuOpen(!notifMenuOpen); setProfileMenuOpen(false) }}
-                        className="relative p-2 rounded-full text-bark-400 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
-                      >
-                        <Bell className="w-5 h-5" />
-                        {unreadCount > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] px-1">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                          </span>
-                        )}
-                      </button>
+                  {/* Notifiche desktop */}
+                  <div className="relative">
+                    <button
+                      onClick={() => { setNotifMenuOpen(!notifMenuOpen); setProfileMenuOpen(false) }}
+                      className="relative p-2 rounded-full text-bark-400 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+                    >
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] px-1">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
 
-                      {notifMenuOpen && (
-                        <>
-                          <div className="fixed inset-0" onClick={() => setNotifMenuOpen(false)} />
-                          <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#1e221c] rounded-xl shadow-lg border border-sage-100 dark:border-sage-800 py-0 animate-fade-in overflow-hidden z-50">
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-sage-50 dark:border-sage-800">
-                              <h3 className="text-sm font-bold text-sage-900 dark:text-sage-100">Notifiche</h3>
-                              {unreadCount > 0 && (
-                                <button
-                                  onClick={() => markAllAsRead()}
-                                  className="text-xs text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 font-medium"
-                                >
-                                  Segna tutte come lette
-                                </button>
-                              )}
-                            </div>
-
-                            <div className="max-h-80 overflow-y-auto">
-                              {notifications.length === 0 ? (
-                                <div className="py-10 text-center">
-                                  <Bell className="w-8 h-8 text-sage-200 dark:text-sage-700 mx-auto mb-2" />
-                                  <p className="text-xs text-bark-400">Nessuna notifica</p>
-                                </div>
-                              ) : (
-                                notifications.slice(0, 10).map((notif) => {
-                                  const icon = notif.type === 'follow' ? UserPlus
-                                    : notif.type === 'like' ? Heart
-                                    : notif.type === 'save' ? Bookmark
-                                    : notif.type === 'comment' ? MessageCircle
-                                    : notif.type === 'unlock' ? Lock
-                                    : Coins
-                                  const iconColor = notif.type === 'follow' ? 'text-purple-500'
-                                    : notif.type === 'like' ? 'text-red-500'
-                                    : notif.type === 'save' ? 'text-sage-600'
-                                    : notif.type === 'comment' ? 'text-amber-500'
-                                    : notif.type === 'unlock' ? 'text-blue-500'
-                                    : 'text-yellow-500'
-                                  const isTip = notif.type === 'tip'
-                                  const timeAgo = getTimeAgo(notif.created_at)
-
-                                  // Build link based on notification type
-                                  const notifLink = notif.data?.book_id
-                                    ? notif.type === 'comment'
-                                      ? `/reader/${notif.data.book_id}/${notif.data.block_number || 1}`
-                                      : `/libro/${notif.data.book_id}`
-                                    : notif.type === 'follow' && notif.actor_id
-                                      ? `/autore/${notif.actor_id}`
-                                      : null
-
-                                  const handleNotifClick = () => {
-                                    if (!notif.read) markAsRead(notif.id)
-                                    setNotifMenuOpen(false)
-                                    if (notifLink) window.location.href = notifLink
-                                  }
-
-                                  return (
-                                    <div
-                                      key={notif.id}
-                                      onClick={handleNotifClick}
-                                      className={`flex items-start gap-3 px-4 py-3 hover:bg-sage-50 dark:hover:bg-sage-800/50 transition-colors cursor-pointer ${
-                                        !notif.read ? 'bg-sage-50/50 dark:bg-sage-800/30' : ''
-                                      } ${isTip ? 'border-l-2 border-yellow-400' : ''}`}
-                                    >
-                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                        isTip ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-sage-50 dark:bg-sage-800'
-                                      }`}>
-                                        {(() => { const Icon = icon; return <Icon className={`w-4 h-4 ${iconColor}`} /> })()}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className={`text-xs leading-relaxed ${!notif.read ? 'text-sage-900 dark:text-sage-100 font-medium' : 'text-bark-500 dark:text-sage-400'}`}>
-                                          {notif.message}
-                                        </p>
-                                        <p className="text-[10px] text-bark-400 mt-0.5">{timeAgo}</p>
-                                      </div>
-                                      {!notif.read && (
-                                        <div className="w-2 h-2 rounded-full bg-sage-500 flex-shrink-0 mt-1.5" />
-                                      )}
-                                    </div>
-                                  )
-                                })
-                              )}
-                            </div>
-
-                            {notifications.length > 0 && (
-                              <Link
-                                href="/dashboard"
-                                onClick={() => setNotifMenuOpen(false)}
-                                className="block text-center py-2.5 text-xs font-medium text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 border-t border-sage-50 dark:border-sage-800"
+                    {notifMenuOpen && (
+                      <>
+                        <div className="fixed inset-0" onClick={() => setNotifMenuOpen(false)} />
+                        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#1e221c] rounded-xl shadow-lg border border-sage-100 dark:border-sage-800 py-0 animate-fade-in overflow-hidden z-50">
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-sage-50 dark:border-sage-800">
+                            <h3 className="text-sm font-bold text-sage-900 dark:text-sage-100">Notifiche</h3>
+                            {unreadCount > 0 && (
+                              <button
+                                onClick={() => markAllAsRead()}
+                                className="text-xs text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 font-medium"
                               >
-                                Vedi tutte nel dashboard
-                              </Link>
+                                Segna tutte come lette
+                              </button>
                             )}
                           </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                          <div className="max-h-80 overflow-y-auto">
+                            {notifications.length === 0 ? (
+                              <div className="py-10 text-center">
+                                <Bell className="w-8 h-8 text-sage-200 dark:text-sage-700 mx-auto mb-2" />
+                                <p className="text-xs text-bark-400">Nessuna notifica</p>
+                              </div>
+                            ) : (
+                              notifications.slice(0, 10).map((notif) => {
+                                const icon = notif.type === 'follow' ? UserPlus
+                                  : notif.type === 'like' ? Heart
+                                  : notif.type === 'save' ? Bookmark
+                                  : notif.type === 'comment' ? MessageCircle
+                                  : notif.type === 'unlock' ? Lock
+                                  : Coins
+                                const iconColor = notif.type === 'follow' ? 'text-purple-500'
+                                  : notif.type === 'like' ? 'text-red-500'
+                                  : notif.type === 'save' ? 'text-sage-600'
+                                  : notif.type === 'comment' ? 'text-amber-500'
+                                  : notif.type === 'unlock' ? 'text-blue-500'
+                                  : 'text-yellow-500'
+                                const isTip = notif.type === 'tip'
+                                const timeAgo = getTimeAgo(notif.created_at)
+                                const notifLink = notif.data?.book_id
+                                  ? notif.type === 'comment'
+                                    ? `/reader/${notif.data.book_id}/${notif.data.block_number || 1}`
+                                    : `/libro/${notif.data.book_id}`
+                                  : notif.type === 'follow'
+                                    ? notif.data?.follower_username
+                                      ? `/profile/${notif.data.follower_username}`
+                                      : notif.actor_id ? `/autore/${notif.actor_id}` : null
+                                    : null
+                                const handleNotifClick = () => {
+                                  if (!notif.read) markAsRead(notif.id)
+                                  setNotifMenuOpen(false)
+                                  if (notifLink) window.location.href = notifLink
+                                }
+                                return (
+                                  <div
+                                    key={notif.id}
+                                    onClick={handleNotifClick}
+                                    className={`flex items-start gap-3 px-4 py-3 hover:bg-sage-50 dark:hover:bg-sage-800/50 transition-colors cursor-pointer ${
+                                      !notif.read ? 'bg-sage-50/50 dark:bg-sage-800/30' : ''
+                                    } ${isTip ? 'border-l-2 border-yellow-400' : ''}`}
+                                  >
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                      isTip ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-sage-50 dark:bg-sage-800'
+                                    }`}>
+                                      {(() => { const Icon = icon; return <Icon className={`w-4 h-4 ${iconColor}`} /> })()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs leading-relaxed ${!notif.read ? 'text-sage-900 dark:text-sage-100 font-medium' : 'text-bark-500 dark:text-sage-400'}`}>
+                                        {notif.message}
+                                      </p>
+                                      <p className="text-[10px] text-bark-400 mt-0.5">{timeAgo}</p>
+                                    </div>
+                                    {!notif.read && (
+                                      <div className="w-2 h-2 rounded-full bg-sage-500 flex-shrink-0 mt-1.5" />
+                                    )}
+                                  </div>
+                                )
+                              })
+                            )}
+                          </div>
+                          {notifications.length > 0 && (
+                            <Link
+                              href="/dashboard"
+                              onClick={() => setNotifMenuOpen(false)}
+                              className="block text-center py-2.5 text-xs font-medium text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 border-t border-sage-50 dark:border-sage-800"
+                            >
+                              Vedi tutte nel dashboard
+                            </Link>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
 
-                  {/* Profilo */}
+                  {/* Profilo desktop */}
                   <div className="relative">
                     <button
                       onClick={() => { setProfileMenuOpen(!profileMenuOpen); setNotifMenuOpen(false) }}
@@ -321,7 +409,7 @@ export default function Navbar() {
                     {profileMenuOpen && (
                       <>
                         <div className="fixed inset-0" onClick={() => setProfileMenuOpen(false)} />
-                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#1e221c] rounded-xl shadow-lg border border-sage-100 dark:border-sage-800 py-2 animate-fade-in">
+                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#1e221c] rounded-xl shadow-lg border border-sage-100 dark:border-sage-800 py-2 animate-fade-in z-50">
                           <div className="px-4 py-2 border-b border-sage-50 dark:border-sage-800">
                             <div className="flex items-center gap-3 mb-1">
                               {profile?.avatar_url ? (
@@ -341,62 +429,34 @@ export default function Navbar() {
                             </span>
                           </div>
 
-                          <Link
-                            href="/profilo"
-                            onClick={() => setProfileMenuOpen(false)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
-                          >
-                            <User className="w-4 h-4" />
-                            Il mio profilo
+                          <Link href={profile?.username ? `/profile/${profile.username}` : '/profilo'} onClick={() => setProfileMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                            <User className="w-4 h-4" /> Il mio profilo
                           </Link>
-
-                          <Link
-                            href="/wallet"
-                            onClick={() => setProfileMenuOpen(false)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
-                          >
-                            <Wallet className="w-4 h-4" />
-                            Wallet ({totalTokens} token)
+                          <Link href="/wallet" onClick={() => setProfileMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                            <Wallet className="w-4 h-4" /> Wallet ({totalTokens} token)
                           </Link>
-
                           {profile?.is_author && (
-                            <Link
-                              href="/dashboard"
-                              onClick={() => setProfileMenuOpen(false)}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
-                            >
-                              <LayoutDashboard className="w-4 h-4" />
-                              Dashboard Autore
+                            <Link href="/dashboard" onClick={() => setProfileMenuOpen(false)}
+                              className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                              <LayoutDashboard className="w-4 h-4" /> Dashboard Autore
                             </Link>
                           )}
-
                           {!profile?.is_author && (
-                            <Link
-                              href="/diventa-autore"
-                              onClick={() => setProfileMenuOpen(false)}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
-                            >
-                              <PenTool className="w-4 h-4" />
-                              Diventa autore
+                            <Link href="/diventa-autore" onClick={() => setProfileMenuOpen(false)}
+                              className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                              <PenTool className="w-4 h-4" /> Diventa autore
                             </Link>
                           )}
-
-                          <Link
-                            href="/impostazioni"
-                            onClick={() => setProfileMenuOpen(false)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
-                          >
-                            <Settings className="w-4 h-4" />
-                            Impostazioni
+                          <Link href="/impostazioni" onClick={() => setProfileMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-bark-600 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                            <Settings className="w-4 h-4" /> Impostazioni
                           </Link>
-
                           <div className="border-t border-sage-50 dark:border-sage-800 mt-1 pt-1">
-                            <button
-                              onClick={() => { signOut(); setProfileMenuOpen(false) }}
-                              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            >
-                              <LogOut className="w-4 h-4" />
-                              Esci
+                            <button onClick={() => { signOut(); setProfileMenuOpen(false) }}
+                              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                              <LogOut className="w-4 h-4" /> Esci
                             </button>
                           </div>
                         </div>
@@ -406,151 +466,163 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <Link
-                    href="/login"
-                    className="px-4 py-2 text-sm font-medium text-sage-700 dark:text-sage-300 hover:text-sage-800 transition-colors"
-                  >
+                  <Link href="/login" className="px-4 py-2 text-sm font-medium text-sage-700 dark:text-sage-300 hover:text-sage-800 transition-colors">
                     Accedi
                   </Link>
-                  <Link
-                    href="/signup"
-                    className="px-4 py-2 text-sm font-medium bg-sage-500 text-white rounded-lg hover:bg-sage-600 transition-colors"
-                  >
+                  <Link href="/signup" className="px-4 py-2 text-sm font-medium bg-sage-500 text-white rounded-lg hover:bg-sage-600 transition-colors">
                     Registrati
                   </Link>
                 </>
               )}
             </div>
-
-            {/* Mobile hamburger */}
-            <button
-              className="md:hidden p-2 text-bark-500 dark:text-sage-400 ml-1"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-sage-100 dark:border-sage-800 animate-slide-up" style={{ backgroundColor: 'var(--background)' }}>
-          <div className="px-4 py-4 space-y-2">
-            <Link
-              href="/browse"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
-            >
-              <Search className="w-5 h-5 text-sage-500" />
-              <span className="font-medium">Sfoglia</span>
-            </Link>
-
-            <Link
-              href="/trending"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
-            >
-              <TrendingUp className="w-5 h-5 text-sage-500" />
-              <span className="font-medium">Classifiche</span>
-            </Link>
-
-            <Link
-              href="/autori"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
-            >
-              <Users className="w-5 h-5 text-sage-500" />
-              <span className="font-medium">Autori</span>
-            </Link>
-
-            {user ? (
-              <>
-                <Link
-                  href="/libreria"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
-                >
-                  <Library className="w-5 h-5 text-sage-500" />
-                  <span className="font-medium">La mia libreria</span>
-                </Link>
-                {(profile?.daily_streak ?? 0) > 0 && (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                    <Flame className="w-5 h-5 text-orange-500" />
-                    <span className="font-medium text-orange-600 dark:text-orange-400">
-                      Serie di {profile?.daily_streak} giorni
-                    </span>
-                  </div>
+      {/* === MOBILE: Dropdown Notifiche (md:hidden) === */}
+      {notifMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setNotifMenuOpen(false)} />
+          <div className="absolute top-14 left-3 right-3 bg-white dark:bg-[#1e221c] rounded-2xl shadow-2xl border border-sage-100 dark:border-sage-800 overflow-hidden animate-fade-in max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-sage-50 dark:border-sage-800 shrink-0">
+              <h3 className="text-sm font-bold text-sage-900 dark:text-sage-100">Notifiche</h3>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button onClick={() => markAllAsRead()} className="text-xs text-sage-500 font-medium">
+                    Segna lette
+                  </button>
                 )}
-                <Link
-                  href="/wallet"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
-                >
-                  <Wallet className="w-5 h-5 text-sage-500" />
-                  <span className="font-medium">{totalTokens} token</span>
-                </Link>
-                <Link
-                  href="/profilo"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
-                >
-                  <User className="w-5 h-5 text-sage-500" />
-                  <span className="font-medium">Profilo</span>
-                </Link>
-                <div
-                  onClick={() => { setMobileMenuOpen(false); setNotifMenuOpen(true) }}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800 cursor-pointer"
-                >
-                  <div className="relative">
-                    <Bell className="w-5 h-5 text-sage-500" />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <span className="font-medium">Notifiche</span>
-                </div>
-                {profile?.is_author && (
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-sage-50 dark:hover:bg-sage-800"
-                  >
-                    <LayoutDashboard className="w-5 h-5 text-sage-500" />
-                    <span className="font-medium">Dashboard Autore</span>
-                  </Link>
-                )}
-                <button
-                  onClick={() => { signOut(); setMobileMenuOpen(false) }}
-                  className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span className="font-medium">Esci</span>
+                <button onClick={() => setNotifMenuOpen(false)} className="p-1 rounded-full hover:bg-sage-100">
+                  <X className="w-4 h-4 text-bark-400" />
                 </button>
-              </>
-            ) : (
-              <div className="flex flex-col gap-2 pt-2">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-center p-3 rounded-lg border border-sage-300 dark:border-sage-700 text-sage-700 dark:text-sage-300 font-medium"
-                >
-                  Accedi
-                </Link>
-                <Link
-                  href="/signup"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-center p-3 rounded-lg bg-sage-500 text-white font-medium"
-                >
-                  Registrati
-                </Link>
               </div>
-            )}
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {notifications.length === 0 ? (
+                <div className="py-10 text-center">
+                  <Bell className="w-8 h-8 text-sage-200 mx-auto mb-2" />
+                  <p className="text-xs text-bark-400">Nessuna notifica</p>
+                </div>
+              ) : (
+                notifications.slice(0, 15).map((notif) => {
+                  const icon = notif.type === 'follow' ? UserPlus : notif.type === 'like' ? Heart : notif.type === 'save' ? Bookmark : notif.type === 'comment' ? MessageCircle : notif.type === 'unlock' ? Lock : Coins
+                  const iconColor = notif.type === 'follow' ? 'text-purple-500' : notif.type === 'like' ? 'text-red-500' : notif.type === 'save' ? 'text-sage-600' : notif.type === 'comment' ? 'text-amber-500' : notif.type === 'unlock' ? 'text-blue-500' : 'text-yellow-500'
+                  const isTip = notif.type === 'tip'
+                  const timeAgo = getTimeAgo(notif.created_at)
+                  const notifLink = notif.data?.book_id
+                    ? notif.type === 'comment' ? `/reader/${notif.data.book_id}/${notif.data.block_number || 1}` : `/libro/${notif.data.book_id}`
+                    : notif.type === 'follow' ? (notif.data?.follower_username ? `/profile/${notif.data.follower_username}` : notif.actor_id ? `/autore/${notif.actor_id}` : null) : null
+                  return (
+                    <div key={notif.id} onClick={() => { if (!notif.read) markAsRead(notif.id); setNotifMenuOpen(false); if (notifLink) window.location.href = notifLink }}
+                      className={`flex items-start gap-3 px-4 py-3 hover:bg-sage-50 dark:hover:bg-sage-800/50 cursor-pointer ${!notif.read ? 'bg-sage-50/50' : ''} ${isTip ? 'border-l-2 border-yellow-400' : ''}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isTip ? 'bg-yellow-50' : 'bg-sage-50 dark:bg-sage-800'}`}>
+                        {(() => { const Icon = icon; return <Icon className={`w-4 h-4 ${iconColor}`} /> })()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs leading-relaxed ${!notif.read ? 'text-sage-900 font-medium' : 'text-bark-500'}`}>{notif.message}</p>
+                        <p className="text-[10px] text-bark-400 mt-0.5">{timeAgo}</p>
+                      </div>
+                      {!notif.read && <div className="w-2 h-2 rounded-full bg-sage-500 flex-shrink-0 mt-1.5" />}
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
-    </nav>
+
+      {/* === MOBILE: Foglio Profilo (slide up, md:hidden) === */}
+      {mobileProfileOpen && user && (
+        <div className="md:hidden fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileProfileOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1e221c] rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-sage-200 dark:bg-sage-700" />
+            </div>
+
+            {/* Profilo header */}
+            <div className="flex items-center gap-3 px-5 py-3">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover" />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-sage-500 flex items-center justify-center text-white text-xl font-bold">
+                  {(profile?.name || user.email || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-sage-900 dark:text-sage-100 truncate">{profile?.name || user.email?.split('@')[0]}</p>
+                <p className="text-xs text-bark-400 truncate">{user.email}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-300 font-semibold capitalize">
+                    {profile?.subscription_plan || 'free'}
+                  </span>
+                  {(profile?.daily_streak ?? 0) > 0 && (
+                    <span className="flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 font-bold">
+                      <Flame className="w-3 h-3" /> {profile?.daily_streak}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard Autore — prominente, solo per autori */}
+            {profile?.is_author && (
+              <div className="px-5 pb-2">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileProfileOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-sage-500 text-white font-semibold text-sm hover:bg-sage-600 transition-colors"
+                >
+                  <LayoutDashboard className="w-5 h-5" />
+                  Vai alla Dashboard Autore
+                </Link>
+              </div>
+            )}
+
+            {/* Menu voci */}
+            <div className="px-3 py-1 space-y-0.5">
+              <Link href={profile?.username ? `/profile/${profile.username}` : '/profilo'} onClick={() => setMobileProfileOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-bark-700 dark:text-sage-200 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                <User className="w-5 h-5 text-sage-500" /> Il mio profilo
+              </Link>
+              <Link href="/wallet" onClick={() => setMobileProfileOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-bark-700 dark:text-sage-200 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                <Wallet className="w-5 h-5 text-sage-500" />
+                <span>Wallet</span>
+                <span className="ml-auto text-xs font-bold text-sage-600 dark:text-sage-400 bg-sage-50 dark:bg-sage-800 px-2 py-0.5 rounded-full">{totalTokens} tk</span>
+              </Link>
+              {!profile?.is_author && (
+                <Link href="/diventa-autore" onClick={() => setMobileProfileOpen(false)}
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-bark-700 dark:text-sage-200 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                  <PenTool className="w-5 h-5 text-sage-500" /> Diventa autore
+                </Link>
+              )}
+              <Link href="/impostazioni" onClick={() => setMobileProfileOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-bark-700 dark:text-sage-200 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                <Settings className="w-5 h-5 text-sage-500" /> Impostazioni
+              </Link>
+
+              {/* Dark mode toggle inline */}
+              <button onClick={toggleTheme}
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-bark-700 dark:text-sage-200 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors">
+                {theme === 'light' ? <Moon className="w-5 h-5 text-sage-500" /> : <Sun className="w-5 h-5 text-amber-400" />}
+                {theme === 'light' ? 'Modalità scura' : 'Modalità chiara'}
+              </button>
+            </div>
+
+            {/* Logout */}
+            <div className="px-3 py-3 border-t border-sage-100 dark:border-sage-800 mt-1">
+              <button onClick={() => { signOut(); setMobileProfileOpen(false) }}
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <LogOut className="w-5 h-5" /> Esci
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

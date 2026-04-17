@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
@@ -10,8 +10,11 @@ import {
   Upload, FileText, Scissors, Eye, BookOpen, Calendar,
   Coins, Check, ArrowLeft, ArrowRight, Loader2, X,
   ChevronUp, ChevronDown, Trash2, Edit3, Save, RotateCcw,
-  GripVertical, AlertTriangle, Shield
+  GripVertical, AlertTriangle, Shield,
+  Bold, Italic, List, Heading2, Undo2, PanelRightOpen, PanelRightClose, Crop
 } from 'lucide-react'
+import CoverCropper from '@/components/ui/CoverCropper'
+import BookMockup from '@/components/ui/BookMockup'
 
 // ============================================
 // TIPI
@@ -70,6 +73,61 @@ const MOODS = [
   'Cupo', 'Divertente', 'Riflessivo', 'Intenso'
 ]
 
+const DRAFT_KEY = 'libra_publish_draft'
+
+// Interfaccia bozza serializzabile (esclusi File non serializzabili)
+interface DraftPayload {
+  step: number
+  blockCount: number
+  data: Omit<WizardData, 'file' | 'coverImage' | 'coverPreview'> & {
+    fileName: string | null
+  }
+  savedAt: string
+}
+
+function saveDraft(step: number, blockCount: number, data: WizardData) {
+  try {
+    const payload: DraftPayload = {
+      step,
+      blockCount,
+      data: {
+        extractedText: data.extractedText,
+        blocks: data.blocks,
+        title: data.title,
+        description: data.description,
+        macroCategory: data.macroCategory,
+        genre: data.genre,
+        mood: data.mood,
+        accessLevel: data.accessLevel,
+        tokenPricePerBlock: data.tokenPricePerBlock,
+        priceFull: data.priceFull,
+        firstBlockFree: data.firstBlockFree,
+        scheduledDays: data.scheduledDays,
+        fileName: data.file?.name || null,
+      },
+      savedAt: new Date().toISOString(),
+    }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
+  } catch { /* quota exceeded or private mode */ }
+}
+
+function loadDraft(): DraftPayload | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const draft = JSON.parse(raw) as DraftPayload
+    // Bozza valida solo se ha testo estratto (step >= 2)
+    if (!draft.data?.extractedText) return null
+    return draft
+  } catch {
+    return null
+  }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY) } catch { /* noop */ }
+}
+
 export default function PublishPage() {
   const [step, setStep] = useState(1)
   const [data, setData] = useState<WizardData>(INITIAL_DATA)
@@ -78,10 +136,85 @@ export default function PublishPage() {
   const [blockCount, setBlockCount] = useState(10)
   const [editingBlock, setEditingBlock] = useState<number | null>(null)
   const [editContent, setEditContent] = useState('')
+  const [editTitle, setEditTitle] = useState('')
+  // Zone di giunzione: blocchi adiacenti modificabili dal modale
+  const [editPrevContent, setEditPrevContent] = useState('')
+  const [editNextContent, setEditNextContent] = useState('')
+  const [editPrevBlockNum, setEditPrevBlockNum] = useState<number | null>(null)
+  const [editNextBlockNum, setEditNextBlockNum] = useState<number | null>(null)
+  // Bozza
+  const [showDraftPrompt, setShowDraftPrompt] = useState(false)
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null) // immagine raw per il cropper
+  const [pendingDraft, setPendingDraft] = useState<DraftPayload | null>(null)
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { user, profile } = useAuth()
   const router = useRouter()
   const supabase = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // ============================================
+  // AUTO-SAVE & DRAFT RECOVERY
+  // ============================================
+  // Rileva bozza al mount
+  useEffect(() => {
+    const draft = loadDraft()
+    if (draft) {
+      setPendingDraft(draft)
+      setShowDraftPrompt(true)
+    }
+  }, [])
+
+  // Auto-save debounced: salva dopo 1.5s dall'ultima modifica
+  useEffect(() => {
+    // Non salvare se siamo allo step 1 senza testo o se stiamo pubblicando
+    if (!data.extractedText || publishing) return
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current)
+    draftSaveTimer.current = setTimeout(() => {
+      saveDraft(step, blockCount, data)
+    }, 1500)
+    return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current) }
+  }, [step, blockCount, data, publishing])
+
+  // Force-save immediato dopo spostamenti/undo nell'editor
+  useEffect(() => {
+    const forceSave = () => {
+      if (!data.extractedText || publishing) return
+      saveDraft(step, blockCount, data)
+    }
+    window.addEventListener('libra-force-save', forceSave)
+    return () => window.removeEventListener('libra-force-save', forceSave)
+  }, [step, blockCount, data, publishing])
+
+  const resumeDraft = () => {
+    if (!pendingDraft) return
+    const d = pendingDraft.data
+    setData(prev => ({
+      ...prev,
+      extractedText: d.extractedText,
+      blocks: d.blocks,
+      title: d.title,
+      description: d.description,
+      macroCategory: d.macroCategory,
+      genre: d.genre,
+      mood: d.mood,
+      accessLevel: d.accessLevel,
+      tokenPricePerBlock: d.tokenPricePerBlock,
+      priceFull: d.priceFull,
+      firstBlockFree: d.firstBlockFree,
+      scheduledDays: d.scheduledDays,
+    }))
+    setBlockCount(pendingDraft.blockCount)
+    setStep(pendingDraft.step)
+    setShowDraftPrompt(false)
+    setPendingDraft(null)
+    toast.success('Bozza ripristinata')
+  }
+
+  const discardDraft = () => {
+    clearDraft()
+    setShowDraftPrompt(false)
+    setPendingDraft(null)
+  }
 
   // ============================================
   // STEP 1: UPLOAD FILE
@@ -163,36 +296,77 @@ export default function PublishPage() {
   // ============================================
   // STEP 3: REVISIONA BLOCCHI
   // ============================================
+  const updateBlockTitle = (blockNum: number, newTitle: string) => {
+    setData(prev => ({
+      ...prev,
+      blocks: prev.blocks.map(b =>
+        b.number === blockNum ? { ...b, title: newTitle } : b
+      ),
+    }))
+  }
+
   const startEditBlock = (blockNum: number) => {
-    const block = data.blocks.find(b => b.number === blockNum)
-    if (block) {
-      setEditingBlock(blockNum)
-      setEditContent(block.content)
-    }
+    const idx = data.blocks.findIndex(b => b.number === blockNum)
+    if (idx === -1) return
+    const block = data.blocks[idx]
+    setEditingBlock(blockNum)
+    setEditContent(block.content)
+    setEditTitle(block.title || `Blocco ${block.number}`)
+    const prev = idx > 0 ? data.blocks[idx - 1] : null
+    const next = idx < data.blocks.length - 1 ? data.blocks[idx + 1] : null
+    setEditPrevContent(prev?.content || '')
+    setEditNextContent(next?.content || '')
+    setEditPrevBlockNum(prev?.number ?? null)
+    setEditNextBlockNum(next?.number ?? null)
+  }
+
+  const closeEditModal = () => {
+    setEditingBlock(null)
+    setEditContent('')
+    setEditTitle('')
+    setEditPrevContent('')
+    setEditNextContent('')
+    setEditPrevBlockNum(null)
+    setEditNextBlockNum(null)
   }
 
   const saveEditBlock = () => {
     if (editingBlock === null) return
-    const wordCount = editContent.trim().split(/\s+/).filter(Boolean).length
-    if (wordCount < 3000) {
-      toast.error('Il blocco è troppo corto — durata minima 15 minuti di lettura (circa 3.000 parole)')
-      return
-    }
     setData(prev => ({
       ...prev,
-      blocks: prev.blocks.map(b =>
-        b.number === editingBlock
-          ? {
-              ...b,
-              content: editContent,
-              characterCount: editContent.length,
-              wordCount,
-            }
-          : b
-      ),
+      blocks: prev.blocks.map(b => {
+        if (b.number === editingBlock) {
+          const wc = editContent.trim().split(/\s+/).filter(Boolean).length
+          return {
+            ...b,
+            content: editContent,
+            characterCount: editContent.length,
+            wordCount: wc,
+            title: editTitle.trim() || b.title,
+          }
+        }
+        if (editPrevBlockNum !== null && b.number === editPrevBlockNum) {
+          const wc = editPrevContent.trim().split(/\s+/).filter(Boolean).length
+          return {
+            ...b,
+            content: editPrevContent,
+            characterCount: editPrevContent.length,
+            wordCount: wc,
+          }
+        }
+        if (editNextBlockNum !== null && b.number === editNextBlockNum) {
+          const wc = editNextContent.trim().split(/\s+/).filter(Boolean).length
+          return {
+            ...b,
+            content: editNextContent,
+            characterCount: editNextContent.length,
+            wordCount: wc,
+          }
+        }
+        return b
+      }),
     }))
-    setEditingBlock(null)
-    setEditContent('')
+    closeEditModal()
     toast.success('Blocco aggiornato')
   }
 
@@ -221,10 +395,10 @@ export default function PublishPage() {
     const block = data.blocks.find(b => b.number === blockNum)
     if (!block) return
 
-    // Verifica che entrambe le metà avranno almeno 3000 parole
+    // Verifica che entrambe le metà avranno almeno 600 parole (warning minimo)
     const totalWords = block.content.trim().split(/\s+/).filter(Boolean).length
-    if (totalWords < 6000) {
-      toast.error('Non puoi dividere: entrambi i blocchi risultanti devono avere almeno 3.000 parole')
+    if (totalWords < 1200) {
+      toast.error('Non puoi dividere: entrambi i blocchi risultanti risulterebbero troppo corti (< 600 parole)')
       return
     }
 
@@ -272,11 +446,11 @@ export default function PublishPage() {
         return { ...prev, scheduledDays: current.filter(d => d !== dayIndex) }
       }
 
-      // Controlla: max 2 per settimana
+      // Controlla: max 3 per settimana
       const weekNum = Math.floor(dayIndex / 7)
       const daysInSameWeek = current.filter(d => Math.floor(d / 7) === weekNum)
-      if (daysInSameWeek.length >= 2) {
-        toast.error('Massimo 2 uscite a settimana!')
+      if (daysInSameWeek.length >= 3) {
+        toast.error('Massimo 3 uscite a settimana!')
         return prev
       }
 
@@ -304,16 +478,9 @@ export default function PublishPage() {
       return
     }
 
-    // Validazione: max 16 blocchi
-    if (data.blocks.length > 16) {
-      toast.error('Un libro può avere massimo 16 blocchi.')
-      return
-    }
-
-    // Validazione: minimo 3000 parole per blocco
-    const shortBlock = data.blocks.find(b => b.content.trim().split(/\s+/).filter(Boolean).length < 3000)
-    if (shortBlock) {
-      toast.error(`Blocco ${shortBlock.number} troppo corto — minimo 3.000 parole (15 min di lettura)`)
+    // Validazione: max 36 blocchi
+    if (data.blocks.length > 36) {
+      toast.error('Un libro può avere massimo 36 blocchi.')
       return
     }
 
@@ -368,7 +535,7 @@ export default function PublishPage() {
         publication_end_date: scheduledDates[scheduledDates.length - 1],
         published_at: new Date().toISOString(),
         serialization_start: new Date().toISOString(),
-        serialization_end: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // max 2 mesi
+        serialization_end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // max 3 mesi (90 giorni)
       }
       console.log('📚 Inserimento libro...')
 
@@ -448,6 +615,7 @@ export default function PublishPage() {
 
       // SUCCESSO
       console.log('🎉 PUBBLICAZIONE COMPLETATA')
+      clearDraft()
       alert('Libro pubblicato con successo!')
       setTimeout(() => {
         window.location.href = '/dashboard/opere'
@@ -517,6 +685,42 @@ export default function PublishPage() {
         {/* ---- STEP 1: UPLOAD ---- */}
         {step === 1 && (
           <div className="max-w-2xl mx-auto animate-fade-in">
+            {/* Prompt bozza in sospeso */}
+            {showDraftPrompt && pendingDraft && (
+              <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-2xl animate-fade-in">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-amber-800">
+                      Hai un caricamento in sospeso
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      {pendingDraft.data.title ? `"${pendingDraft.data.title}"` : 'Bozza senza titolo'} &bull;
+                      {' '}{pendingDraft.data.blocks.length} blocchi &bull;
+                      {' '}Step {pendingDraft.step}/8 &bull;
+                      {' '}Salvato il {new Date(pendingDraft.savedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={resumeDraft}
+                        className="px-4 py-2 text-xs font-semibold bg-sage-500 text-white rounded-lg hover:bg-sage-600 transition-colors"
+                      >
+                        Riprendi bozza
+                      </button>
+                      <button
+                        onClick={discardDraft}
+                        className="px-4 py-2 text-xs font-medium text-bark-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        Inizia da capo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-sage-900">Carica il tuo libro</h2>
               <p className="text-bark-500 mt-2">Supporta PDF, DOCX e TXT (max 50MB)</p>
@@ -569,36 +773,41 @@ export default function PublishPage() {
         {/* ---- STEP 2: CONFIGURA BLOCCHI ---- */}
         {step === 2 && (
           <div className="max-w-2xl mx-auto animate-fade-in">
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-sage-900">Dividi in blocchi</h2>
               <p className="text-bark-500 mt-2">
-                Il tuo libro verrà diviso automaticamente. Usa lo slider per cambiare il numero di blocchi.
+                Usa lo slider per scegliere il numero di blocchi. Controlla i minuti per blocco in basso.
               </p>
             </div>
 
-            {/* Blocchi consigliati */}
-            <div className="p-4 bg-sage-50 rounded-xl mb-6 flex items-center gap-3">
-              <Scissors className="w-5 h-5 text-sage-500 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-sage-700">
-                  Consigliati: <strong>{suggestBlockCount(data.extractedText.length)} blocchi</strong>
-                </p>
-                <p className="text-xs text-bark-400">
-                  Basato su {data.extractedText.split(/\s+/).length.toLocaleString()} parole totali (~4.000 caratteri/blocco)
-                </p>
-              </div>
-            </div>
-
+            {(() => {
+              const totalWords = data.extractedText.split(/\s+/).filter(Boolean).length
+              const totalMin = Math.max(1, Math.ceil(totalWords / 200))
+              const minPerBlock = Math.max(1, Math.round(totalMin / Math.max(1, blockCount)))
+              const totalPages = Math.max(1, Math.ceil(totalWords / 250))
+              return (
             <div className="bg-white rounded-2xl border border-sage-100 p-8">
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium text-sage-800">Numero di blocchi</label>
-                  <span className="text-2xl font-bold text-sage-600">{blockCount}</span>
+              {/* Numero blocchi — elemento visivo principale, proporzioni eleganti */}
+              <div className="text-center mb-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-bark-400 font-semibold mb-2">
+                  Numero di blocchi
+                </p>
+                <div className="flex items-baseline justify-center gap-2">
+                  <span className="text-3xl font-bold text-sage-700 leading-none tabular-nums transition-all">
+                    {blockCount}
+                  </span>
+                  <span className="text-sm font-semibold text-sage-500 uppercase tracking-wider">
+                    {blockCount === 1 ? 'blocco' : 'blocchi'}
+                  </span>
                 </div>
+              </div>
+
+              {/* Slider */}
+              <div className="mb-6">
                 <input
                   type="range"
                   min={3}
-                  max={Math.min(16, Math.floor(data.extractedText.length / 500))}
+                  max={Math.min(36, Math.floor(data.extractedText.length / 500))}
                   value={blockCount}
                   onChange={(e) => recalculateBlocks(parseInt(e.target.value))}
                   className="w-full accent-sage-500"
@@ -609,27 +818,44 @@ export default function PublishPage() {
                 </div>
               </div>
 
-              {/* Tempo totale stimato */}
-              <div className="p-3 bg-cream-200 rounded-xl mb-6 text-center">
-                <p className="text-xs text-bark-400">Tempo di lettura totale stimato</p>
-                <p className="text-lg font-bold text-sage-700">
-                  ~{Math.ceil(data.extractedText.split(/\s+/).length / 200)} minuti
-                </p>
-                <p className="text-xs text-bark-400">
-                  (~{Math.ceil(data.extractedText.split(/\s+/).length / 200 / data.blocks.length)} min per blocco)
-                </p>
+              {/* Riepilogo — tempo totale + pagine virtuali */}
+              <div className="p-4 bg-cream-200 rounded-xl mb-6 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-bark-400 font-semibold">Tempo totale</p>
+                  <p className="text-base font-bold text-sage-700 mt-1">
+                    ~{totalMin} min
+                  </p>
+                </div>
+                <div className="border-x border-sage-200/60">
+                  <p className="text-[10px] uppercase tracking-wider text-bark-400 font-semibold">Min/blocco</p>
+                  <p className="text-base font-bold text-sage-700 mt-1">
+                    ~{minPerBlock} min
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-bark-400 font-semibold">Pagine virtuali</p>
+                  <p className="text-base font-bold text-sage-700 mt-1">
+                    {totalPages} pag
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-3">
                 <p className="text-sm font-medium text-sage-800">Anteprima blocchi:</p>
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                   {data.blocks.map((block) => {
-                    const readingMin = Math.max(1, Math.ceil(block.wordCount / 225))
-                    const semaphore = readingMin <= 10
-                      ? { color: 'bg-green-100 text-green-700 border-green-200', label: 'Zona Ideale', icon: '🔥' }
-                      : readingMin <= 14
-                        ? { color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Impegnativo', icon: '⚠️' }
-                        : { color: 'bg-red-100 text-red-700 border-red-200', label: 'Troppo lungo', icon: '🚫' }
+                    const readingMin = Math.max(1, Math.ceil(block.wordCount / 200))
+                    const virtualPages = Math.max(1, Math.ceil(block.wordCount / 250))
+                    const wc = block.wordCount
+                    const semaphore = wc < 600
+                      ? { color: 'bg-red-100 text-red-700 border-red-200', label: 'Troppo corto', icon: '🚫' }
+                      : wc < 800
+                        ? { color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Un po\' corto', icon: '⚠️' }
+                        : wc <= 2000
+                          ? { color: 'bg-green-100 text-green-700 border-green-200', label: 'Zona Ideale', icon: '🔥' }
+                          : wc <= 2500
+                            ? { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Lungo ma ok', icon: '✅' }
+                            : { color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Troppo lungo', icon: '⚠️' }
                     return (
                       <div
                         key={block.number}
@@ -642,7 +868,7 @@ export default function PublishPage() {
                           <div>
                             <p className="text-sm font-medium text-sage-800">{block.title}</p>
                             <p className="text-xs text-bark-400">
-                              {block.wordCount.toLocaleString()} parole &bull; ~{readingMin} min
+                              {virtualPages} pag &bull; {block.wordCount.toLocaleString()} parole &bull; ~{readingMin} min
                             </p>
                           </div>
                         </div>
@@ -670,6 +896,8 @@ export default function PublishPage() {
                 </div>
               </div>
             </div>
+              )
+            })()}
           </div>
         )}
 
@@ -696,17 +924,28 @@ export default function PublishPage() {
                       <span className="w-8 h-8 bg-sage-500 text-white rounded-lg flex items-center justify-center text-sm font-bold">
                         {block.number}
                       </span>
-                      <div>
-                        <p className="text-sm font-semibold text-sage-800">{block.title}</p>
-                        <p className="text-xs text-bark-400">
-                          {block.wordCount} parole &bull; ~{Math.ceil(block.wordCount / 225)} min lettura
+                      <div className="flex-1 min-w-0">
+                        <input
+                          type="text"
+                          value={block.title}
+                          onChange={(e) => updateBlockTitle(block.number, e.target.value)}
+                          placeholder={`Blocco ${block.number}`}
+                          className="text-sm font-semibold text-sage-800 bg-transparent border-b border-transparent hover:border-sage-200 focus:border-sage-400 focus:outline-none w-full px-1 py-0.5 rounded-sm transition-colors"
+                          title="Clicca per modificare il titolo del blocco"
+                        />
+                        <p className="text-xs text-bark-400 px-1">
+                          {Math.max(1, Math.ceil(block.wordCount / 250))} pag &bull; {block.wordCount} parole &bull; ~{Math.max(1, Math.ceil(block.wordCount / 200))} min lettura
                           {(() => {
-                            const rm = Math.ceil(block.wordCount / 225)
-                            return rm <= 10
-                              ? <span className="ml-2 text-green-600 font-medium">🔥 Zona Ideale</span>
-                              : rm <= 14
-                                ? <span className="ml-2 text-amber-600 font-medium">⚠️ Impegnativo</span>
-                                : <span className="ml-2 text-red-600 font-medium">🚫 Troppo lungo</span>
+                            const wc = block.wordCount
+                            return wc < 600
+                              ? <span className="ml-2 text-red-600 font-medium">🚫 Troppo corto</span>
+                              : wc < 800
+                                ? <span className="ml-2 text-amber-600 font-medium">⚠️ Un po&apos; corto</span>
+                                : wc <= 2000
+                                  ? <span className="ml-2 text-green-600 font-medium">🔥 Zona Ideale</span>
+                                  : wc <= 2500
+                                    ? <span className="ml-2 text-emerald-600 font-medium">✅ Lungo ma ok</span>
+                                    : <span className="ml-2 text-amber-600 font-medium">⚠️ Troppo lungo</span>
                           })()}
                         </p>
                       </div>
@@ -746,93 +985,44 @@ export default function PublishPage() {
                     </div>
                   </div>
 
-                  {/* Block content */}
-                  {editingBlock === block.number ? (
-                    <div className="p-4">
-                      <textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="w-full h-64 p-4 border border-sage-200 rounded-xl text-sm font-serif leading-relaxed resize-y focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none"
-                      />
-                      <div className="mt-3">
-                        {(() => {
-                          const wc = editContent.trim().split(/\s+/).filter(Boolean).length
-                          const isTooShort = wc < 3000
-                          const editMin = Math.max(1, Math.ceil(wc / 225))
-                          const editSemaphore = editMin <= 10
-                            ? { color: 'text-green-600', label: '🔥 Zona Ideale — Perfetto per mobile' }
-                            : editMin <= 14
-                              ? { color: 'text-amber-600', label: '⚠️ Lettura impegnativa — Valuta di dividerlo' }
-                              : { color: 'text-red-600', label: '🚫 Troppo lungo — Rischio abbandono alto' }
-                          return (
-                            <>
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className={`text-xs ${isTooShort ? 'text-red-500 font-medium' : 'text-bark-400'}`}>
-                                    {wc.toLocaleString()} / 3.000 parole &bull; ~{editMin} min {isTooShort ? '— troppo corto' : ''}
-                                  </p>
-                                  <p className={`text-xs font-medium mt-0.5 ${editSemaphore.color}`}>
-                                    {editSemaphore.label}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => { setEditingBlock(null); setEditContent('') }}
-                                    className="px-4 py-2 text-sm text-bark-500 hover:bg-sage-50 rounded-lg"
-                                  >
-                                    Annulla
-                                  </button>
-                                  <button
-                                    onClick={saveEditBlock}
-                                    disabled={isTooShort}
-                                    className="flex items-center gap-1 px-4 py-2 text-sm bg-sage-500 text-white rounded-lg hover:bg-sage-600 disabled:opacity-50"
-                                  >
-                                    <Save className="w-3.5 h-3.5" />
-                                    Salva
-                                  </button>
-                                </div>
-                              </div>
-                              {isTooShort && (
-                                <p className="text-xs text-red-500 mt-1">
-                                  Durata minima 15 minuti di lettura (circa 3.000 parole)
-                                </p>
-                              )}
-                            </>
-                          )
-                        })()}
-                      </div>
+                  {/* Block content preview */}
+                  <div className="p-4">
+                    <div className="max-h-32 overflow-hidden relative">
+                      <p className="text-sm text-bark-600 font-serif leading-relaxed whitespace-pre-wrap">
+                        {block.content.substring(0, 500)}
+                        {block.content.length > 500 && '...'}
+                      </p>
+                      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white" />
                     </div>
-                  ) : (
-                    <div className="p-4">
-                      <div className="max-h-32 overflow-hidden relative">
-                        <p className="text-sm text-bark-600 font-serif leading-relaxed whitespace-pre-wrap">
-                          {block.content.substring(0, 500)}
-                          {block.content.length > 500 && '...'}
+
+                    {/* Warning non bloccante se blocco fuori dal range consigliato */}
+                    {block.wordCount < 600 && (
+                      <div className="flex items-center gap-2 mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        <p className="text-xs text-amber-700">
+                          Blocco corto: {block.wordCount.toLocaleString()} parole. Consigliati almeno 600 parole per una lettura più appagante.
                         </p>
-                        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white" />
                       </div>
+                    )}
+                    {block.wordCount > 2500 && (
+                      <div className="flex items-center gap-2 mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        <p className="text-xs text-amber-700">
+                          Blocco lungo: {block.wordCount.toLocaleString()} parole. Valuta di dividerlo per mantenere alta l&apos;attenzione.
+                        </p>
+                      </div>
+                    )}
 
-                      {/* Avviso se blocco troppo corto */}
-                      {block.wordCount < 3000 && (
-                        <div className="flex items-center gap-2 mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-                          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                          <p className="text-xs text-red-700">
-                            Blocco troppo corto: {block.wordCount.toLocaleString()} / 3.000 parole — durata minima 15 min di lettura
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Avviso se finisce a metà frase */}
-                      {block.number < data.blocks.length && !/[.!?…»"']\s*$/.test(block.content.trim()) && (
-                        <div className="flex items-center gap-2 mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                          <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                          <p className="text-xs text-amber-700">
-                            Questo blocco potrebbe finire a metà frase. Clicca su &quot;Modifica&quot; per correggerlo.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    {/* Avviso se finisce a metà frase */}
+                    {block.number < data.blocks.length && !/[.!?…»"']\s*$/.test(block.content.trim()) && (
+                      <div className="flex items-center gap-2 mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        <p className="text-xs text-amber-700">
+                          Questo blocco potrebbe finire a metà frase. Clicca su &quot;Modifica&quot; per correggerlo.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -967,19 +1157,35 @@ export default function PublishPage() {
                 </div>
               </div>
 
-              {/* Cover */}
+              {/* Cover con cropper e mockup 3D */}
               <div>
                 <label className="block text-sm font-medium text-sage-800 mb-1.5">Copertina *</label>
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-5">
                   {data.coverPreview ? (
-                    <div className="relative w-32 h-44 rounded-xl overflow-hidden border border-sage-200">
-                      <img src={data.coverPreview} alt="Cover" className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => setData(prev => ({ ...prev, coverImage: null, coverPreview: null }))}
-                        className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                    <div className="relative">
+                      <BookMockup src={data.coverPreview} alt="Cover" size="md" hover={false} />
+                      <div className="flex items-center gap-1 mt-3">
+                        <label className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-sage-600 bg-sage-50 hover:bg-sage-100 rounded-lg cursor-pointer transition-colors">
+                          <Crop className="w-3 h-3" />
+                          Cambia
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) setCropperSrc(URL.createObjectURL(file))
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          onClick={() => setData(prev => ({ ...prev, coverImage: null, coverPreview: null }))}
+                          className="p-1.5 text-bark-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Rimuovi copertina"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <label className="w-32 h-44 rounded-xl border-2 border-dashed border-sage-200 flex flex-col items-center justify-center cursor-pointer hover:border-sage-400 hover:bg-sage-50/50 transition-all">
@@ -990,23 +1196,35 @@ export default function PublishPage() {
                         accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0]
-                          if (file) {
-                            setData(prev => ({
-                              ...prev,
-                              coverImage: file,
-                              coverPreview: URL.createObjectURL(file),
-                            }))
-                          }
+                          if (file) setCropperSrc(URL.createObjectURL(file))
                         }}
                         className="hidden"
                       />
                     </label>
                   )}
-                  <p className="text-xs text-bark-400 mt-2">
-                    Formato consigliato: 600x800px, JPG o PNG
-                  </p>
+                  <div className="flex-1">
+                    <p className="text-xs text-bark-400">
+                      Carica un&apos;immagine e ritagliala nel formato libro (2:3).
+                    </p>
+                    <p className="text-[10px] text-bark-300 mt-1">
+                      Output finale: 600x900px, JPG
+                    </p>
+                  </div>
                 </div>
               </div>
+
+              {/* Cropper Modal */}
+              {cropperSrc && (
+                <CoverCropper
+                  imageSrc={cropperSrc}
+                  onConfirm={(blob, url) => {
+                    const file = new File([blob], 'cover.jpg', { type: 'image/jpeg' })
+                    setData(prev => ({ ...prev, coverImage: file, coverPreview: url }))
+                    setCropperSrc(null)
+                  }}
+                  onCancel={() => setCropperSrc(null)}
+                />
+              )}
             </div>
           </div>
         )}
@@ -1018,7 +1236,7 @@ export default function PublishPage() {
               <h2 className="text-2xl font-bold text-sage-900">Calendario uscite</h2>
               <p className="text-bark-500 mt-2">
                 Seleziona <strong>{data.blocks.length} date</strong> per la pubblicazione dei blocchi.
-                Massimo 2 uscite a settimana, entro 8 settimane.
+                Massimo 3 uscite a settimana, entro 13 settimane (~3 mesi).
               </p>
             </div>
 
@@ -1038,7 +1256,7 @@ export default function PublishPage() {
                 )}
               </div>
 
-              {/* Calendar grid - 8 settimane */}
+              {/* Calendar grid - 13 settimane (~90 giorni) */}
               <div className="space-y-3">
                 <div className="grid grid-cols-7 gap-1 mb-2">
                   {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map((day) => (
@@ -1048,7 +1266,7 @@ export default function PublishPage() {
                   ))}
                 </div>
 
-                {Array.from({ length: 8 }).map((_, weekIdx) => {
+                {Array.from({ length: 13 }).map((_, weekIdx) => {
                   const daysInWeek = data.scheduledDays.filter(d => Math.floor(d / 7) === weekIdx)
                   return (
                     <div key={weekIdx}>
@@ -1071,11 +1289,11 @@ export default function PublishPage() {
                               className={`relative aspect-square rounded-lg text-xs font-medium transition-all flex flex-col items-center justify-center ${
                                 isSelected
                                   ? 'bg-sage-500 text-white shadow-sm'
-                                  : daysInWeek.length >= 2
+                                  : daysInWeek.length >= 3
                                     ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                                     : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
                               } ${isToday ? 'ring-2 ring-sage-400' : ''}`}
-                              disabled={!isSelected && daysInWeek.length >= 2}
+                              disabled={!isSelected && daysInWeek.length >= 3}
                             >
                               <span>{date.getDate()}/{date.getMonth() + 1}</span>
                               {isSelected && (
@@ -1319,7 +1537,7 @@ export default function PublishPage() {
                     { label: 'Primo gratis', value: data.firstBlockFree ? 'Si' : 'No' },
                   ] : []),
                   { label: 'Uscite', value: `${data.scheduledDays.length} date` },
-                  { label: 'Parole totali', value: data.extractedText.split(/\s+/).length.toLocaleString() },
+                  { label: 'Pagine virtuali', value: `${Math.ceil(data.extractedText.split(/\s+/).filter(Boolean).length / 250).toLocaleString()} pag` },
                 ].map((item) => (
                   <div key={item.label} className="p-3 bg-sage-50 rounded-xl">
                     <p className="text-xs text-bark-400">{item.label}</p>
@@ -1388,6 +1606,479 @@ export default function PublishPage() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* ---- MODAL: EDITOR BLOCCO ---- */}
+      {editingBlock !== null && (
+        <BlockEditorModal
+          title={editTitle}
+          content={editContent}
+          prevContent={editPrevContent}
+          nextContent={editNextContent}
+          hasPrev={editPrevBlockNum !== null}
+          hasNext={editNextBlockNum !== null}
+          onTitleChange={setEditTitle}
+          onContentChange={setEditContent}
+          onPrevContentChange={setEditPrevContent}
+          onNextContentChange={setEditNextContent}
+          onCancel={closeEditModal}
+          onSave={saveEditBlock}
+        />
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// MODAL EDITOR — Foglio + Side Drawer + Undo Granulare
+// ============================================
+// Ogni singola azione (digitazione, formattazione, spostamento) viene
+// registrata come snapshot separato. L'undo ripercorre la cronologia
+// all'indietro action-by-action, senza limiti.
+// ============================================
+interface HistorySnapshot {
+  editorHTML: string   // innerHTML — preserva formattazione
+  content: string      // innerText — plain text
+  prevContent: string
+  nextContent: string
+}
+
+function BlockEditorModal({
+  title,
+  content,
+  prevContent,
+  nextContent,
+  hasPrev,
+  hasNext,
+  onTitleChange,
+  onContentChange,
+  onPrevContentChange,
+  onNextContentChange,
+  onCancel,
+  onSave,
+}: {
+  title: string
+  content: string
+  prevContent: string
+  nextContent: string
+  hasPrev: boolean
+  hasNext: boolean
+  onTitleChange: (v: string) => void
+  onContentChange: (v: string) => void
+  onPrevContentChange: (v: string) => void
+  onNextContentChange: (v: string) => void
+  onCancel: () => void
+  onSave: () => void
+}) {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const editorScrollRef = useRef<HTMLDivElement>(null)
+  const prevRef = useRef<HTMLTextAreaElement>(null)
+  const drawerRef = useRef<HTMLTextAreaElement>(null)
+  const [wc, setWc] = useState(() => content.trim().split(/\s+/).filter(Boolean).length)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [movedFeedback, setMovedFeedback] = useState<string | null>(null)
+  const [moveButton, setMoveButton] = useState<{
+    source: 'prev' | 'next'
+    start: number
+    end: number
+    text: string
+  } | null>(null)
+
+  // ---- Undo granulare (illimitato) ----
+  const historyRef = useRef<HistorySnapshot[]>([])
+  const [undoCount, setUndoCount] = useState(0)
+  const inputSnapshotTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isUndoingRef = useRef(false)  // evita di pushare snapshot durante un undo
+  const lastPushedHTMLRef = useRef<string>('')  // evita duplicati
+
+  // Cattura snapshot corrente
+  const captureSnapshot = useCallback((): HistorySnapshot => ({
+    editorHTML: editorRef.current?.innerHTML || '',
+    content: editorRef.current?.innerText || content,
+    prevContent,
+    nextContent,
+  }), [content, prevContent, nextContent])
+
+  // Push snapshot nello stack (evita duplicati consecutivi)
+  const pushSnapshot = useCallback(() => {
+    if (isUndoingRef.current) return
+    const snap = captureSnapshot()
+    if (snap.editorHTML === lastPushedHTMLRef.current
+        && snap.prevContent === historyRef.current[0]?.prevContent
+        && snap.nextContent === historyRef.current[0]?.nextContent) return
+    historyRef.current.unshift(snap)
+    lastPushedHTMLRef.current = snap.editorHTML
+    setUndoCount(historyRef.current.length)
+  }, [captureSnapshot])
+
+  // Push debounced per digitazione (raggruppa tasti rapidi in ~600ms)
+  const scheduleDebouncedSnapshot = useCallback(() => {
+    if (isUndoingRef.current) return
+    if (inputSnapshotTimer.current) clearTimeout(inputSnapshotTimer.current)
+    inputSnapshotTimer.current = setTimeout(() => {
+      pushSnapshot()
+    }, 600)
+  }, [pushSnapshot])
+
+  // Init: salva stato iniziale
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerText !== content) {
+      editorRef.current.innerText = content
+    }
+    // Snapshot iniziale (punto zero)
+    setTimeout(() => {
+      lastPushedHTMLRef.current = editorRef.current?.innerHTML || ''
+    }, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Keyboard: Cmd+Z / Ctrl+Z → nostro undo; Escape → chiudi
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (drawerOpen) { setDrawerOpen(false); return }
+        onCancel()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault()  // disabilita undo nativo del browser
+        e.stopPropagation()
+        handleUndo()
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCancel, drawerOpen])
+
+  const updateStats = (text: string) => {
+    setWc(text.trim().split(/\s+/).filter(Boolean).length)
+  }
+
+  // Input dall'editor (digitazione, paste, ecc.)
+  const handleInput = () => {
+    const el = editorRef.current
+    if (!el) return
+    const text = el.innerText
+    onContentChange(text)
+    updateStats(text)
+    // Schedula snapshot debounced per raggruppare la digitazione
+    scheduleDebouncedSnapshot()
+  }
+
+  // Comandi formattazione: snapshot PRIMA dell'azione (così l'undo toglie la formattazione)
+  const exec = (cmd: string, value?: string) => {
+    // Flush eventuali snapshot di digitazione in attesa
+    if (inputSnapshotTimer.current) {
+      clearTimeout(inputSnapshotTimer.current)
+      inputSnapshotTimer.current = null
+    }
+    pushSnapshot()  // salva stato pre-formattazione
+    editorRef.current?.focus()
+    try { document.execCommand(cmd, false, value) } catch { /* noop */ }
+    handleInput()
+  }
+
+  const handleZoneSelection = (source: 'prev' | 'next') => {
+    const ta = source === 'prev' ? prevRef.current : drawerRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    if (start === end) { setMoveButton(null); return }
+    const text = ta.value.substring(start, end)
+    if (!text.trim()) { setMoveButton(null); return }
+    setMoveButton({ source, start, end, text })
+  }
+
+  // Listener robusto per selezione nel drawer
+  useEffect(() => {
+    const drawer = drawerRef.current
+    if (!drawer || !drawerOpen) return
+    const check = () => handleZoneSelection('next')
+    drawer.addEventListener('mouseup', check)
+    drawer.addEventListener('touchend', check)
+    const onSelChange = () => {
+      if (document.activeElement === drawer) check()
+    }
+    document.addEventListener('selectionchange', onSelChange)
+    return () => {
+      drawer.removeEventListener('mouseup', check)
+      drawer.removeEventListener('touchend', check)
+      document.removeEventListener('selectionchange', onSelChange)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawerOpen, nextContent])
+
+  // ---- UNDO: ripristina l'ultimo snapshot ----
+  const handleUndo = () => {
+    const snap = historyRef.current.shift()
+    if (!snap) return
+    isUndoingRef.current = true
+    setUndoCount(historyRef.current.length)
+    // Ripristina formattazione (innerHTML) e plain text
+    if (editorRef.current) editorRef.current.innerHTML = snap.editorHTML
+    onContentChange(snap.content)
+    onPrevContentChange(snap.prevContent)
+    onNextContentChange(snap.nextContent)
+    updateStats(snap.content)
+    lastPushedHTMLRef.current = snap.editorHTML
+    setMovedFeedback('undo')
+    setTimeout(() => setMovedFeedback(null), 1500)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('libra-force-save'))
+    // Riabilita push dopo il ciclo di rendering
+    setTimeout(() => { isUndoingRef.current = false }, 50)
+  }
+
+  // ---- MOVE: sposta testo dal prev/next al blocco attuale ----
+  const handleMove = () => {
+    if (!moveButton) return
+    // Flush snapshot di digitazione in attesa
+    if (inputSnapshotTimer.current) {
+      clearTimeout(inputSnapshotTimer.current)
+      inputSnapshotTimer.current = null
+    }
+    pushSnapshot()  // salva stato pre-spostamento
+    const { source, start, end, text } = moveButton
+    const piece = text.trim()
+    if (source === 'prev') {
+      const newPrev = (prevContent.substring(0, start) + prevContent.substring(end)).replace(/\s+$/, '')
+      onPrevContentChange(newPrev)
+      const newContent = piece + (content.startsWith('\n') ? '' : '\n\n') + content
+      onContentChange(newContent)
+      if (editorRef.current) editorRef.current.innerText = newContent
+      updateStats(newContent)
+    } else {
+      const newNext = (nextContent.substring(0, start) + nextContent.substring(end)).replace(/^\s+/, '')
+      onNextContentChange(newNext)
+      const newContent = content.replace(/\s+$/, '') + '\n\n' + piece
+      onContentChange(newContent)
+      if (editorRef.current) editorRef.current.innerText = newContent
+      updateStats(newContent)
+      setTimeout(() => {
+        editorScrollRef.current?.scrollTo({ top: editorScrollRef.current.scrollHeight, behavior: 'smooth' })
+      }, 50)
+    }
+    if (source === 'prev') prevRef.current?.setSelectionRange(0, 0)
+    else drawerRef.current?.setSelectionRange(0, 0)
+    setMoveButton(null)
+    setMovedFeedback(source)
+    setTimeout(() => setMovedFeedback(null), 1800)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('libra-force-save'))
+  }
+
+  const readingMin = Math.max(1, Math.ceil(wc / 200))
+  const virtualPages = Math.max(1, Math.ceil(wc / 250))
+  const semaphore = wc < 600
+    ? { color: 'text-red-600', label: '🚫 Troppo corto' }
+    : wc < 800
+      ? { color: 'text-amber-600', label: '⚠️ Un po\' corto' }
+      : wc <= 2000
+        ? { color: 'text-green-600', label: '🔥 Zona Ideale' }
+        : wc <= 2500
+          ? { color: 'text-emerald-600', label: '✅ Lungo ma ok' }
+          : { color: 'text-amber-600', label: '⚠️ Troppo lungo' }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in"
+      onClick={onCancel}
+    >
+      <div
+        className="relative w-full h-full sm:h-[92vh] sm:max-h-[92vh] sm:m-8 flex overflow-hidden sm:rounded-2xl shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Foglio centrale */}
+        <div className="flex-1 bg-white flex flex-col min-w-0">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage-100 bg-white shrink-0">
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => exec('bold')} title="Grassetto"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-bark-600 hover:bg-sage-100 hover:text-sage-700 transition-colors">
+                <Bold className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => exec('italic')} title="Corsivo"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-bark-600 hover:bg-sage-100 hover:text-sage-700 transition-colors">
+                <Italic className="w-4 h-4" />
+              </button>
+              <div className="w-px h-5 bg-sage-200 mx-1" />
+              <button type="button" onClick={() => exec('formatBlock', 'H2')} title="Titolo"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-bark-600 hover:bg-sage-100 hover:text-sage-700 transition-colors">
+                <Heading2 className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => exec('insertUnorderedList')} title="Lista"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-bark-600 hover:bg-sage-100 hover:text-sage-700 transition-colors">
+                <List className="w-4 h-4" />
+              </button>
+              <div className="w-px h-5 bg-sage-200 mx-1" />
+              {/* Undo granulare */}
+              <button type="button" onClick={handleUndo} disabled={undoCount === 0}
+                title={undoCount > 0 ? `Annulla (${undoCount})` : 'Nessuna azione da annullare'}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  undoCount > 0
+                    ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700'
+                    : 'text-bark-300 cursor-not-allowed'
+                }`}>
+                <Undo2 className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Toggle drawer */}
+              {hasNext && (
+                <button type="button" onClick={() => setDrawerOpen(!drawerOpen)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    drawerOpen
+                      ? 'bg-sage-100 text-sage-700 hover:bg-sage-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                  }`}>
+                  {drawerOpen ? <PanelRightClose className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                  {drawerOpen ? 'Chiudi pannello' : 'Vedi blocco successivo'}
+                </button>
+              )}
+              <button type="button" onClick={onCancel} title="Chiudi (Esc)"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-bark-500 hover:bg-sage-100 hover:text-bark-700 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Zona precedente (compatta, sopra il foglio) */}
+          {hasPrev && (
+            <div className="shrink-0 bg-stone-50 border-b border-stone-200/60">
+              <div className="max-w-[720px] mx-auto px-6 sm:px-14 pt-3 pb-1">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-bark-400 font-semibold">
+                    ← Fine blocco precedente
+                  </p>
+                  {moveButton?.source === 'prev' && (
+                    <button type="button" onClick={handleMove}
+                      className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-semibold bg-sage-600 text-white rounded-full shadow-md hover:bg-sage-700 transition-colors animate-fade-in">
+                      <ChevronDown className="w-3 h-3" />
+                      Sposta qui
+                    </button>
+                  )}
+                  {movedFeedback === 'prev' && (
+                    <span className="text-[11px] font-semibold text-green-600 animate-fade-in">✓ Spostato</span>
+                  )}
+                </div>
+                <textarea
+                  ref={prevRef}
+                  value={prevContent}
+                  readOnly
+                  onMouseUp={() => handleZoneSelection('prev')}
+                  placeholder="(blocco precedente vuoto)"
+                  className="w-full resize-none bg-transparent text-sm font-serif leading-relaxed text-bark-500/70 outline-none cursor-text selection:bg-amber-100 selection:text-bark-800"
+                  style={{ height: '100px' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Editor */}
+          <div ref={editorScrollRef} className="flex-1 overflow-y-auto bg-white min-h-0">
+            <div className="max-w-[720px] mx-auto px-6 sm:px-14 py-8 sm:py-10">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => onTitleChange(e.target.value)}
+                placeholder="Titolo del blocco"
+                className="w-full text-3xl sm:text-4xl font-bold text-sage-900 bg-transparent border-0 outline-none placeholder:text-bark-300 mb-6"
+              />
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={handleInput}
+                className="min-h-[260px] text-[17px] font-serif leading-[1.75] text-bark-800 outline-none whitespace-pre-wrap focus:outline-none [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-sage-900 [&_h2]:mt-6 [&_h2]:mb-3 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic"
+              />
+            </div>
+          </div>
+
+          {/* Undo feedback */}
+          {movedFeedback === 'undo' && (
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full shadow-md animate-fade-in">
+              ↩ Azione annullata
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3 border-t border-sage-100 bg-white shrink-0">
+            <div className="flex flex-col min-w-0">
+              <p className="text-xs text-bark-400">
+                {wc.toLocaleString()} parole &bull; {virtualPages} pag &bull; ~{readingMin} min
+              </p>
+              <p className={`text-[11px] font-medium mt-0.5 ${semaphore.color}`}>
+                {semaphore.label}
+                {undoCount > 0 && (
+                  <span className="ml-2 text-amber-600">({undoCount} undo)</span>
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button type="button" onClick={onCancel}
+                className="px-4 py-2 text-sm text-bark-500 hover:bg-sage-50 rounded-lg transition-colors">
+                Annulla
+              </button>
+              <button type="button" onClick={onSave}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-sage-500 text-white rounded-lg hover:bg-sage-600 font-medium transition-colors">
+                <Save className="w-4 h-4" />
+                Salva modifiche
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Side Drawer — Blocco successivo */}
+        <div
+          className={`bg-stone-50 border-l border-stone-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${
+            drawerOpen ? 'w-[340px] sm:w-[380px]' : 'w-0'
+          }`}
+        >
+          {drawerOpen && (
+            <>
+              <div className="px-4 py-3 border-b border-stone-200/60 shrink-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-bark-400 font-semibold">
+                    Blocco successivo
+                  </p>
+                  {movedFeedback === 'next' && (
+                    <span className="text-[11px] font-semibold text-green-600 animate-fade-in">✓ Spostato</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-bark-400 mt-1">
+                  Seleziona il testo che vuoi spostare nel blocco attuale
+                </p>
+              </div>
+
+              {/* Pulsante SPOSTA QUI */}
+              {moveButton?.source === 'next' && (
+                <div className="px-4 py-2 bg-sage-50 border-b border-sage-200 shrink-0 animate-fade-in">
+                  <button type="button" onClick={handleMove}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold bg-sage-600 text-white rounded-xl shadow-lg hover:bg-sage-700 transition-colors">
+                    <ChevronUp className="w-4 h-4" />
+                    SPOSTA NEL BLOCCO ATTUALE
+                  </button>
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto p-4">
+                <textarea
+                  ref={drawerRef}
+                  value={nextContent}
+                  readOnly
+                  onMouseUp={() => handleZoneSelection('next')}
+                  onTouchEnd={() => handleZoneSelection('next')}
+                  placeholder="(blocco successivo vuoto)"
+                  className="w-full h-full min-h-[400px] resize-none bg-transparent text-[13px] font-serif leading-relaxed text-bark-600/80 outline-none cursor-text selection:bg-amber-200 selection:text-bark-900"
+                />
+              </div>
+              <div className="px-4 py-2 border-t border-stone-200/60 shrink-0">
+                <p className="text-[10px] text-bark-400">
+                  {nextContent.trim().split(/\s+/).filter(Boolean).length.toLocaleString()} parole &bull;{' '}
+                  {Math.max(1, Math.ceil(nextContent.trim().split(/\s+/).filter(Boolean).length / 250))} pag
+                </p>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

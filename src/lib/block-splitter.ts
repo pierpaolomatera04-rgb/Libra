@@ -182,5 +182,5 @@ export function suggestBlockCount(characterCount: number): number {
   // Target: ~3000-5000 caratteri per blocco (circa 2-3 minuti di lettura)
   const targetCharsPerBlock = 4000
   const suggested = Math.round(characterCount / targetCharsPerBlock)
-  return Math.max(3, Math.min(suggested, 16)) // min 3, max 16 blocchi (HARD LIMIT)
+  return Math.max(3, Math.min(suggested, 36)) // min 3, max 36 blocchi (HARD LIMIT)
 }

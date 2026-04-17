@@ -94,22 +94,22 @@ export default function ImpostazioniPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+      <div className="min-h-screen bg-cream-50 dark:bg-[#161a14] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-sage-500" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="min-h-screen bg-cream-50 dark:bg-[#161a14]">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex items-center gap-3 mb-8">
           <Settings className="w-7 h-7 text-sage-600" />
-          <h1 className="text-2xl font-bold text-sage-900">Impostazioni</h1>
+          <h1 className="text-2xl font-bold text-sage-900 dark:text-sage-100">Impostazioni</h1>
         </div>
 
         {/* Info account */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-sage-100 mb-6">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl p-6 shadow-sm border border-sage-100 dark:border-sage-800 mb-6">
           <h2 className="text-lg font-semibold text-sage-800 mb-4 flex items-center gap-2">
             <Shield className="w-5 h-5 text-sage-500" />
             Account
@@ -147,7 +147,7 @@ export default function ImpostazioniPage() {
         </div>
 
         {/* Cambio password */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-sage-100 mb-6">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl p-6 shadow-sm border border-sage-100 dark:border-sage-800 mb-6">
           <h2 className="text-lg font-semibold text-sage-800 mb-4 flex items-center gap-2">
             <Shield className="w-5 h-5 text-sage-500" />
             Cambia password
@@ -232,7 +232,7 @@ export default function ImpostazioniPage() {
         </div>
 
         {/* Notifiche */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-sage-100 mb-6">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl p-6 shadow-sm border border-sage-100 dark:border-sage-800 mb-6">
           <h2 className="text-lg font-semibold text-sage-800 mb-4 flex items-center gap-2">
             <Bell className="w-5 h-5 text-sage-500" />
             Notifiche
@@ -268,7 +268,7 @@ export default function ImpostazioniPage() {
         </div>
 
         {/* Aspetto */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-sage-100 mb-6">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl p-6 shadow-sm border border-sage-100 dark:border-sage-800 mb-6">
           <h2 className="text-lg font-semibold text-sage-800 mb-4 flex items-center gap-2">
             <Palette className="w-5 h-5 text-sage-500" />
             Aspetto
@@ -279,7 +279,7 @@ export default function ImpostazioniPage() {
         </div>
 
         {/* Zona pericolosa */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-red-100 mb-6">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl p-6 shadow-sm border border-red-100 dark:border-red-900/50 mb-6">
           <h2 className="text-lg font-semibold text-red-600 mb-4 flex items-center gap-2">
             <Trash2 className="w-5 h-5" />
             Zona pericolosa

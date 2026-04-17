@@ -147,6 +147,33 @@ body {
   color: #d8d4d0 !important;
 }
 
+/* --- Highlight (<mark>) dentro la reading-text ---
+   In light mode usa i colori macro-area (Tailwind bg-*-100).
+   In dark mode forziamo un giallo ocra dorato traslucido
+   con testo chiaro per garantire leggibilita + contrasto WCAG AA. */
+.reading-text mark {
+  border-radius: 3px;
+  padding: 0 2px;
+  transition: background-color 0.2s ease;
+}
+
+.dark .reading-text mark {
+  background-color: rgba(212, 175, 55, 0.28) !important;
+  color: #f2efe8 !important;
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.15);
+}
+
+/* Selezione testo nel lettore — coerente con lo stile highlight */
+.reading-text ::selection {
+  background-color: rgba(212, 175, 55, 0.35);
+  color: #2d2d2d;
+}
+
+.dark .reading-text ::selection {
+  background-color: rgba(212, 175, 55, 0.45);
+  color: #ffffff;
+}
+
 /* Scrollbar personalizzata */
 ::-webkit-scrollbar {
   width: 6px;
@@ -190,6 +217,22 @@ body {
 
 .animate-slide-up {
   animation: slideUp 0.6s ease-out;
+}
+
+/* Firma premium reaction — glow + pulse dorato */
+@keyframes pulseSlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.55), 0 0 8px rgba(251, 191, 36, 0.35);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.0), 0 0 14px rgba(251, 191, 36, 0.7);
+    transform: scale(1.08);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 2s ease-in-out infinite;
 }
 
 /* Filtro luce blu (Eye Care) */

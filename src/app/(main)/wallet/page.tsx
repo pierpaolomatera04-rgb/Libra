@@ -3,7 +3,52 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
-import { Coins, Gift, Unlock, ShoppingCart } from 'lucide-react'
+import { toast } from 'sonner'
+import { Coins, Gift, Unlock, ShoppingCart, Sparkles, Star } from 'lucide-react'
+
+type TokenPackage = {
+  id: string
+  name: string
+  tokens: number
+  bonus: number
+  priceEur: number
+  icon: typeof Coins
+  accent: 'sage' | 'amber' | 'emerald'
+  badge?: string
+}
+
+// Pacchetti ricarica — tasso fisso 10 token = 1€
+// I token acquistati vanno nella card "Token Premium" (durata illimitata)
+const TOKEN_PACKAGES: TokenPackage[] = [
+  {
+    id: 'small',
+    name: 'Small',
+    tokens: 50,
+    bonus: 0,
+    priceEur: 5.0,
+    icon: Coins,
+    accent: 'sage',
+  },
+  {
+    id: 'medium',
+    name: 'Medium',
+    tokens: 100,
+    bonus: 10,
+    priceEur: 10.0,
+    icon: Sparkles,
+    accent: 'amber',
+  },
+  {
+    id: 'large',
+    name: 'Large',
+    tokens: 200,
+    bonus: 30,
+    priceEur: 20.0,
+    icon: Star,
+    accent: 'emerald',
+    badge: 'Conveniente',
+  },
+]
 
 export default function WalletPage() {
   const { profile, totalTokens, user } = useAuth()
@@ -58,6 +103,13 @@ export default function WalletPage() {
     ? Math.max(0, Math.ceil((bonusExpireDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null
 
+  // Acquisto pacchetto — placeholder finche' Stripe non e' integrato
+  const handleBuyPackage = (pkgId: string) => {
+    toast.info('Pagamenti Stripe in arrivo', {
+      description: `Pacchetto "${pkgId}" selezionato. L'integrazione pagamenti sara' attiva a breve.`,
+    })
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-sage-900 mb-6">Il mio wallet</h1>
@@ -72,7 +124,7 @@ export default function WalletPage() {
           <p className="text-3xl font-bold">{totalTokens}</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-sage-100 p-6">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-6">
           <div className="flex items-center gap-2 mb-2">
             <Gift className="w-5 h-5 text-amber-500" />
             <span className="text-sm text-bark-400">Token bonus</span>
@@ -85,13 +137,76 @@ export default function WalletPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-sage-100 p-6">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-6">
           <div className="flex items-center gap-2 mb-2">
             <Coins className="w-5 h-5 text-sage-500" />
             <span className="text-sm text-bark-400">Token premium</span>
           </div>
           <p className="text-2xl font-bold text-sage-900">{profile?.premium_tokens || 0}</p>
           <p className="text-xs text-bark-400 mt-1">Non scadono mai</p>
+        </div>
+      </div>
+
+      {/* Pacchetti Token (ricarica singola) */}
+      <div className="mb-8">
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-sage-900">Pacchetti Token</h2>
+            <p className="text-xs text-bark-400 mt-0.5">Tasso fisso: 10 token = €1,00 — durata illimitata</p>
+          </div>
+          <span className="text-[10px] uppercase tracking-wide text-bark-400 font-semibold hidden sm:block">Ricarica singola</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {TOKEN_PACKAGES.map((pkg) => {
+            const Icon = pkg.icon
+            const totalTk = pkg.tokens + pkg.bonus
+            const accentBg = pkg.accent === 'amber'
+              ? 'bg-amber-50 border-amber-200'
+              : pkg.accent === 'emerald'
+                ? 'bg-emerald-50 border-emerald-200'
+                : 'bg-sage-50 border-sage-200'
+            const accentIcon = pkg.accent === 'amber'
+              ? 'text-amber-600'
+              : pkg.accent === 'emerald'
+                ? 'text-emerald-600'
+                : 'text-sage-600'
+            return (
+              <div
+                key={pkg.id}
+                className={`relative rounded-xl border ${accentBg} p-4 flex flex-col`}
+              >
+                {pkg.badge && (
+                  <span className="absolute -top-2 right-3 text-[10px] font-bold px-2 py-0.5 bg-emerald-500 text-white rounded-full shadow-sm">
+                    {pkg.badge}
+                  </span>
+                )}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-7 h-7 rounded-lg bg-white flex items-center justify-center ${accentIcon}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-sage-900">{pkg.name}</span>
+                </div>
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-2xl font-bold text-sage-900">{totalTk}</span>
+                  <span className="text-xs text-bark-500 font-medium">token</span>
+                </div>
+                {pkg.bonus > 0 && (
+                  <p className="text-[11px] text-emerald-600 font-medium mb-2">
+                    +{pkg.bonus} token bonus inclusi
+                  </p>
+                )}
+                <p className="text-sm text-bark-500 mb-3">
+                  €{pkg.priceEur.toFixed(2).replace('.', ',')}
+                </p>
+                <button
+                  onClick={() => handleBuyPackage(pkg.id)}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-white border border-sage-300 text-sage-700 hover:bg-sage-500 hover:text-white hover:border-sage-500 transition-colors mt-auto"
+                >
+                  Acquista
+                </button>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -114,7 +229,7 @@ export default function WalletPage() {
               price: '€4,99',
               period: '/mese',
               current: profile?.subscription_plan === 'silver',
-              features: ['50 token bonus/mese', 'Sconto 20% blocchi', 'Contenuti Silver', 'Badge Silver', 'Accesso anticipato'],
+              features: ['10 token bonus/mese', 'Sconto 15% blocchi', 'Anteprima blocchi 24h', 'Contenuti Silver', 'Badge Silver'],
               color: 'border-gray-300',
               badge: 'bg-gray-100 text-gray-700',
             },
@@ -123,25 +238,25 @@ export default function WalletPage() {
               price: '€9,99',
               period: '/mese',
               current: profile?.subscription_plan === 'gold',
-              features: ['120 token bonus/mese', 'Sconto 40% blocchi', 'Tutto il catalogo', 'Badge Gold', 'Supporto prioritario'],
+              features: ['20 token bonus/mese', 'Sconto 30% blocchi', 'Anteprima blocchi 48h', 'Tutto il catalogo', 'Badge Gold', 'Supporto prioritario'],
               color: 'border-amber-300',
               badge: 'bg-amber-50 text-amber-700',
             },
           ].map((plan) => (
-            <div key={plan.name} className={`bg-white rounded-2xl border-2 ${plan.current ? plan.color + ' ring-2 ring-sage-300' : 'border-sage-100'} p-5 relative`}>
+            <div key={plan.name} className={`bg-white dark:bg-[#1e221c] rounded-2xl border-2 ${plan.current ? plan.color + ' ring-2 ring-sage-300' : 'border-sage-100 dark:border-sage-800'} p-5 relative flex flex-col h-full`}>
               {plan.current && (
                 <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-0.5 bg-sage-500 text-white rounded-full">
                   Piano attuale
                 </span>
               )}
-              <div className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-3 ${plan.badge}`}>
+              <div className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-3 self-start ${plan.badge}`}>
                 {plan.name}
               </div>
               <div className="mb-4">
                 <span className="text-2xl font-bold text-sage-900">{plan.price}</span>
                 {plan.period && <span className="text-sm text-bark-400">{plan.period}</span>}
               </div>
-              <ul className="space-y-2 mb-5">
+              <ul className="space-y-2 mb-5 flex-1">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-bark-500">
                     <span className="text-sage-500 mt-0.5">✓</span>
@@ -150,11 +265,11 @@ export default function WalletPage() {
                 ))}
               </ul>
               {plan.current ? (
-                <div className="w-full py-2 rounded-xl text-center text-sm font-medium bg-sage-50 text-sage-600">
+                <div className="w-full py-2 rounded-xl text-center text-sm font-medium bg-sage-50 text-sage-600 mt-auto">
                   Attivo
                 </div>
               ) : (
-                <button className="w-full py-2 rounded-xl text-sm font-medium bg-sage-500 text-white hover:bg-sage-600 transition-colors">
+                <button className="w-full py-2 rounded-xl text-sm font-medium bg-sage-500 text-white hover:bg-sage-600 transition-colors mt-auto">
                   {plan.price === 'Gratis' ? 'Downgrade' : 'Upgrade'}
                 </button>
               )}
@@ -167,7 +282,7 @@ export default function WalletPage() {
       </div>
 
       {/* Transaction history */}
-      <div className="bg-white rounded-2xl border border-sage-100 p-6">
+      <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-6">
         <h2 className="text-lg font-bold text-sage-900 mb-4">Cronologia</h2>
 
         {loading ? (
