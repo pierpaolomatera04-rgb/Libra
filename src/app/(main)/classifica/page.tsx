@@ -288,20 +288,26 @@ export default function ClassificaPage() {
             <div className="flex items-start gap-2 p-3 mb-1 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/10 border border-amber-100 dark:border-amber-900/30">
               <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                <strong>Punti Prestigio:</strong> +1 per Token (mance), +15/30 per Abbonamento (Silver/Gold),
+                <strong>Punti Prestigio:</strong> +1 per ogni Token (mance da min. 5 Token), +15/30 per Abbonamento (Silver/Gold),
                 +5 per acquisto, +10 per Boost.
-                &nbsp;Livelli: Bronzo (1-50) &bull; Argento (51-200) &bull; Oro (201+)
+                &nbsp;Livelli: Bronzo (150+) &bull; Argento (600+) &bull; Oro (1500+) &bull; Diamante (3000+)
               </p>
             </div>
             {mecenati.map((entry: any, index: number) => {
               const level = getMecenateLevel(entry.prestige_points)
-              const levelLabel = level === 'oro' ? 'Oro' : level === 'argento' ? 'Argento' : 'Bronzo'
+              const levelLabel =
+                level === 'diamante' ? 'Diamante'
+                : level === 'oro' ? 'Oro'
+                : level === 'argento' ? 'Argento'
+                : 'Bronzo'
               const levelColor =
-                level === 'oro'
-                  ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/20 dark:to-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'
-                  : level === 'argento'
-                    ? 'bg-gradient-to-r from-gray-100 to-slate-100 dark:from-gray-800/40 dark:to-slate-800/40 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
-                    : 'bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-400 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+                level === 'diamante'
+                  ? 'bg-gradient-to-r from-cyan-100 to-sky-100 dark:from-cyan-900/20 dark:to-sky-900/20 border border-cyan-300 dark:border-cyan-700 text-sky-800 dark:text-cyan-200'
+                  : level === 'oro'
+                    ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/20 dark:to-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'
+                    : level === 'argento'
+                      ? 'bg-gradient-to-r from-gray-100 to-slate-100 dark:from-gray-800/40 dark:to-slate-800/40 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
+                      : 'bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-400 dark:border-amber-800 text-amber-800 dark:text-amber-300'
               return (
                 <Link
                   key={entry.id}
