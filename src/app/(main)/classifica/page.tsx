@@ -67,10 +67,10 @@ export default function ClassificaPage() {
       setLoading(true)
 
       if (bookFilter === 'trending') {
-        // Per In Tendenza uso trending_cache (posizioni, delta, days_at_top)
+        // Per In Tendenza uso trending_cache (posizioni, delta, days_at_top, attivita 7gg)
         const { data: cache } = await supabase
           .from('trending_cache')
-          .select('book_id, score, position, prev_position, positions_changed, is_new_entry, days_at_top')
+          .select('book_id, score, position, prev_position, positions_changed, is_new_entry, days_at_top, activity_delta_7d, score_7d_ago')
           .order('position', { ascending: true })
           .limit(20)
 
@@ -92,6 +92,8 @@ export default function ClassificaPage() {
             is_new_entry: r.is_new_entry,
             days_at_top: r.days_at_top,
             score: r.score,
+            activity_delta_7d: r.activity_delta_7d,
+            score_7d_ago: r.score_7d_ago,
           },
         })).filter((b: any) => b.id)
 
@@ -531,6 +533,7 @@ export default function ClassificaPage() {
               const positionsDelta = tr?.positions_changed ?? 0
               const daysAtTop = tr?.days_at_top ?? 0
               const isNewEntry = !!tr?.is_new_entry
+              const activityDelta: number | null = tr && tr.score_7d_ago > 0 ? Number(tr.activity_delta_7d) : null
               return (
                 <Link
                   key={book.id}
@@ -568,14 +571,33 @@ export default function ClassificaPage() {
                             NUOVO
                           </span>
                         )}
-                        {!isNewEntry && positionsDelta > 0 && (
-                          <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                            <ChevronUp className="w-2.5 h-2.5" /> +{positionsDelta}
+                        {activityDelta !== null && activityDelta > 0 && (
+                          <span
+                            title="Variazione score ultimi 7 giorni"
+                            className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                          >
+                            <ChevronUp className="w-2.5 h-2.5" /> +{Math.round(activityDelta)}% attività 7gg
                           </span>
                         )}
-                        {!isNewEntry && positionsDelta < 0 && (
-                          <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
-                            <ChevronDown className="w-2.5 h-2.5" /> {positionsDelta}
+                        {activityDelta !== null && activityDelta < 0 && (
+                          <span
+                            title="Variazione score ultimi 7 giorni"
+                            className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
+                          >
+                            <ChevronDown className="w-2.5 h-2.5" /> {Math.round(activityDelta)}% attività 7gg
+                          </span>
+                        )}
+                        {!isNewEntry && positionsDelta !== 0 && (
+                          <span
+                            title="Posizioni guadagnate/perse dall'ultima rilevazione"
+                            className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                              positionsDelta > 0
+                                ? 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800'
+                                : 'bg-gray-50 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
+                            }`}
+                          >
+                            {positionsDelta > 0 ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                            {positionsDelta > 0 ? `+${positionsDelta}` : positionsDelta} pos.
                           </span>
                         )}
                         {index === 0 && daysAtTop > 0 && (

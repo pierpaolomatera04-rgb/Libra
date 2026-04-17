@@ -23,6 +23,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Registra snapshot giornaliero e calcola delta % a 7 giorni
+    const { error: histErr } = await supabase.rpc('update_trending_history')
+    if (histErr) {
+      console.error('Errore update_trending_history:', histErr)
+      // Non bloccante: il trending principale e' gia' stato calcolato
+    }
+
     // Leggi i top 20 dalla cache per conferma
     const { data: topBooks, error: fetchErr } = await supabase
       .from('trending_cache')
