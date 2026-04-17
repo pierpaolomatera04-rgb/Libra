@@ -5,14 +5,47 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
   Flame, Trophy, Medal, Loader2, Crown, BookOpen,
-  Users, TrendingUp, Heart, Eye, Award
+  Users, TrendingUp, Heart, Eye, Award, Sparkles, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { MecenateBadge, getMecenateLevel } from '@/components/ui/MecenateBadge'
 import { getXpLevel } from '@/lib/badges'
 
-type MainTab = 'libri' | 'lettori' | 'mecenati'
+type MainTab = 'libri' | 'autori' | 'lettori' | 'mecenati'
 type BookFilter = 'reads' | 'likes' | 'trending'
 type ReaderFilter = 'streak' | 'badges'
+
+// Colori esatti del podio (richiesta prodotto)
+const PODIUM_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'] as const
+
+// ─────────────────────────────────────────────────────────────────
+// Colonna rank: numeri giganti (podio) + grigi (dal 4°)
+// Larghezza fissa 80px per allineare tutte le card.
+// ─────────────────────────────────────────────────────────────────
+function RankColumn({ index }: { index: number }) {
+  const isPodium = index < 3
+  if (isPodium) {
+    return (
+      <div className="flex-shrink-0 w-20 flex items-center justify-center">
+        <span
+          className="font-extrabold leading-none text-3xl sm:text-4xl md:text-5xl select-none"
+          style={{
+            color: PODIUM_COLORS[index],
+            textShadow: '0 2px 4px rgba(0,0,0,0.08)',
+          }}
+        >
+          {index + 1}
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex-shrink-0 w-20 flex items-center justify-center">
+      <span className="font-bold leading-none text-2xl text-bark-300 dark:text-sage-600 select-none">
+        {index + 1}
+      </span>
+    </div>
+  )
+}
 
 export default function ClassificaPage() {
   const supabase = createClient()
@@ -20,32 +53,60 @@ export default function ClassificaPage() {
   const [bookFilter, setBookFilter] = useState<BookFilter>('reads')
   const [readerFilter, setReaderFilter] = useState<ReaderFilter>('streak')
   const [books, setBooks] = useState<any[]>([])
+  const [authors, setAuthors] = useState<any[]>([])
   const [readers, setReaders] = useState<any[]>([])
   const [mecenati, setMecenati] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  // ─────────────────────────────────────────────────────────────
   // Fetch books leaderboard
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (mainTab !== 'libri') return
     const fetchBooks = async () => {
       setLoading(true)
+
+      if (bookFilter === 'trending') {
+        // Per In Tendenza uso trending_cache (posizioni, delta, days_at_top)
+        const { data: cache } = await supabase
+          .from('trending_cache')
+          .select('book_id, score, position, prev_position, positions_changed, is_new_entry, days_at_top')
+          .order('position', { ascending: true })
+          .limit(20)
+
+        const ids = (cache || []).map((r: any) => r.book_id)
+        if (ids.length === 0) { setBooks([]); setLoading(false); return }
+
+        const { data: booksData } = await supabase
+          .from('books')
+          .select('id, title, cover_image_url, genre, total_reads, total_likes, trending_score, status, author:profiles!books_author_id_fkey(id, name, username, author_pseudonym)')
+          .in('id', ids)
+
+        const booksMap = new Map((booksData || []).map((b: any) => [b.id, b]))
+        const merged = (cache || []).map((r: any) => ({
+          ...(booksMap.get(r.book_id) || {}),
+          _trending: {
+            position: r.position,
+            prev_position: r.prev_position,
+            positions_changed: r.positions_changed,
+            is_new_entry: r.is_new_entry,
+            days_at_top: r.days_at_top,
+            score: r.score,
+          },
+        })).filter((b: any) => b.id)
+
+        setBooks(merged)
+        setLoading(false)
+        return
+      }
 
       let query = supabase
         .from('books')
         .select('id, title, cover_image_url, genre, total_reads, total_likes, trending_score, status, author:profiles!books_author_id_fkey(id, name, username, author_pseudonym)')
         .in('status', ['published', 'ongoing', 'completed'])
 
-      switch (bookFilter) {
-        case 'reads':
-          query = query.order('total_reads', { ascending: false })
-          break
-        case 'likes':
-          query = query.order('total_likes', { ascending: false })
-          break
-        case 'trending':
-          query = query.order('trending_score', { ascending: false })
-          break
-      }
+      if (bookFilter === 'reads') query = query.order('total_reads', { ascending: false })
+      if (bookFilter === 'likes') query = query.order('total_likes', { ascending: false })
 
       const { data } = await query.limit(20)
       setBooks(data || [])
@@ -54,7 +115,68 @@ export default function ClassificaPage() {
     fetchBooks()
   }, [mainTab, bookFilter])
 
+  // ─────────────────────────────────────────────────────────────
+  // Fetch authors leaderboard (follower count + books aggregati)
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (mainTab !== 'autori') return
+    const fetchAuthors = async () => {
+      setLoading(true)
+      try {
+        // Prendo tutti i follow: aggrego in JS per following_id
+        const { data: followsRows } = await supabase
+          .from('follows')
+          .select('following_id')
+
+        const followMap: Record<string, number> = {}
+        ;(followsRows || []).forEach((f: any) => {
+          followMap[f.following_id] = (followMap[f.following_id] || 0) + 1
+        })
+
+        const topIds = Object.entries(followMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20)
+          .map(([id]) => id)
+
+        if (topIds.length === 0) { setAuthors([]); setLoading(false); return }
+
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, name, username, avatar_url, author_pseudonym, prestige_points')
+          .in('id', topIds)
+
+        // Conto i libri pubblicati di ciascun autore
+        const { data: booksCount } = await supabase
+          .from('books')
+          .select('author_id')
+          .in('author_id', topIds)
+          .in('status', ['published', 'ongoing', 'completed'])
+
+        const booksMap: Record<string, number> = {}
+        ;(booksCount || []).forEach((b: any) => {
+          booksMap[b.author_id] = (booksMap[b.author_id] || 0) + 1
+        })
+
+        const merged = (profiles || [])
+          .map((p: any) => ({
+            ...p,
+            follower_count: followMap[p.id] || 0,
+            books_count: booksMap[p.id] || 0,
+          }))
+          .sort((a: any, b: any) => b.follower_count - a.follower_count)
+
+        setAuthors(merged)
+      } catch {
+        setAuthors([])
+      }
+      setLoading(false)
+    }
+    fetchAuthors()
+  }, [mainTab])
+
+  // ─────────────────────────────────────────────────────────────
   // Fetch readers leaderboard
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (mainTab !== 'lettori') return
     const fetchReaders = async () => {
@@ -125,11 +247,9 @@ export default function ClassificaPage() {
     fetchReaders()
   }, [mainTab, readerFilter])
 
-  // Fetch mecenati leaderboard
-  // ── Feedback in tempo reale: la classifica si aggiorna al cambio tab,
-  //    al rientro sulla scheda (visibilitychange) e quando la finestra
-  //    torna in focus — così i punti guadagnati in altre pagine si
-  //    riflettono appena l'utente torna qui.
+  // ─────────────────────────────────────────────────────────────
+  // Fetch mecenati leaderboard (real-time su focus/visibility)
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (mainTab !== 'mecenati') return
     let isMounted = true
@@ -164,13 +284,6 @@ export default function ClassificaPage() {
     return 'bg-white dark:bg-[#1e221c] border-sage-100 dark:border-sage-800'
   }
 
-  const getRankIcon = (index: number) => {
-    if (index === 0) return <Crown className="w-5 h-5 text-amber-500" />
-    if (index === 1) return <Medal className="w-5 h-5 text-gray-400" />
-    if (index === 2) return <Medal className="w-5 h-5 text-orange-400" />
-    return <span className="w-5 h-5 flex items-center justify-center text-sm font-bold text-bark-400 dark:text-sage-500">{index + 1}</span>
-  }
-
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="flex items-center gap-3 mb-6">
@@ -179,7 +292,7 @@ export default function ClassificaPage() {
       </div>
 
       {/* ── Tab principali ── */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         <button
           onClick={() => setMainTab('libri')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
@@ -190,6 +303,17 @@ export default function ClassificaPage() {
         >
           <BookOpen className="w-4 h-4" />
           Libri
+        </button>
+        <button
+          onClick={() => setMainTab('autori')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+            mainTab === 'autori'
+              ? 'bg-sage-600 text-white'
+              : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-800'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          Autori
         </button>
         <button
           onClick={() => setMainTab('lettori')}
@@ -216,8 +340,8 @@ export default function ClassificaPage() {
       </div>
 
       {/* ── Sotto-filtri ── */}
-      {mainTab !== 'mecenati' && (
-      <div className="flex gap-1.5 mb-5">
+      {(mainTab === 'libri' || mainTab === 'lettori') && (
+      <div className="flex gap-1.5 mb-5 flex-wrap">
         {mainTab === 'libri' ? (
           <>
             {([
@@ -285,14 +409,6 @@ export default function ClassificaPage() {
           </div>
         ) : (
           <div className="space-y-2.5">
-            <div className="flex items-start gap-2 p-3 mb-1 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/10 border border-amber-100 dark:border-amber-900/30">
-              <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                <strong>Punti Prestigio:</strong> +1 per ogni Token (mance da min. 5 Token), +15/30 per Abbonamento (Silver/Gold),
-                +5 per acquisto, +10 per Boost.
-                &nbsp;Livelli: Bronzo (150+) &bull; Argento (600+) &bull; Oro (1500+) &bull; Diamante (3000+)
-              </p>
-            </div>
             {mecenati.map((entry: any, index: number) => {
               const level = getMecenateLevel(entry.prestige_points)
               const levelLabel =
@@ -314,13 +430,12 @@ export default function ClassificaPage() {
                   href={`/profile/${entry.username || entry.id}`}
                   className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
                 >
-                  <div className="flex-shrink-0 w-7 flex justify-center">
-                    {getRankIcon(index)}
-                  </div>
+                  <RankColumn index={index} />
+                  {index === 0 && <Crown className="w-5 h-5 text-amber-500 -ml-2 flex-shrink-0" />}
                   {entry.avatar_url ? (
-                    <img src={entry.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                    <img src={entry.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-base font-bold text-amber-700 dark:text-amber-400 flex-shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-lg font-bold text-amber-700 dark:text-amber-400 flex-shrink-0">
                       {(entry.name || entry.username || '?').charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -351,6 +466,55 @@ export default function ClassificaPage() {
             })}
           </div>
         )
+      ) : mainTab === 'autori' ? (
+        /* ═══ AUTORI LEADERBOARD ═══ */
+        authors.length === 0 ? (
+          <div className="text-center py-20 bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800">
+            <Sparkles className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-sage-800 dark:text-sage-200 mb-2">Nessun autore ancora</h2>
+            <p className="text-sm text-bark-400 dark:text-sage-500">Segui i tuoi autori preferiti per farli salire in classifica.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {authors.map((entry: any, index: number) => {
+              const displayName = entry.author_pseudonym || entry.name || entry.username || 'Autore'
+              return (
+                <Link
+                  key={entry.id}
+                  href={`/profile/${entry.username || entry.id}`}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
+                >
+                  <RankColumn index={index} />
+                  {entry.avatar_url ? (
+                    <img src={entry.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-xl font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">{displayName}</p>
+                    {entry.username && (
+                      <p className="text-xs text-bark-400 dark:text-sage-500 truncate">@{entry.username}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+                        <BookOpen className="w-2.5 h-2.5" />
+                        {entry.books_count} opere
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
+                    <Users className="w-3.5 h-3.5 text-sage-500" />
+                    <span className="text-xs font-bold text-sage-700 dark:text-sage-300">
+                      {entry.follower_count >= 1000 ? `${(entry.follower_count / 1000).toFixed(1)}k` : entry.follower_count}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )
       ) : mainTab === 'libri' ? (
         /* ═══ LIBRI LEADERBOARD ═══ */
         books.length === 0 ? (
@@ -363,16 +527,17 @@ export default function ClassificaPage() {
           <div className="space-y-2.5">
             {books.map((book: any, index: number) => {
               const authorName = book.author?.author_pseudonym || book.author?.name || 'Autore'
+              const tr = book._trending
+              const positionsDelta = tr?.positions_changed ?? 0
+              const daysAtTop = tr?.days_at_top ?? 0
+              const isNewEntry = !!tr?.is_new_entry
               return (
                 <Link
                   key={book.id}
                   href={`/libro/${book.id}`}
                   className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
                 >
-                  {/* Rank */}
-                  <div className="flex-shrink-0 w-7 flex justify-center">
-                    {getRankIcon(index)}
-                  </div>
+                  <RankColumn index={index} />
 
                   {/* Cover mini */}
                   <div className="flex-shrink-0 w-12 h-[72px] rounded-lg overflow-hidden bg-sage-100 dark:bg-sage-800">
@@ -387,18 +552,50 @@ export default function ClassificaPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 line-clamp-1">{book.title}</p>
-                    <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">{authorName}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-                        <Eye className="w-2.5 h-2.5" />
-                        {book.total_reads >= 1000 ? `${(book.total_reads / 1000).toFixed(1)}k` : book.total_reads || 0}
-                      </span>
-                      <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-                        <Heart className="w-2.5 h-2.5" />
-                        {book.total_likes || 0}
-                      </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {bookFilter === 'trending' && (
+                        <Flame className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" style={{ animation: 'pulse 1.6s ease-in-out infinite' }} />
+                      )}
+                      <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 line-clamp-1">{book.title}</p>
                     </div>
+                    <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">{authorName}</p>
+
+                    {/* Indicatori trending */}
+                    {bookFilter === 'trending' ? (
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {isNewEntry && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            NUOVO
+                          </span>
+                        )}
+                        {!isNewEntry && positionsDelta > 0 && (
+                          <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            <ChevronUp className="w-2.5 h-2.5" /> +{positionsDelta}
+                          </span>
+                        )}
+                        {!isNewEntry && positionsDelta < 0 && (
+                          <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                            <ChevronDown className="w-2.5 h-2.5" /> {positionsDelta}
+                          </span>
+                        )}
+                        {index === 0 && daysAtTop > 0 && (
+                          <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            <Crown className="w-2.5 h-2.5" /> In vetta da {daysAtTop} {daysAtTop === 1 ? 'giorno' : 'giorni'}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+                          <Eye className="w-2.5 h-2.5" />
+                          {book.total_reads >= 1000 ? `${(book.total_reads / 1000).toFixed(1)}k` : book.total_reads || 0}
+                        </span>
+                        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+                          <Heart className="w-2.5 h-2.5" />
+                          {book.total_likes || 0}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Main stat */}
@@ -418,10 +615,10 @@ export default function ClassificaPage() {
                       </div>
                     )}
                     {bookFilter === 'trending' && (
-                      <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full">
-                        <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                          {book.trending_score ? Math.round(book.trending_score) : 0}
+                      <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-full border border-orange-200 dark:border-orange-800">
+                        <Flame className="w-3.5 h-3.5 text-orange-500" />
+                        <span className="text-xs font-bold text-orange-700 dark:text-orange-400">
+                          {tr?.score ? Math.round(tr.score) : Math.round(book.trending_score || 0)}
                         </span>
                       </div>
                     )}
@@ -447,16 +644,13 @@ export default function ClassificaPage() {
                 href={`/profile/${entry.username || entry.id}`}
                 className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
               >
-                {/* Rank */}
-                <div className="flex-shrink-0 w-7 flex justify-center">
-                  {getRankIcon(index)}
-                </div>
+                <RankColumn index={index} />
 
                 {/* Avatar */}
                 {entry.avatar_url ? (
-                  <img src={entry.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  <img src={entry.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-lg font-bold text-sage-600 dark:text-sage-300 flex-shrink-0">
                     {(entry.name || entry.username || '?').charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -509,6 +703,15 @@ export default function ClassificaPage() {
           </div>
         )
       )}
+
+      {/* ── Legenda Prestigio (footer) ── */}
+      <div className="mt-8 flex items-start gap-2 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/10 border border-amber-100 dark:border-amber-900/30">
+        <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+          <strong>Punti Prestigio:</strong> +1 per Token (mance min. 5), +30 Gold, +15 Silver.
+          &nbsp;Livelli: Bronzo (150+) &bull; Argento (600+) &bull; Oro (1500+) &bull; Diamante (3000+)
+        </p>
+      </div>
     </div>
   )
 }
