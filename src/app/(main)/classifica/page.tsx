@@ -726,14 +726,16 @@ export default function ClassificaPage() {
         )
       )}
 
-      {/* ── Legenda Prestigio (footer) ── */}
-      <div className="mt-8 flex items-start gap-2 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/10 border border-amber-100 dark:border-amber-900/30">
-        <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-          <strong>Punti Prestigio:</strong> +1 per Token (mance min. 5), +30 Gold, +15 Silver.
-          &nbsp;Livelli: Bronzo (150+) &bull; Argento (600+) &bull; Oro (1500+) &bull; Diamante (3000+)
-        </p>
-      </div>
+      {/* ── Legenda Prestigio (solo tab Mecenati) ── */}
+      {mainTab === 'mecenati' && (
+        <div className="mt-8 flex items-start gap-2 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/10 border border-amber-100 dark:border-amber-900/30">
+          <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+            <strong>Punti Prestigio:</strong> +1 per Token (mance min. 5), +30 Gold, +15 Silver.
+            &nbsp;Livelli: Bronzo (150+) &bull; Argento (600+) &bull; Oro (1500+) &bull; Diamante (3000+)
+          </p>
+        </div>
+      )}
     </div>
   )
 }
