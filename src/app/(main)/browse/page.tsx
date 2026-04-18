@@ -98,6 +98,46 @@ export default function BrowsePage() {
 
   const [viewAll, setViewAll] = useState(false)
 
+  // ── Hide-on-scroll-down / show-on-scroll-up per la barra filtri ──
+  // La navbar principale resta fissa; solo questa barra si nasconde.
+  const [filterHidden, setFilterHidden] = useState(false)
+  useEffect(() => {
+    let lastY = typeof window !== 'undefined' ? window.scrollY : 0
+    const THRESHOLD = 10 // minimo spostamento prima di triggerare
+    const NAVBAR_HEIGHT = 64 // altezza navbar in px (top-16)
+    let ticking = false
+
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        const y = window.scrollY
+        const delta = y - lastY
+
+        // Vicino al top: sempre visibile
+        if (y < NAVBAR_HEIGHT + 20) {
+          setFilterHidden(false)
+          lastY = y
+          ticking = false
+          return
+        }
+
+        // Evita flickering su scroll minimo
+        if (Math.abs(delta) < THRESHOLD) {
+          ticking = false
+          return
+        }
+
+        setFilterHidden(delta > 0) // scroll giù → nascondi, scroll su → mostra
+        lastY = y
+        ticking = false
+      })
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const hasActiveFilters = genre || activeMacro || statusFilter !== 'all' || readingTime !== null
   const isDiscoveryMode = !search && !hasActiveFilters && sort === 'trending' && !viewAll
 
@@ -337,9 +377,11 @@ export default function BrowsePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* ── Sticky filter bar (inizio pagina) ── */}
+      {/* ── Sticky filter bar (inizio pagina) — hide on scroll down, show on scroll up ── */}
       <div
-        className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 pb-2.5 border-b border-sage-100/50 dark:border-sage-800/40"
+        className={`sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 pb-2.5 border-b border-sage-100/50 dark:border-sage-800/40 transition-transform duration-300 ease-out will-change-transform ${
+          filterHidden ? '-translate-y-full' : 'translate-y-0'
+        }`}
         style={{ backgroundColor: 'color-mix(in srgb, var(--background) 88%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
       >
         {/* Search + Filter toggle */}
