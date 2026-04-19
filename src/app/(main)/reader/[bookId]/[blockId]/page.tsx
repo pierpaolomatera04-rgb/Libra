@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { getBadgeById, XP_VALUES } from '@/lib/badges'
 import { getMacroAreaByGenre } from '@/lib/genres'
-import { MecenateBadge } from '@/components/ui/MecenateBadge'
+import { LevelBadge } from '@/components/ui/LevelBadge'
 import { awardXp, type XpResult } from '@/lib/xp'
 import LevelUpModal from '@/components/LevelUpModal'
 
@@ -376,7 +376,7 @@ export default function ReaderPage() {
     // Fetch comments (con risposte)
     const { data: commentsData } = await supabase
       .from('comments')
-      .select('*, user:profiles!comments_user_id_fkey(id, name, username, author_pseudonym, avatar_url, prestige_points)')
+      .select('*, user:profiles!comments_user_id_fkey(id, name, username, author_pseudonym, avatar_url, total_xp)')
       .eq('block_id', blockData.id)
       .order('created_at', { ascending: true })
       .limit(100)
@@ -1046,7 +1046,7 @@ export default function ReaderPage() {
         is_author_reply: user.id === book?.author_id,
         parent_comment_id: replyingTo?.id || null,
       })
-      .select('*, user:profiles!comments_user_id_fkey(id, name, username, author_pseudonym, avatar_url, prestige_points)')
+      .select('*, user:profiles!comments_user_id_fkey(id, name, username, author_pseudonym, avatar_url, total_xp)')
       .single()
 
     if (comment) {
@@ -1800,7 +1800,7 @@ export default function ReaderPage() {
                           <Link href={comment.user?.username ? `/profile/${comment.user.username}` : '#'} className="text-sm font-medium text-sage-800 dark:text-sage-200 hover:underline">
                             {comment.user?.author_pseudonym || comment.user?.name || 'Anonimo'}
                           </Link>
-                          <MecenateBadge prestigePoints={comment.user?.prestige_points} size="xs" />
+                          <LevelBadge totalXp={comment.user?.total_xp} size="xs" />
                           {comment.is_author_reply && (
                             <span className="text-xs bg-sage-100 dark:bg-sage-800 text-sage-600 dark:text-sage-400 px-1.5 py-0.5 rounded">Autore</span>
                           )}
@@ -1879,7 +1879,7 @@ export default function ReaderPage() {
                                   <Link href={reply.user?.username ? `/profile/${reply.user.username}` : '#'} className="text-xs font-medium text-sage-800 dark:text-sage-200 hover:underline">
                                     {reply.user?.author_pseudonym || reply.user?.name || 'Anonimo'}
                                   </Link>
-                                  <MecenateBadge prestigePoints={reply.user?.prestige_points} size="xs" />
+                                  <LevelBadge totalXp={reply.user?.total_xp} size="xs" />
                                   {reply.is_author_reply && (
                                     <span className="text-[10px] bg-sage-100 dark:bg-sage-800 text-sage-600 px-1 py-0.5 rounded">Autore</span>
                                   )}

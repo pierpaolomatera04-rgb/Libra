@@ -1,17 +1,27 @@
 import { Award, Gem } from 'lucide-react'
+import { getXpLevel } from '@/lib/badges'
 
-export type MecenateLevel = 'bronzo' | 'argento' | 'oro' | 'diamante' | null
+export type LevelRank = 'bronzo' | 'argento' | 'oro' | 'diamante' | null
 
-export function getMecenateLevel(prestigePoints: number | null | undefined): MecenateLevel {
-  const pts = prestigePoints ?? 0
-  if (pts > 3000) return 'diamante'
-  if (pts >= 1501) return 'oro'
-  if (pts >= 601) return 'argento'
-  if (pts >= 150) return 'bronzo'
+/**
+ * Mappatura livello XP → grado Community.
+ * Le soglie seguono i livelli chiave del sistema XP esistente (max 50).
+ *   Bronzo:   livello 10 (~797 XP)
+ *   Argento:  livello 20 (~2412 XP)
+ *   Oro:      livello 35 (~5947 XP)
+ *   Diamante: livello 50 (~10485 XP)
+ */
+export function getLevelRank(totalXp: number | null | undefined): LevelRank {
+  const xp = totalXp ?? 0
+  const { level } = getXpLevel(xp)
+  if (level >= 50) return 'diamante'
+  if (level >= 35) return 'oro'
+  if (level >= 20) return 'argento'
+  if (level >= 10) return 'bronzo'
   return null
 }
 
-const LEVEL_STYLES: Record<Exclude<MecenateLevel, null>, {
+const RANK_STYLES: Record<Exclude<LevelRank, null>, {
   label: string
   ring: string
   bg: string
@@ -48,28 +58,27 @@ const LEVEL_STYLES: Record<Exclude<MecenateLevel, null>, {
   },
 }
 
-interface MecenateBadgeProps {
-  prestigePoints: number | null | undefined
+interface LevelBadgeProps {
+  totalXp: number | null | undefined
   size?: 'xs' | 'sm' | 'md'
   showLabel?: boolean
   className?: string
 }
 
 /**
- * Badge dinamico Mecenate (Bronzo / Argento / Oro / Diamante).
- * Soglie: Bronzo 150+, Argento 601+, Oro 1501+, Diamante 3000+.
- * Sotto i 150 punti non viene renderizzato nulla.
+ * Badge Community basato sul livello XP (Bronzo/Argento/Oro/Diamante).
+ * Sotto il livello 10 non viene renderizzato nulla.
  */
-export function MecenateBadge({
-  prestigePoints,
+export function LevelBadge({
+  totalXp,
   size = 'sm',
   showLabel = false,
   className = '',
-}: MecenateBadgeProps) {
-  const level = getMecenateLevel(prestigePoints)
-  if (!level) return null
+}: LevelBadgeProps) {
+  const rank = getLevelRank(totalXp)
+  if (!rank) return null
 
-  const style = LEVEL_STYLES[level]
+  const style = RANK_STYLES[rank]
   const sizeClasses =
     size === 'xs'
       ? 'w-4 h-4 text-[9px]'
@@ -79,11 +88,12 @@ export function MecenateBadge({
   const iconSize =
     size === 'xs' ? 'w-2.5 h-2.5' : size === 'md' ? 'w-3.5 h-3.5' : 'w-3 h-3'
 
-  const Icon = level === 'diamante' ? Gem : Award
+  const Icon = rank === 'diamante' ? Gem : Award
+  const { level } = getXpLevel(totalXp ?? 0)
 
   return (
     <span
-      title={`Mecenate ${style.label} — ${prestigePoints ?? 0} punti prestigio`}
+      title={`${style.label} — Livello ${level} (${totalXp ?? 0} XP)`}
       className={`inline-flex items-center gap-1 ${className}`}
     >
       <span

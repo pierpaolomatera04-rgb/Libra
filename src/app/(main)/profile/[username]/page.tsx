@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import { createNotification } from '@/lib/notifications'
 import { ALL_BADGES, getBadgeColor, getXpLevel } from '@/lib/badges'
-import { MecenateBadge } from '@/components/ui/MecenateBadge'
+import { LevelBadge } from '@/components/ui/LevelBadge'
 import { MACRO_AREAS } from '@/lib/genres'
 import { toast } from 'sonner'
 import {
@@ -28,7 +28,6 @@ interface ProfileData {
   author_pseudonym: string | null
   daily_streak: number
   total_xp: number
-  prestige_points: number
   longest_streak: number
   library_public: boolean
   created_at: string
@@ -83,7 +82,7 @@ export default function UnifiedProfilePage() {
       if (!isUUID) {
         const { data } = await supabase
           .from('profiles')
-          .select('id, name, username, avatar_url, bio, author_bio, author_banner_url, is_author, author_pseudonym, daily_streak, total_xp, prestige_points, longest_streak, library_public, created_at, pages_read')
+          .select('id, name, username, avatar_url, bio, author_bio, author_banner_url, is_author, author_pseudonym, daily_streak, total_xp, longest_streak, library_public, created_at, pages_read')
           .eq('username', username)
           .single()
         pData = data
@@ -92,7 +91,7 @@ export default function UnifiedProfilePage() {
         // Fallback: search by ID (for users without username)
         const { data } = await supabase
           .from('profiles')
-          .select('id, name, username, avatar_url, bio, author_bio, author_banner_url, is_author, author_pseudonym, daily_streak, total_xp, prestige_points, longest_streak, library_public, created_at, pages_read')
+          .select('id, name, username, avatar_url, bio, author_bio, author_banner_url, is_author, author_pseudonym, daily_streak, total_xp, longest_streak, library_public, created_at, pages_read')
           .eq('id', username)
           .single()
         pData = data
@@ -467,7 +466,7 @@ export default function UnifiedProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-sage-900 dark:text-sage-100">{displayName}</h1>
-                <MecenateBadge prestigePoints={profileData.prestige_points} size="md" />
+                <LevelBadge totalXp={profileData.total_xp} size="md" />
               </div>
               {profileData.is_author && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-300 rounded-full w-fit">

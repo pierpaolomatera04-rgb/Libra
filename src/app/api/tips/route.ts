@@ -132,13 +132,15 @@ export async function POST(request: NextRequest) {
       data: { actor_name: actorName, amount, author_payout: authorPayout },
     })
 
-    // Award XP al donatore
-    const xpAmount = amount >= 10 ? 10 : 1
-    const { data: xpResult } = await supabase.rpc('award_xp', {
-      p_user_id: user.id,
-      p_amount: xpAmount,
-      p_reason: 'tip',
-    })
+    // Award XP al donatore — +100 XP per ogni "mazzetto" di 5 token (min. 5 token)
+    const xpAmount = amount >= 5 ? Math.floor(amount / 5) * 100 : 0
+    const { data: xpResult } = xpAmount > 0
+      ? await supabase.rpc('award_xp', {
+          p_user_id: user.id,
+          p_amount: xpAmount,
+          p_reason: 'tip',
+        })
+      : { data: null }
 
     return NextResponse.json({
       success: true,

@@ -12,9 +12,10 @@ import { toast } from 'sonner'
 import { MACRO_AREAS, getMacroAreaByGenre, type MacroArea } from '@/lib/genres'
 
 const CERT_MIN_BOOKS = 3
-const CERT_MIN_PRESTIGE = 100
+// Soglie XP: livello 20 (Argento ~2412 XP) per certificazione, livello 10 (Bronzo ~797 XP) per TOP.
+const CERT_MIN_XP = 2412
 const CERT_MIN_LIKES = 50
-const TOP_PRESTIGE_THRESHOLD = 50
+const TOP_XP_THRESHOLD = 797
 const NEW_AUTHOR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 type ViewTab = 'scopri' | 'seguiti' | 'nuovi'
@@ -27,7 +28,7 @@ interface AuthorEntry {
   avatar_url: string | null
   author_banner_url: string | null
   created_at: string
-  prestige_points: number
+  total_xp: number
   totalBooks: number
   totalLikes: number
   totalComments: number
@@ -94,7 +95,7 @@ export default function AuthorsPage() {
     setLoading(true)
     let query = supabase
       .from('profiles')
-      .select('id, name, username, author_pseudonym, author_bio, avatar_url, author_banner_url, created_at, prestige_points')
+      .select('id, name, username, author_pseudonym, author_bio, avatar_url, author_banner_url, created_at, total_xp')
       .eq('is_author', true)
     if (search) query = query.or(`author_pseudonym.ilike.%${search}%,name.ilike.%${search}%`)
     const { data } = await query
@@ -147,15 +148,15 @@ export default function AuthorsPage() {
           const macro = getMacroAreaByGenre(b.genre)
           if (macro) booksByMacro[macro.value] = (booksByMacro[macro.value] || 0) + 1
         }
-        const prestige = a.prestige_points || 0
-        const meetsGlobal = prestige >= CERT_MIN_PRESTIGE && totalLikes >= CERT_MIN_LIKES
+        const xp = a.total_xp || 0
+        const meetsGlobal = xp >= CERT_MIN_XP && totalLikes >= CERT_MIN_LIKES
         const certifiedIn = meetsGlobal
           ? Object.entries(booksByMacro).filter(([, count]) => count >= CERT_MIN_BOOKS).map(([value]) => value)
           : []
         const engagementScore = totalLikes + totalComments + totalReads + totalUnlocks
         return {
           ...a,
-          prestige_points: prestige,
+          total_xp: xp,
           totalBooks: books.length,
           totalLikes,
           totalComments,
@@ -438,7 +439,7 @@ export default function AuthorsPage() {
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
               {[...baseAuthors]
-                .sort((a, b) => b.prestige_points - a.prestige_points)
+                .sort((a, b) => b.total_xp - a.total_xp)
                 .map(a => (
                   <AuthorCard key={a.id} author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} />
                 ))}
@@ -476,7 +477,7 @@ function AuthorCard({
     ? MACRO_AREAS.find(m => m.value === certMacroValue)
     : undefined
   const isCertified = !!certMacro
-  const isTopAuthor = author.prestige_points >= TOP_PRESTIGE_THRESHOLD
+  const isTopAuthor = author.total_xp >= TOP_XP_THRESHOLD
   const goldGlow = isTopAuthor
     ? 'shadow-[0_14px_36px_rgba(251,191,36,0.38)]' : ''
 
@@ -549,9 +550,9 @@ function AuthorCard({
           <span className="flex items-center gap-0.5 text-sky-300" title="Commenti totali">
             <MessageCircle className="w-2.5 h-2.5" /> {author.totalComments}
           </span>
-          {author.prestige_points > 0 && (
-            <span className="flex items-center gap-0.5 text-amber-300" title="Punti Prestigio">
-              <Award className="w-2.5 h-2.5" /> {author.prestige_points}
+          {author.total_xp > 0 && (
+            <span className="flex items-center gap-0.5 text-emerald-300" title="Punti XP">
+              <Sparkles className="w-2.5 h-2.5" /> {author.total_xp >= 1000 ? `${(author.total_xp / 1000).toFixed(1)}k` : author.total_xp}
             </span>
           )}
         </div>

@@ -5,14 +5,13 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
   Flame, Trophy, Medal, Loader2, Crown, BookOpen,
-  Users, TrendingUp, Heart, Eye, Award, Sparkles, ChevronUp, ChevronDown
+  Users, TrendingUp, Heart, Eye, Sparkles, ChevronUp, ChevronDown
 } from 'lucide-react'
-import { MecenateBadge, getMecenateLevel } from '@/components/ui/MecenateBadge'
+import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel } from '@/lib/badges'
 
-type MainTab = 'libri' | 'autori' | 'lettori' | 'mecenati'
+type MainTab = 'libri' | 'autori' | 'community'
 type BookFilter = 'reads' | 'likes' | 'trending'
-type ReaderFilter = 'streak' | 'badges'
 
 // Colori esatti del podio (richiesta prodotto)
 const PODIUM_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'] as const
@@ -50,12 +49,10 @@ function RankColumn({ index }: { index: number }) {
 export default function ClassificaPage() {
   const supabase = createClient()
   const [mainTab, setMainTab] = useState<MainTab>('libri')
-  const [bookFilter, setBookFilter] = useState<BookFilter>('reads')
-  const [readerFilter, setReaderFilter] = useState<ReaderFilter>('streak')
+  const [bookFilter, setBookFilter] = useState<BookFilter>('trending')
   const [books, setBooks] = useState<any[]>([])
   const [authors, setAuthors] = useState<any[]>([])
-  const [readers, setReaders] = useState<any[]>([])
-  const [mecenati, setMecenati] = useState<any[]>([])
+  const [community, setCommunity] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   // ─────────────────────────────────────────────────────────────
@@ -144,7 +141,7 @@ export default function ClassificaPage() {
 
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, name, username, avatar_url, author_pseudonym, prestige_points')
+          .select('id, name, username, avatar_url, author_pseudonym, total_xp')
           .in('id', topIds)
 
         // Conto i libri pubblicati di ciascun autore
@@ -177,99 +174,27 @@ export default function ClassificaPage() {
   }, [mainTab])
 
   // ─────────────────────────────────────────────────────────────
-  // Fetch readers leaderboard
+  // Fetch community leaderboard — ordinata SOLO per total_xp
+  // Real-time su focus/visibility per riflettere nuovi XP guadagnati.
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (mainTab !== 'lettori') return
-    const fetchReaders = async () => {
-      setLoading(true)
-
-      if (readerFilter === 'streak') {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, name, username, avatar_url, daily_streak, longest_streak, total_xp')
-          .gt('daily_streak', 0)
-          .order('daily_streak', { ascending: false })
-          .limit(20)
-
-        if (profiles) {
-          const withBadges = await Promise.all(
-            profiles.map(async (p: any) => {
-              try {
-                const { count } = await supabase
-                  .from('user_badges')
-                  .select('id', { count: 'exact', head: true })
-                  .eq('user_id', p.id)
-                return { ...p, badge_count: count || 0 }
-              } catch {
-                return { ...p, badge_count: 0 }
-              }
-            })
-          )
-          setReaders(withBadges)
-        } else {
-          setReaders([])
-        }
-      } else {
-        try {
-          const { data: badgeUsers } = await supabase
-            .from('user_badges')
-            .select('user_id')
-
-          if (badgeUsers && badgeUsers.length > 0) {
-            const countMap: Record<string, number> = {}
-            badgeUsers.forEach((b: any) => { countMap[b.user_id] = (countMap[b.user_id] || 0) + 1 })
-            const sortedIds = Object.entries(countMap)
-              .sort((a: any, b: any) => b[1] - a[1])
-              .slice(0, 20)
-              .map(([id]) => id)
-
-            const { data: profiles } = await supabase
-              .from('profiles')
-              .select('id, name, username, avatar_url, daily_streak, longest_streak, total_xp')
-              .in('id', sortedIds)
-
-            if (profiles) {
-              const withBadges = profiles.map((p: any) => ({ ...p, badge_count: countMap[p.id] || 0 }))
-              withBadges.sort((a: any, b: any) => b.badge_count - a.badge_count || b.total_xp - a.total_xp)
-              setReaders(withBadges)
-            } else {
-              setReaders([])
-            }
-          } else {
-            setReaders([])
-          }
-        } catch {
-          setReaders([])
-        }
-      }
-
-      setLoading(false)
-    }
-    fetchReaders()
-  }, [mainTab, readerFilter])
-
-  // ─────────────────────────────────────────────────────────────
-  // Fetch mecenati leaderboard (real-time su focus/visibility)
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (mainTab !== 'mecenati') return
+    if (mainTab !== 'community') return
     let isMounted = true
-    const fetchMecenati = async () => {
+    const fetchCommunity = async () => {
       if (isMounted) setLoading(true)
       const { data } = await supabase
         .from('profiles')
-        .select('id, name, username, avatar_url, prestige_points')
-        .gt('prestige_points', 0)
-        .order('prestige_points', { ascending: false })
+        .select('id, name, username, avatar_url, total_xp, daily_streak')
+        .gt('total_xp', 0)
+        .order('total_xp', { ascending: false })
         .limit(20)
       if (!isMounted) return
-      setMecenati(data || [])
+      setCommunity(data || [])
       setLoading(false)
     }
-    fetchMecenati()
+    fetchCommunity()
 
-    const onFocus = () => { if (document.visibilityState === 'visible') fetchMecenati() }
+    const onFocus = () => { if (document.visibilityState === 'visible') fetchCommunity() }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
     return () => {
@@ -318,79 +243,39 @@ export default function ClassificaPage() {
           Autori
         </button>
         <button
-          onClick={() => setMainTab('lettori')}
+          onClick={() => setMainTab('community')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            mainTab === 'lettori'
+            mainTab === 'community'
               ? 'bg-sage-600 text-white'
               : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-800'
           }`}
         >
           <Users className="w-4 h-4" />
-          Lettori
-        </button>
-        <button
-          onClick={() => setMainTab('mecenati')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            mainTab === 'mecenati'
-              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md shadow-amber-500/20'
-              : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-sage-100 dark:border-sage-800'
-          }`}
-        >
-          <Award className="w-4 h-4" />
-          Mecenati
+          Community
         </button>
       </div>
 
-      {/* ── Sotto-filtri ── */}
-      {(mainTab === 'libri' || mainTab === 'lettori') && (
+      {/* ── Sotto-filtri (solo per Libri) ── */}
+      {mainTab === 'libri' && (
       <div className="flex gap-1.5 mb-5 flex-wrap">
-        {mainTab === 'libri' ? (
-          <>
-            {([
-              { key: 'reads' as BookFilter, label: 'Più letti', icon: Eye },
-              { key: 'likes' as BookFilter, label: 'Più votati', icon: Heart },
-              { key: 'trending' as BookFilter, label: 'In tendenza', icon: TrendingUp },
-            ]).map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setBookFilter(key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  bookFilter === key
-                    ? 'bg-sage-500 text-white'
-                    : 'text-bark-500 dark:text-sage-400 hover:bg-sage-100 dark:hover:bg-sage-800'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-              </button>
-            ))}
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setReaderFilter('streak')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                readerFilter === 'streak'
-                  ? 'bg-orange-500 text-white'
-                  : 'text-bark-500 dark:text-sage-400 hover:bg-sage-100 dark:hover:bg-sage-800'
-              }`}
-            >
-              <Flame className="w-3.5 h-3.5" />
-              Top Streak
-            </button>
-            <button
-              onClick={() => setReaderFilter('badges')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                readerFilter === 'badges'
-                  ? 'bg-amber-500 text-white'
-                  : 'text-bark-500 dark:text-sage-400 hover:bg-sage-100 dark:hover:bg-sage-800'
-              }`}
-            >
-              <Trophy className="w-3.5 h-3.5" />
-              Top Badge
-            </button>
-          </>
-        )}
+        {([
+          { key: 'reads' as BookFilter, label: 'Più letti', icon: Eye },
+          { key: 'likes' as BookFilter, label: 'Più votati', icon: Heart },
+          { key: 'trending' as BookFilter, label: 'In tendenza', icon: TrendingUp },
+        ]).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setBookFilter(key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              bookFilter === key
+                ? 'bg-sage-500 text-white'
+                : 'text-bark-500 dark:text-sage-400 hover:bg-sage-100 dark:hover:bg-sage-800'
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
       </div>
       )}
 
@@ -399,75 +284,6 @@ export default function ClassificaPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-sage-400" />
         </div>
-      ) : mainTab === 'mecenati' ? (
-        /* ═══ MECENATI LEADERBOARD ═══ */
-        mecenati.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800">
-            <Award className="w-16 h-16 text-amber-200 dark:text-amber-900/50 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-sage-800 dark:text-sage-200 mb-2">Nessun Mecenate ancora</h2>
-            <p className="text-sm text-bark-400 dark:text-sage-500">
-              Sostieni i libri con Boost o Reazioni premium per guadagnare Punti Prestigio.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {mecenati.map((entry: any, index: number) => {
-              const level = getMecenateLevel(entry.prestige_points)
-              const levelLabel =
-                level === 'diamante' ? 'Diamante'
-                : level === 'oro' ? 'Oro'
-                : level === 'argento' ? 'Argento'
-                : 'Bronzo'
-              const levelColor =
-                level === 'diamante'
-                  ? 'bg-gradient-to-r from-cyan-100 to-sky-100 dark:from-cyan-900/20 dark:to-sky-900/20 border border-cyan-300 dark:border-cyan-700 text-sky-800 dark:text-cyan-200'
-                  : level === 'oro'
-                    ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/20 dark:to-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'
-                    : level === 'argento'
-                      ? 'bg-gradient-to-r from-gray-100 to-slate-100 dark:from-gray-800/40 dark:to-slate-800/40 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
-                      : 'bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-400 dark:border-amber-800 text-amber-800 dark:text-amber-300'
-              return (
-                <Link
-                  key={entry.id}
-                  href={`/profile/${entry.username || entry.id}`}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
-                >
-                  <RankColumn index={index} />
-                  {index === 0 && <Crown className="w-5 h-5 text-amber-500 -ml-2 flex-shrink-0" />}
-                  {entry.avatar_url ? (
-                    <img src={entry.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-lg font-bold text-amber-700 dark:text-amber-400 flex-shrink-0">
-                      {(entry.name || entry.username || '?').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">
-                        {entry.name || entry.username || 'Utente'}
-                      </p>
-                      <MecenateBadge prestigePoints={entry.prestige_points} size="xs" />
-                    </div>
-                    {entry.username && (
-                      <p className="text-xs text-bark-400 dark:text-sage-500">@{entry.username}</p>
-                    )}
-                  </div>
-                  <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${levelColor}`}>
-                      {levelLabel}
-                    </span>
-                    <div className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 rounded-full border border-amber-200 dark:border-amber-800">
-                      <Award className="w-3 h-3 text-amber-500" />
-                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                        {entry.prestige_points}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )
       ) : mainTab === 'autori' ? (
         /* ═══ AUTORI LEADERBOARD ═══ */
         authors.length === 0 ? (
@@ -495,7 +311,10 @@ export default function ClassificaPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">{displayName}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">{displayName}</p>
+                      <LevelBadge totalXp={entry.total_xp} size="xs" />
+                    </div>
                     {entry.username && (
                       <p className="text-xs text-bark-400 dark:text-sage-500 truncate">@{entry.username}</p>
                     )}
@@ -651,90 +470,77 @@ export default function ClassificaPage() {
           </div>
         )
       ) : (
-        /* ═══ LETTORI LEADERBOARD ═══ */
-        readers.length === 0 ? (
+        /* ═══ COMMUNITY LEADERBOARD — basata esclusivamente su XP ═══ */
+        community.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800">
             <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
             <h2 className="text-lg font-semibold text-sage-800 dark:text-sage-200 mb-2">Nessun dato ancora</h2>
-            <p className="text-sm text-bark-400 dark:text-sage-500">Inizia a leggere per entrare in classifica!</p>
+            <p className="text-sm text-bark-400 dark:text-sage-500">Guadagna XP leggendo, inviando mance e sbloccando badge per salire in classifica!</p>
           </div>
         ) : (
           <div className="space-y-2.5">
-            {readers.map((entry: any, index: number) => (
-              <Link
-                key={entry.id}
-                href={`/profile/${entry.username || entry.id}`}
-                className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
-              >
-                <RankColumn index={index} />
+            {community.map((entry: any, index: number) => {
+              const { level } = getXpLevel(entry.total_xp ?? 0)
+              return (
+                <Link
+                  key={entry.id}
+                  href={`/profile/${entry.username || entry.id}`}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
+                >
+                  <RankColumn index={index} />
+                  {index === 0 && <Crown className="w-5 h-5 text-amber-500 -ml-2 flex-shrink-0" />}
 
-                {/* Avatar */}
-                {entry.avatar_url ? (
-                  <img src={entry.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-lg font-bold text-sage-600 dark:text-sage-300 flex-shrink-0">
-                    {(entry.name || entry.username || '?').charAt(0).toUpperCase()}
-                  </div>
-                )}
-
-                {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold truncate ${
-                    getXpLevel(entry.total_xp).level >= 50
-                      ? 'bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 bg-clip-text text-transparent'
-                      : 'text-sage-900 dark:text-sage-100'
-                  }`}>
-                    {entry.name || entry.username || 'Utente'}
-                  </p>
-                  {entry.username && (
-                    <p className="text-xs text-bark-400 dark:text-sage-500">@{entry.username}</p>
-                  )}
-                </div>
-
-                {/* Stats */}
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {readerFilter === 'streak' ? (
-                    <>
-                      <div className="flex items-center gap-1 px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 rounded-full border border-orange-200 dark:border-orange-800">
-                        <Flame className="w-3.5 h-3.5 text-orange-500" />
-                        <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{entry.daily_streak}</span>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-[10px] text-bark-400 dark:text-sage-500">XP</p>
-                        <p className="text-xs font-semibold text-sage-700 dark:text-sage-300">{entry.total_xp}</p>
-                      </div>
-                    </>
+                  {/* Avatar */}
+                  {entry.avatar_url ? (
+                    <img src={entry.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
                   ) : (
-                    <>
-                      <div className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 rounded-full border border-amber-200 dark:border-amber-800">
-                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{entry.badge_count}</span>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-[10px] text-bark-400 dark:text-sage-500">Streak</p>
-                        <div className="flex items-center gap-0.5 justify-end">
-                          <Flame className="w-3 h-3 text-orange-400" />
-                          <p className="text-xs font-semibold text-sage-700 dark:text-sage-300">{entry.daily_streak}</p>
-                        </div>
-                      </div>
-                    </>
+                    <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-lg font-bold text-sage-600 dark:text-sage-300 flex-shrink-0">
+                      {(entry.name || entry.username || '?').charAt(0).toUpperCase()}
+                    </div>
                   )}
-                </div>
-              </Link>
-            ))}
+
+                  {/* Name */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className={`text-sm font-semibold truncate ${
+                        level >= 50
+                          ? 'bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 bg-clip-text text-transparent'
+                          : 'text-sage-900 dark:text-sage-100'
+                      }`}>
+                        {entry.name || entry.username || 'Utente'}
+                      </p>
+                      <LevelBadge totalXp={entry.total_xp} size="xs" />
+                    </div>
+                    {entry.username && (
+                      <p className="text-xs text-bark-400 dark:text-sage-500">@{entry.username}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-[10px] text-bark-400 dark:text-sage-500">
+                        Livello {level}
+                      </span>
+                      {entry.daily_streak > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+                          <Flame className="w-2.5 h-2.5 text-orange-400" />
+                          {entry.daily_streak}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* XP totali */}
+                  <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-sage-50 to-emerald-50 dark:from-sage-800 dark:to-emerald-900/20 rounded-full border border-sage-100 dark:border-sage-700">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-xs font-bold text-sage-700 dark:text-sage-200">
+                      {(entry.total_xp ?? 0) >= 1000
+                        ? `${((entry.total_xp ?? 0) / 1000).toFixed(1)}k`
+                        : entry.total_xp ?? 0} XP
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )
-      )}
-
-      {/* ── Legenda Prestigio (solo tab Mecenati) ── */}
-      {mainTab === 'mecenati' && (
-        <div className="mt-8 flex items-start gap-2 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/10 border border-amber-100 dark:border-amber-900/30">
-          <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-            <strong>Punti Prestigio:</strong> +1 per Token (mance min. 5), +30 Gold, +15 Silver.
-            &nbsp;Livelli: Bronzo (150+) &bull; Argento (600+) &bull; Oro (1500+) &bull; Diamante (3000+)
-          </p>
-        </div>
       )}
     </div>
   )
