@@ -158,19 +158,19 @@ BEGIN
 
   -- Controllo idempotenza per one-time e weekly (su reason completo)
   IF v_is_one_time OR v_is_weekly THEN
-    SELECT EXISTS(
+    v_already_awarded := EXISTS (
       SELECT 1 FROM public.xp_event_log
       WHERE user_id = p_user_id
         AND reason = p_reason
         AND period_key = v_period
-    ) INTO v_already_awarded;
+    );
 
     IF v_already_awarded THEN
-      SELECT COALESCE(total_xp, 0) INTO v_old_xp FROM public.profiles WHERE id = p_user_id;
-      v_new_level := public.calc_xp_level(COALESCE(v_old_xp, 0));
+      v_old_xp := COALESCE((SELECT total_xp FROM public.profiles WHERE id = p_user_id), 0);
+      v_new_level := public.calc_xp_level(v_old_xp);
       RETURN jsonb_build_object(
         'success', TRUE, 'xp_added', 0, 'old_level', v_new_level,
-        'new_level', v_new_level, 'new_total_xp', COALESCE(v_old_xp, 0),
+        'new_level', v_new_level, 'new_total_xp', v_old_xp,
         'level_up', FALSE, 'reward_tokens', 0,
         'granted_exclusive_badge', FALSE, 'granted_gold_month', FALSE,
         'capped', TRUE, 'cap_reason', CASE WHEN v_is_weekly THEN 'weekly' ELSE 'one_time' END
@@ -180,18 +180,20 @@ BEGIN
 
   -- Controllo cap giornalieri (per reason con count)
   IF v_daily_cap_count IS NOT NULL THEN
-    SELECT COUNT(*) INTO v_daily_count
-    FROM public.xp_event_log
-    WHERE user_id = p_user_id
-      AND reason = p_reason
-      AND period_key = v_period;
+    v_daily_count := (
+      SELECT COUNT(*)::INTEGER
+      FROM public.xp_event_log
+      WHERE user_id = p_user_id
+        AND reason = p_reason
+        AND period_key = v_period
+    );
 
     IF v_daily_count >= v_daily_cap_count THEN
-      SELECT COALESCE(total_xp, 0) INTO v_old_xp FROM public.profiles WHERE id = p_user_id;
-      v_new_level := public.calc_xp_level(COALESCE(v_old_xp, 0));
+      v_old_xp := COALESCE((SELECT total_xp FROM public.profiles WHERE id = p_user_id), 0);
+      v_new_level := public.calc_xp_level(v_old_xp);
       RETURN jsonb_build_object(
         'success', TRUE, 'xp_added', 0, 'old_level', v_new_level,
-        'new_level', v_new_level, 'new_total_xp', COALESCE(v_old_xp, 0),
+        'new_level', v_new_level, 'new_total_xp', v_old_xp,
         'level_up', FALSE, 'reward_tokens', 0,
         'granted_exclusive_badge', FALSE, 'granted_gold_month', FALSE,
         'capped', TRUE, 'cap_reason', 'daily'
@@ -200,10 +202,7 @@ BEGIN
   END IF;
 
   -- Leggi XP attuali
-  SELECT COALESCE(total_xp, 0) INTO v_old_xp
-  FROM public.profiles
-  WHERE id = p_user_id;
-
+  SELECT COALESCE(total_xp, 0) INTO v_old_xp FROM public.profiles WHERE id = p_user_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', FALSE, 'error', 'Utente non trovato');
   END IF;
