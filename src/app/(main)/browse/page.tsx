@@ -20,6 +20,13 @@ const READING_TIMES = [
 type SortOption = 'trending' | 'newest' | 'popular' | 'serializations'
 type StatusFilter = 'all' | 'ongoing' | 'completed'
 
+const SORT_OPTIONS: { key: SortOption; label: string }[] = [
+  { key: 'trending', label: 'In tendenza' },
+  { key: 'newest', label: 'Nuovi' },
+  { key: 'popular', label: 'Più letti' },
+  { key: 'serializations', label: 'Serializzazioni' },
+]
+
 /* ── Carosello orizzontale riutilizzabile ── */
 function HorizontalCarousel({ children }: { children: React.ReactNode }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -87,7 +94,7 @@ export default function BrowsePage() {
   const [genre, setGenre] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [readingTime, setReadingTime] = useState<number | null>(null)
-  const [sort, setSort] = useState<SortOption>('trending')
+  const [sort, setSort] = useState<SortOption | null>(null)
   const [showFilters, setShowFilters] = useState(false)
 
   // Discovery sections state
@@ -138,8 +145,8 @@ export default function BrowsePage() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const hasActiveFilters = genre || activeMacro || statusFilter !== 'all' || readingTime !== null
-  const isDiscoveryMode = !search && !hasActiveFilters && sort === 'trending' && !viewAll
+  const hasActiveFilters = genre || activeMacro || statusFilter !== 'all' || readingTime !== null || sort !== null
+  const isDiscoveryMode = false
 
   const showFullCatalog = (sortBy: SortOption) => {
     setSort(sortBy)
@@ -185,20 +192,16 @@ export default function BrowsePage() {
       if (rt.max !== undefined) query = query.lte('total_blocks', rt.max)
     }
 
-    switch (sort) {
-      case 'trending':
-        // trending_score viene aggiornato dal cron che sincronizza dalla cache
-        query = query.order('trending_score', { ascending: false })
-        break
-      case 'newest':
-        query = query.order('published_at', { ascending: false })
-        break
-      case 'popular':
-        query = query.order('total_reads', { ascending: false })
-        break
-      case 'serializations':
-        query = query.order('published_at', { ascending: false })
-        break
+    if (sort === 'trending') {
+      query = query.order('trending_score', { ascending: false })
+    } else if (sort === 'newest') {
+      query = query.order('published_at', { ascending: false })
+    } else if (sort === 'popular') {
+      query = query.order('total_reads', { ascending: false })
+    } else if (sort === 'serializations') {
+      query = query.order('published_at', { ascending: false })
+    } else {
+      query = query.order('created_at', { ascending: false })
     }
 
     query = query.limit(50)
@@ -356,6 +359,7 @@ export default function BrowsePage() {
     setGenre(null)
     setStatusFilter('all')
     setReadingTime(null)
+    setSort(null)
   }
 
   const handleMacroClick = (macro: MacroArea) => {
@@ -411,28 +415,6 @@ export default function BrowsePage() {
           >
             <Filter className="w-4 h-4" />
           </button>
-        </div>
-
-        {/* Riga 1: Sort tabs */}
-        <div className="flex items-center gap-1 mb-2">
-          {[
-            { key: 'trending' as SortOption, label: 'In tendenza' },
-            { key: 'newest' as SortOption, label: 'Nuovi' },
-            { key: 'popular' as SortOption, label: 'Più letti' },
-            { key: 'serializations' as SortOption, label: 'Serializzazioni' },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => { setSort(key); setViewAll(false) }}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
-                sort === key
-                  ? 'bg-sage-600 text-white'
-                  : 'text-bark-500 dark:text-[#b0b0b0] hover:bg-sage-100 dark:hover:bg-[#2e2e2e]'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
         </div>
 
         {/* Livello 1: Macro-Aree con icone e colori */}
@@ -509,6 +491,32 @@ export default function BrowsePage() {
                 Rimuovi tutti
               </button>
             )}
+          </div>
+
+          {/* Ordinamento */}
+          <div>
+            <p className="text-xs font-medium text-bark-400 mb-2">ORDINAMENTO</p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => { setSort(null); setViewAll(false) }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  sort === null ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                }`}
+              >
+                Nessuno
+              </button>
+              {SORT_OPTIONS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => { setSort(key); setViewAll(false) }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    sort === key ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Stato */}
