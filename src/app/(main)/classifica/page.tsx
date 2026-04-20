@@ -1,215 +1,465 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
-  Flame, Trophy, Medal, Loader2, Crown, BookOpen,
-  Users, TrendingUp, Heart, Eye, Sparkles, ChevronUp, ChevronDown
+  Flame, Trophy, Loader2, Crown, BookOpen,
+  Users, TrendingUp, Heart, Eye, Sparkles, Calendar,
+  Layers, UserPlus, Zap, Coins, MessageCircle, PenTool,
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel } from '@/lib/badges'
 
 type MainTab = 'libri' | 'autori' | 'community'
-type BookFilter = 'reads' | 'likes' | 'trending'
+type BookFilter = 'reads' | 'likes' | 'trending' | 'new' | 'serializing'
+type AuthorFilter = 'followers' | 'reads' | 'active' | 'new'
+type CommunityFilter = 'xp' | 'active' | 'donors'
 
-// Colori esatti del podio (richiesta prodotto)
+// Colori podio: oro / argento / bronzo
 const PODIUM_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'] as const
 
-// ─────────────────────────────────────────────────────────────────
-// Colonna rank: numeri giganti (podio) + grigi (dal 4°)
-// Larghezza fissa 80px per allineare tutte le card.
-// ─────────────────────────────────────────────────────────────────
+// Formattatori
+const fmt = (n: number) =>
+  n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n ?? 0}`
+
+// Rank number compatto (proporzionato all'altezza card)
 function RankColumn({ index }: { index: number }) {
   const isPodium = index < 3
-  if (isPodium) {
-    return (
-      <div className="flex-shrink-0 w-20 flex items-center justify-center">
-        <span
-          className="font-extrabold leading-none text-3xl sm:text-4xl md:text-5xl select-none"
-          style={{
-            color: PODIUM_COLORS[index],
-            textShadow: '0 2px 4px rgba(0,0,0,0.08)',
-          }}
-        >
-          {index + 1}
-        </span>
-      </div>
-    )
-  }
   return (
-    <div className="flex-shrink-0 w-20 flex items-center justify-center">
-      <span className="font-bold leading-none text-2xl text-bark-300 dark:text-sage-600 select-none">
+    <div className="flex-shrink-0 w-10 flex items-center justify-center">
+      <span
+        className={`font-extrabold leading-none select-none ${
+          isPodium ? 'text-xl sm:text-2xl' : 'text-base text-bark-300 dark:text-sage-600'
+        }`}
+        style={isPodium ? {
+          color: PODIUM_COLORS[index],
+          textShadow: '0 1px 2px rgba(0,0,0,0.08)',
+        } : undefined}
+      >
         {index + 1}
       </span>
     </div>
   )
 }
 
+function rankStyle(index: number) {
+  if (index === 0) return 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200 dark:border-amber-800'
+  if (index === 1) return 'bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 border-gray-200 dark:border-gray-700'
+  if (index === 2) return 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800'
+  return 'bg-white dark:bg-[#1e221c] border-sage-100 dark:border-sage-800'
+}
+
+// Pill riutilizzabile (stile coerente con /browse)
+function Pill({ active, onClick, icon: Icon, label }: {
+  active: boolean
+  onClick: () => void
+  icon: any
+  label: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+        active
+          ? 'bg-sage-600 text-white'
+          : 'text-bark-500 dark:text-sage-400 hover:bg-sage-100 dark:hover:bg-sage-800'
+      }`}
+    >
+      <Icon className="w-3.5 h-3.5" />
+      {label}
+    </button>
+  )
+}
+
 export default function ClassificaPage() {
   const supabase = createClient()
   const [mainTab, setMainTab] = useState<MainTab>('libri')
-  const [bookFilter, setBookFilter] = useState<BookFilter>('trending')
-  const [books, setBooks] = useState<any[]>([])
-  const [authors, setAuthors] = useState<any[]>([])
-  const [community, setCommunity] = useState<any[]>([])
+  const [bookFilter, setBookFilter] = useState<BookFilter>('reads')
+  const [authorFilter, setAuthorFilter] = useState<AuthorFilter>('followers')
+  const [communityFilter, setCommunityFilter] = useState<CommunityFilter>('xp')
+  const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // ─────────────────────────────────────────────────────────────
-  // Fetch books leaderboard
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (mainTab !== 'libri') return
-    const fetchBooks = async () => {
-      setLoading(true)
-
-      if (bookFilter === 'trending') {
-        // Per In Tendenza uso trending_cache (posizioni, delta, days_at_top, attivita 7gg)
-        const { data: cache } = await supabase
-          .from('trending_cache')
-          .select('book_id, score, position, prev_position, positions_changed, is_new_entry, days_at_top, activity_delta_7d, score_7d_ago')
-          .order('position', { ascending: true })
-          .limit(20)
-
-        const ids = (cache || []).map((r: any) => r.book_id)
-        if (ids.length === 0) { setBooks([]); setLoading(false); return }
-
-        const { data: booksData } = await supabase
-          .from('books')
-          .select('id, title, cover_image_url, genre, total_reads, total_likes, trending_score, status, author:profiles!books_author_id_fkey(id, name, username, author_pseudonym)')
-          .in('id', ids)
-
-        const booksMap = new Map((booksData || []).map((b: any) => [b.id, b]))
-        const merged = (cache || []).map((r: any) => ({
-          ...(booksMap.get(r.book_id) || {}),
-          _trending: {
-            position: r.position,
-            prev_position: r.prev_position,
-            positions_changed: r.positions_changed,
-            is_new_entry: r.is_new_entry,
-            days_at_top: r.days_at_top,
-            score: r.score,
-            activity_delta_7d: r.activity_delta_7d,
-            score_7d_ago: r.score_7d_ago,
-          },
-        })).filter((b: any) => b.id)
-
-        setBooks(merged)
-        setLoading(false)
-        return
-      }
-
-      let query = supabase
-        .from('books')
-        .select('id, title, cover_image_url, genre, total_reads, total_likes, trending_score, status, author:profiles!books_author_id_fkey(id, name, username, author_pseudonym)')
-        .in('status', ['published', 'ongoing', 'completed'])
-
-      if (bookFilter === 'reads') query = query.order('total_reads', { ascending: false })
-      if (bookFilter === 'likes') query = query.order('total_likes', { ascending: false })
-
-      const { data } = await query.limit(20)
-      setBooks(data || [])
-      setLoading(false)
+  const currentRpc = useMemo(() => {
+    if (mainTab === 'libri') {
+      return ({
+        reads: 'leaderboard_books_reads',
+        likes: 'leaderboard_books_likes',
+        trending: 'leaderboard_books_trending',
+        new: 'leaderboard_books_new',
+        serializing: 'leaderboard_books_serializing',
+      } as const)[bookFilter]
     }
-    fetchBooks()
-  }, [mainTab, bookFilter])
+    if (mainTab === 'autori') {
+      return ({
+        followers: 'leaderboard_authors_followers',
+        reads: 'leaderboard_authors_reads',
+        active: 'leaderboard_authors_active',
+        new: 'leaderboard_authors_new',
+      } as const)[authorFilter]
+    }
+    return ({
+      xp: 'leaderboard_community_xp',
+      active: 'leaderboard_community_active',
+      donors: 'leaderboard_community_donors',
+    } as const)[communityFilter]
+  }, [mainTab, bookFilter, authorFilter, communityFilter])
 
-  // ─────────────────────────────────────────────────────────────
-  // Fetch authors leaderboard (follower count + books aggregati)
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (mainTab !== 'autori') return
-    const fetchAuthors = async () => {
+    let cancelled = false
+    const fetchData = async () => {
       setLoading(true)
-      try {
-        // Prendo tutti i follow: aggrego in JS per following_id
-        const { data: followsRows } = await supabase
-          .from('follows')
-          .select('following_id')
-
-        const followMap: Record<string, number> = {}
-        ;(followsRows || []).forEach((f: any) => {
-          followMap[f.following_id] = (followMap[f.following_id] || 0) + 1
-        })
-
-        const topIds = Object.entries(followMap)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 20)
-          .map(([id]) => id)
-
-        if (topIds.length === 0) { setAuthors([]); setLoading(false); return }
-
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, name, username, avatar_url, author_pseudonym, total_xp')
-          .in('id', topIds)
-
-        // Conto i libri pubblicati di ciascun autore
-        const { data: booksCount } = await supabase
-          .from('books')
-          .select('author_id')
-          .in('author_id', topIds)
-          .in('status', ['published', 'ongoing', 'completed'])
-
-        const booksMap: Record<string, number> = {}
-        ;(booksCount || []).forEach((b: any) => {
-          booksMap[b.author_id] = (booksMap[b.author_id] || 0) + 1
-        })
-
-        const merged = (profiles || [])
-          .map((p: any) => ({
-            ...p,
-            follower_count: followMap[p.id] || 0,
-            books_count: booksMap[p.id] || 0,
-          }))
-          .sort((a: any, b: any) => b.follower_count - a.follower_count)
-
-        setAuthors(merged)
-      } catch {
-        setAuthors([])
+      const { data, error } = await supabase.rpc(currentRpc, { p_limit: 20 })
+      if (cancelled) return
+      if (error) {
+        console.error('Leaderboard RPC error:', currentRpc, error)
+        setItems([])
+      } else {
+        setItems((data as any[]) || [])
       }
       setLoading(false)
     }
-    fetchAuthors()
-  }, [mainTab])
+    fetchData()
+    return () => { cancelled = true }
+  }, [currentRpc, supabase])
 
-  // ─────────────────────────────────────────────────────────────
-  // Fetch community leaderboard — ordinata SOLO per total_xp
-  // Real-time su focus/visibility per riflettere nuovi XP guadagnati.
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (mainTab !== 'community') return
-    let isMounted = true
-    const fetchCommunity = async () => {
-      if (isMounted) setLoading(true)
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, name, username, avatar_url, total_xp, daily_streak')
-        .gt('total_xp', 0)
-        .order('total_xp', { ascending: false })
-        .limit(20)
-      if (!isMounted) return
-      setCommunity(data || [])
-      setLoading(false)
-    }
-    fetchCommunity()
+  // ============================================
+  // RENDER HELPERS
+  // ============================================
 
-    const onFocus = () => { if (document.visibilityState === 'visible') fetchCommunity() }
-    window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', onFocus)
-    return () => {
-      isMounted = false
-      window.removeEventListener('focus', onFocus)
-      document.removeEventListener('visibilitychange', onFocus)
-    }
-  }, [mainTab, supabase])
-
-  const getRankStyle = (index: number) => {
-    if (index === 0) return 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200 dark:border-amber-800'
-    if (index === 1) return 'bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 border-gray-200 dark:border-gray-700'
-    if (index === 2) return 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800'
-    return 'bg-white dark:bg-[#1e221c] border-sage-100 dark:border-sage-800'
+  const renderBookCard = (b: any, i: number) => {
+    const authorName = b.author?.author_pseudonym || b.author?.name || 'Autore'
+    return (
+      <Link
+        key={b.id}
+        href={`/libro/${b.id}`}
+        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
+      >
+        <RankColumn index={i} />
+        <div className="flex-shrink-0 w-10 h-14 rounded-md overflow-hidden bg-sage-100 dark:bg-sage-800">
+          {b.cover_image_url ? (
+            <img src={b.cover_image_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <BookOpen className="w-4 h-4 text-sage-300 dark:text-sage-600" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 line-clamp-1">{b.title}</p>
+          <p className="text-xs text-bark-400 dark:text-sage-500 truncate">{authorName}</p>
+          {renderBookSecondary(b)}
+        </div>
+        <div className="flex-shrink-0">{renderBookStat(b, i)}</div>
+      </Link>
+    )
   }
+
+  const renderBookSecondary = (b: any) => {
+    if (bookFilter === 'reads') {
+      return (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Users className="w-2.5 h-2.5" /> {b.active_readers || 0} attivi
+          </span>
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Heart className="w-2.5 h-2.5" /> {b.total_likes || 0}
+          </span>
+        </div>
+      )
+    }
+    if (bookFilter === 'likes') {
+      return (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <MessageCircle className="w-2.5 h-2.5" /> {b.total_comments || 0}
+          </span>
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Eye className="w-2.5 h-2.5" /> {fmt(b.total_reads || 0)}
+          </span>
+        </div>
+      )
+    }
+    if (bookFilter === 'trending') {
+      return (
+        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+          <span className="text-[10px] text-bark-400 dark:text-sage-500">{b.reads7 || 0} letture 7gg</span>
+          <span className="text-[10px] text-bark-400 dark:text-sage-500">+{b.new_readers7 || 0} nuovi</span>
+          {b.is_boosted ? (
+            <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+              <Zap className="w-2.5 h-2.5" /> BOOST
+            </span>
+          ) : null}
+        </div>
+      )
+    }
+    if (bookFilter === 'new') {
+      const d = b.published_at ? new Date(b.published_at) : null
+      return (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Calendar className="w-2.5 h-2.5" />
+            {d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '—'}
+          </span>
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Eye className="w-2.5 h-2.5" /> {fmt(b.total_reads || 0)}
+          </span>
+        </div>
+      )
+    }
+    if (bookFilter === 'serializing') {
+      return (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Layers className="w-2.5 h-2.5" /> {b.total_blocks || 0} blocchi
+          </span>
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Eye className="w-2.5 h-2.5" /> {fmt(b.total_reads || 0)}
+          </span>
+        </div>
+      )
+    }
+    return null
+  }
+
+  const renderBookStat = (b: any, _i: number) => {
+    if (bookFilter === 'reads') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full">
+        <Eye className="w-3.5 h-3.5 text-sage-500" />
+        <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(b.total_reads || 0)}</span>
+      </div>
+    )
+    if (bookFilter === 'likes') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/20 rounded-full">
+        <Heart className="w-3.5 h-3.5 text-red-400" />
+        <span className="text-xs font-bold text-red-600 dark:text-red-400">{b.total_likes || 0}</span>
+      </div>
+    )
+    if (bookFilter === 'trending') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-full border border-orange-200 dark:border-orange-800">
+        <Flame className="w-3.5 h-3.5 text-orange-500" />
+        <span className="text-xs font-bold text-orange-700 dark:text-orange-400">
+          {b.trending_score_7d ? Math.round(Number(b.trending_score_7d)) : 0}
+        </span>
+      </div>
+    )
+    if (bookFilter === 'new') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full border border-emerald-200 dark:border-emerald-800">
+        <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">NUOVO</span>
+      </div>
+    )
+    if (bookFilter === 'serializing') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-purple-50 dark:bg-purple-900/20 rounded-full border border-purple-200 dark:border-purple-800">
+        <Users className="w-3.5 h-3.5 text-purple-500" />
+        <span className="text-xs font-bold text-purple-700 dark:text-purple-400">{b.active_followers || 0}</span>
+      </div>
+    )
+    return null
+  }
+
+  const renderAuthorCard = (a: any, i: number) => {
+    const displayName = a.author_pseudonym || a.name || a.username || 'Autore'
+    return (
+      <Link
+        key={a.id}
+        href={`/profile/${a.username || a.id}`}
+        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
+      >
+        <RankColumn index={i} />
+        {a.avatar_url ? (
+          <img src={a.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">{displayName}</p>
+            <LevelBadge totalXp={a.total_xp ?? 0} size="xs" />
+          </div>
+          {a.username && (
+            <p className="text-xs text-bark-400 dark:text-sage-500 truncate">@{a.username}</p>
+          )}
+          {renderAuthorSecondary(a)}
+        </div>
+        <div className="flex-shrink-0">{renderAuthorStat(a)}</div>
+      </Link>
+    )
+  }
+
+  const renderAuthorSecondary = (a: any) => {
+    if (authorFilter === 'followers') return (
+      <div className="flex items-center gap-3 mt-0.5">
+        <span className="text-[10px] text-bark-400 dark:text-sage-500">{fmt(a.total_reads || 0)} pagine lette</span>
+        <span className="text-[10px] text-bark-400 dark:text-sage-500">{a.books_count || 0} opere</span>
+      </div>
+    )
+    if (authorFilter === 'reads') return (
+      <div className="flex items-center gap-3 mt-0.5">
+        <span className="text-[10px] text-bark-400 dark:text-sage-500">{a.books_count || 0} opere</span>
+        <span className="text-[10px] text-bark-400 dark:text-sage-500">{fmt(a.follower_count || 0)} follower</span>
+      </div>
+    )
+    if (authorFilter === 'active') {
+      const d = a.last_block_at ? new Date(a.last_block_at) : null
+      return (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="text-[10px] text-bark-400 dark:text-sage-500">
+            Ultimo: {d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '—'}
+          </span>
+          <span className="text-[10px] text-bark-400 dark:text-sage-500">{fmt(a.follower_count || 0)} follower</span>
+        </div>
+      )
+    }
+    if (authorFilter === 'new') {
+      const d = a.created_at ? new Date(a.created_at) : null
+      return (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+            <Calendar className="w-2.5 h-2.5" />
+            {d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '—'}
+          </span>
+        </div>
+      )
+    }
+    return null
+  }
+
+  const renderAuthorStat = (a: any) => {
+    if (authorFilter === 'followers' || authorFilter === 'new') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
+        <Users className="w-3.5 h-3.5 text-sage-500" />
+        <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(a.follower_count || 0)}</span>
+      </div>
+    )
+    if (authorFilter === 'reads') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full border border-blue-200 dark:border-blue-800">
+        <Eye className="w-3.5 h-3.5 text-blue-500" />
+        <span className="text-xs font-bold text-blue-700 dark:text-blue-400">{fmt(a.total_reads || 0)}</span>
+      </div>
+    )
+    if (authorFilter === 'active') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full border border-emerald-200 dark:border-emerald-800">
+        <PenTool className="w-3.5 h-3.5 text-emerald-500" />
+        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{a.blocks_30d || 0}</span>
+      </div>
+    )
+    return null
+  }
+
+  const renderCommunityCard = (u: any, i: number) => {
+    const { level } = getXpLevel(u.total_xp ?? 0)
+    const displayName = u.name || u.username || 'Utente'
+    return (
+      <Link
+        key={u.id}
+        href={`/profile/${u.username || u.id}`}
+        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
+      >
+        <RankColumn index={i} />
+        {i === 0 && <Crown className="w-4 h-4 text-amber-500 -ml-1 flex-shrink-0" />}
+        {u.avatar_url ? (
+          <img src={u.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-11 h-11 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className={`text-sm font-semibold truncate ${
+              level >= 50
+                ? 'bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 bg-clip-text text-transparent'
+                : 'text-sage-900 dark:text-sage-100'
+            }`}>
+              {displayName}
+            </p>
+            <LevelBadge totalXp={u.total_xp ?? 0} size="xs" />
+          </div>
+          {u.username && <p className="text-xs text-bark-400 dark:text-sage-500">@{u.username}</p>}
+          {renderCommunitySecondary(u)}
+        </div>
+        <div className="flex-shrink-0">{renderCommunityStat(u)}</div>
+      </Link>
+    )
+  }
+
+  const renderCommunitySecondary = (u: any) => {
+    if (communityFilter === 'xp') {
+      const { level } = getXpLevel(u.total_xp ?? 0)
+      return (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="text-[10px] text-bark-400 dark:text-sage-500">Livello {level}</span>
+          {u.daily_streak > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+              <Flame className="w-2.5 h-2.5 text-orange-400" /> {u.daily_streak}
+            </span>
+          )}
+        </div>
+      )
+    }
+    if (communityFilter === 'active') return (
+      <div className="flex items-center gap-3 mt-0.5">
+        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+          <MessageCircle className="w-2.5 h-2.5" /> {u.comments_30d || 0}
+        </span>
+        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+          <Heart className="w-2.5 h-2.5" /> {u.likes_30d || 0}
+        </span>
+        {u.shares_30d > 0 && (
+          <span className="text-[10px] text-bark-400 dark:text-sage-500">{u.shares_30d} cond.</span>
+        )}
+      </div>
+    )
+    if (communityFilter === 'donors') return (
+      <div className="flex items-center gap-3 mt-0.5">
+        <span className="text-[10px] text-bark-400 dark:text-sage-500">
+          {u.authors_count || 0} {u.authors_count === 1 ? 'autore' : 'autori'} supportati
+        </span>
+      </div>
+    )
+    return null
+  }
+
+  const renderCommunityStat = (u: any) => {
+    if (communityFilter === 'xp') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-sage-50 to-emerald-50 dark:from-sage-800 dark:to-emerald-900/20 rounded-full border border-sage-100 dark:border-sage-700">
+        <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+        <span className="text-xs font-bold text-sage-700 dark:text-sage-200">{fmt(u.total_xp || 0)} XP</span>
+      </div>
+    )
+    if (communityFilter === 'active') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 rounded-full border border-indigo-200 dark:border-indigo-800">
+        <Zap className="w-3.5 h-3.5 text-indigo-500" />
+        <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">{u.activity_total || 0}</span>
+      </div>
+    )
+    if (communityFilter === 'donors') return (
+      <div className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 rounded-full border border-amber-200 dark:border-amber-800">
+        <Coins className="w-3.5 h-3.5 text-amber-500" />
+        <span className="text-xs font-bold text-amber-700 dark:text-amber-400">{fmt(u.tokens_donated || 0)} tk</span>
+      </div>
+    )
+    return null
+  }
+
+  const emptyState = (icon: any, title: string, hint: string) => {
+    const Icon = icon
+    return (
+      <div className="text-center py-16 bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800">
+        <Icon className="w-14 h-14 text-sage-200 dark:text-sage-700 mx-auto mb-3" />
+        <h2 className="text-base font-semibold text-sage-800 dark:text-sage-200 mb-1">{title}</h2>
+        <p className="text-sm text-bark-400 dark:text-sage-500 px-4">{hint}</p>
+      </div>
+    )
+  }
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -218,329 +468,73 @@ export default function ClassificaPage() {
         <h1 className="text-2xl font-bold text-sage-900 dark:text-sage-100">Classifica</h1>
       </div>
 
-      {/* ── Tab principali ── */}
+      {/* Tab principali */}
       <div className="flex gap-2 mb-4 flex-wrap">
-        <button
-          onClick={() => setMainTab('libri')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            mainTab === 'libri'
-              ? 'bg-sage-600 text-white'
-              : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-800'
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          Libri
-        </button>
-        <button
-          onClick={() => setMainTab('autori')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            mainTab === 'autori'
-              ? 'bg-sage-600 text-white'
-              : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-800'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          Autori
-        </button>
-        <button
-          onClick={() => setMainTab('community')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-            mainTab === 'community'
-              ? 'bg-sage-600 text-white'
-              : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-800'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          Community
-        </button>
-      </div>
-
-      {/* ── Sotto-filtri (solo per Libri) ── */}
-      {mainTab === 'libri' && (
-      <div className="flex gap-1.5 mb-5 flex-wrap">
         {([
-          { key: 'reads' as BookFilter, label: 'Più letti', icon: Eye },
-          { key: 'likes' as BookFilter, label: 'Più votati', icon: Heart },
-          { key: 'trending' as BookFilter, label: 'In tendenza', icon: TrendingUp },
-        ]).map(({ key, label, icon: Icon }) => (
+          { key: 'libri', label: 'Libri', icon: BookOpen },
+          { key: 'autori', label: 'Autori', icon: Sparkles },
+          { key: 'community', label: 'Community', icon: Users },
+        ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setBookFilter(key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              bookFilter === key
-                ? 'bg-sage-500 text-white'
-                : 'text-bark-500 dark:text-sage-400 hover:bg-sage-100 dark:hover:bg-sage-800'
+            onClick={() => setMainTab(key)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+              mainTab === key
+                ? 'bg-sage-600 text-white'
+                : 'bg-white dark:bg-[#1e221c] text-bark-500 dark:text-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-800'
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className="w-4 h-4" />
             {label}
           </button>
         ))}
       </div>
-      )}
 
-      {/* ── Content ── */}
+      {/* Sotto-filtri */}
+      <div className="flex gap-1.5 mb-5 flex-wrap">
+        {mainTab === 'libri' && ([
+          { key: 'reads' as BookFilter, label: 'Più letti', icon: Eye },
+          { key: 'likes' as BookFilter, label: 'Più votati', icon: Heart },
+          { key: 'trending' as BookFilter, label: 'In tendenza', icon: TrendingUp },
+          { key: 'new' as BookFilter, label: 'Nuovi', icon: Sparkles },
+          { key: 'serializing' as BookFilter, label: 'Serializzazioni', icon: Layers },
+        ]).map(({ key, label, icon }) => (
+          <Pill key={key} active={bookFilter === key} onClick={() => setBookFilter(key)} icon={icon} label={label} />
+        ))}
+        {mainTab === 'autori' && ([
+          { key: 'followers' as AuthorFilter, label: 'Più seguiti', icon: Users },
+          { key: 'reads' as AuthorFilter, label: 'Più letti', icon: Eye },
+          { key: 'active' as AuthorFilter, label: 'Più attivi', icon: PenTool },
+          { key: 'new' as AuthorFilter, label: 'Nuovi', icon: UserPlus },
+        ]).map(({ key, label, icon }) => (
+          <Pill key={key} active={authorFilter === key} onClick={() => setAuthorFilter(key)} icon={icon} label={label} />
+        ))}
+        {mainTab === 'community' && ([
+          { key: 'xp' as CommunityFilter, label: 'Top XP', icon: Sparkles },
+          { key: 'active' as CommunityFilter, label: 'Più attivi', icon: Zap },
+          { key: 'donors' as CommunityFilter, label: 'Top donatori', icon: Coins },
+        ]).map(({ key, label, icon }) => (
+          <Pill key={key} active={communityFilter === key} onClick={() => setCommunityFilter(key)} icon={icon} label={label} />
+        ))}
+      </div>
+
+      {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-sage-400" />
         </div>
-      ) : mainTab === 'autori' ? (
-        /* ═══ AUTORI LEADERBOARD ═══ */
-        authors.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800">
-            <Sparkles className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-sage-800 dark:text-sage-200 mb-2">Nessun autore ancora</h2>
-            <p className="text-sm text-bark-400 dark:text-sage-500">Segui i tuoi autori preferiti per farli salire in classifica.</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {authors.map((entry: any, index: number) => {
-              const displayName = entry.author_pseudonym || entry.name || entry.username || 'Autore'
-              return (
-                <Link
-                  key={entry.id}
-                  href={`/profile/${entry.username || entry.id}`}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
-                >
-                  <RankColumn index={index} />
-                  {entry.avatar_url ? (
-                    <img src={entry.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-xl font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm">
-                      {displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">{displayName}</p>
-                      <LevelBadge totalXp={entry.total_xp} size="xs" />
-                    </div>
-                    {entry.username && (
-                      <p className="text-xs text-bark-400 dark:text-sage-500 truncate">@{entry.username}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-                        <BookOpen className="w-2.5 h-2.5" />
-                        {entry.books_count} opere
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
-                    <Users className="w-3.5 h-3.5 text-sage-500" />
-                    <span className="text-xs font-bold text-sage-700 dark:text-sage-300">
-                      {entry.follower_count >= 1000 ? `${(entry.follower_count / 1000).toFixed(1)}k` : entry.follower_count}
-                    </span>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )
-      ) : mainTab === 'libri' ? (
-        /* ═══ LIBRI LEADERBOARD ═══ */
-        books.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800">
-            <BookOpen className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-sage-800 dark:text-sage-200 mb-2">Nessun libro ancora</h2>
-            <p className="text-sm text-bark-400 dark:text-sage-500">I libri appariranno qui quando verranno pubblicati.</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {books.map((book: any, index: number) => {
-              const authorName = book.author?.author_pseudonym || book.author?.name || 'Autore'
-              const tr = book._trending
-              const positionsDelta = tr?.positions_changed ?? 0
-              const daysAtTop = tr?.days_at_top ?? 0
-              const isNewEntry = !!tr?.is_new_entry
-              const activityDelta: number | null = tr && tr.score_7d_ago > 0 ? Number(tr.activity_delta_7d) : null
-              return (
-                <Link
-                  key={book.id}
-                  href={`/libro/${book.id}`}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
-                >
-                  <RankColumn index={index} />
-
-                  {/* Cover mini */}
-                  <div className="flex-shrink-0 w-12 h-[72px] rounded-lg overflow-hidden bg-sage-100 dark:bg-sage-800">
-                    {book.cover_image_url ? (
-                      <img src={book.cover_image_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <BookOpen className="w-4 h-4 text-sage-300 dark:text-sage-600" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {bookFilter === 'trending' && (
-                        <Flame className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" style={{ animation: 'pulse 1.6s ease-in-out infinite' }} />
-                      )}
-                      <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 line-clamp-1">{book.title}</p>
-                    </div>
-                    <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">{authorName}</p>
-
-                    {/* Indicatori trending */}
-                    {bookFilter === 'trending' ? (
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        {isNewEntry && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                            NUOVO
-                          </span>
-                        )}
-                        {activityDelta !== null && activityDelta > 0 && (
-                          <span
-                            title="Variazione score ultimi 7 giorni"
-                            className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
-                          >
-                            <ChevronUp className="w-2.5 h-2.5" /> +{Math.round(activityDelta)}% attività 7gg
-                          </span>
-                        )}
-                        {activityDelta !== null && activityDelta < 0 && (
-                          <span
-                            title="Variazione score ultimi 7 giorni"
-                            className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
-                          >
-                            <ChevronDown className="w-2.5 h-2.5" /> {Math.round(activityDelta)}% attività 7gg
-                          </span>
-                        )}
-                        {!isNewEntry && positionsDelta !== 0 && (
-                          <span
-                            title="Posizioni guadagnate/perse dall'ultima rilevazione"
-                            className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
-                              positionsDelta > 0
-                                ? 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800'
-                                : 'bg-gray-50 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
-                            }`}
-                          >
-                            {positionsDelta > 0 ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                            {positionsDelta > 0 ? `+${positionsDelta}` : positionsDelta} pos.
-                          </span>
-                        )}
-                        {index === 0 && daysAtTop > 0 && (
-                          <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            <Crown className="w-2.5 h-2.5" /> In vetta da {daysAtTop} {daysAtTop === 1 ? 'giorno' : 'giorni'}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-                          <Eye className="w-2.5 h-2.5" />
-                          {book.total_reads >= 1000 ? `${(book.total_reads / 1000).toFixed(1)}k` : book.total_reads || 0}
-                        </span>
-                        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-                          <Heart className="w-2.5 h-2.5" />
-                          {book.total_likes || 0}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Main stat */}
-                  <div className="flex-shrink-0 text-right">
-                    {bookFilter === 'reads' && (
-                      <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full">
-                        <Eye className="w-3.5 h-3.5 text-sage-500" />
-                        <span className="text-xs font-bold text-sage-700 dark:text-sage-300">
-                          {book.total_reads >= 1000 ? `${(book.total_reads / 1000).toFixed(1)}k` : book.total_reads || 0}
-                        </span>
-                      </div>
-                    )}
-                    {bookFilter === 'likes' && (
-                      <div className="flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/20 rounded-full">
-                        <Heart className="w-3.5 h-3.5 text-red-400" />
-                        <span className="text-xs font-bold text-red-600 dark:text-red-400">{book.total_likes || 0}</span>
-                      </div>
-                    )}
-                    {bookFilter === 'trending' && (
-                      <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-full border border-orange-200 dark:border-orange-800">
-                        <Flame className="w-3.5 h-3.5 text-orange-500" />
-                        <span className="text-xs font-bold text-orange-700 dark:text-orange-400">
-                          {tr?.score ? Math.round(tr.score) : Math.round(book.trending_score || 0)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )
+      ) : items.length === 0 ? (
+        mainTab === 'libri'
+          ? emptyState(BookOpen, 'Nessun libro qui', 'Cambia filtro o torna più tardi.')
+          : mainTab === 'autori'
+            ? emptyState(Sparkles, 'Nessun autore qui', 'Cambia filtro o torna più tardi.')
+            : emptyState(Users, 'Nessun dato ancora', 'Guadagna XP, commenta e supporta gli autori per apparire in classifica.')
       ) : (
-        /* ═══ COMMUNITY LEADERBOARD — basata esclusivamente su XP ═══ */
-        community.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800">
-            <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-sage-800 dark:text-sage-200 mb-2">Nessun dato ancora</h2>
-            <p className="text-sm text-bark-400 dark:text-sage-500">Guadagna XP leggendo, inviando mance e sbloccando badge per salire in classifica!</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {community.map((entry: any, index: number) => {
-              const { level } = getXpLevel(entry.total_xp ?? 0)
-              return (
-                <Link
-                  key={entry.id}
-                  href={`/profile/${entry.username || entry.id}`}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-shadow hover:shadow-md ${getRankStyle(index)}`}
-                >
-                  <RankColumn index={index} />
-                  {index === 0 && <Crown className="w-5 h-5 text-amber-500 -ml-2 flex-shrink-0" />}
-
-                  {/* Avatar */}
-                  {entry.avatar_url ? (
-                    <img src={entry.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-lg font-bold text-sage-600 dark:text-sage-300 flex-shrink-0">
-                      {(entry.name || entry.username || '?').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-
-                  {/* Name */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className={`text-sm font-semibold truncate ${
-                        level >= 50
-                          ? 'bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 bg-clip-text text-transparent'
-                          : 'text-sage-900 dark:text-sage-100'
-                      }`}>
-                        {entry.name || entry.username || 'Utente'}
-                      </p>
-                      <LevelBadge totalXp={entry.total_xp} size="xs" />
-                    </div>
-                    {entry.username && (
-                      <p className="text-xs text-bark-400 dark:text-sage-500">@{entry.username}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-[10px] text-bark-400 dark:text-sage-500">
-                        Livello {level}
-                      </span>
-                      {entry.daily_streak > 0 && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-                          <Flame className="w-2.5 h-2.5 text-orange-400" />
-                          {entry.daily_streak}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* XP totali */}
-                  <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-sage-50 to-emerald-50 dark:from-sage-800 dark:to-emerald-900/20 rounded-full border border-sage-100 dark:border-sage-700">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-xs font-bold text-sage-700 dark:text-sage-200">
-                      {(entry.total_xp ?? 0) >= 1000
-                        ? `${((entry.total_xp ?? 0) / 1000).toFixed(1)}k`
-                        : entry.total_xp ?? 0} XP
-                    </span>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )
+        <div className="space-y-2">
+          {mainTab === 'libri' && items.map((b, i) => renderBookCard(b, i))}
+          {mainTab === 'autori' && items.map((a, i) => renderAuthorCard(a, i))}
+          {mainTab === 'community' && items.map((u, i) => renderCommunityCard(u, i))}
+        </div>
       )}
     </div>
   )
