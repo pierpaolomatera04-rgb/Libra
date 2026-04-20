@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import {
   BookOpen, Users, Coins, TrendingUp, Eye, Plus, Loader2,
-  BarChart3, MessageCircle, Settings, PenTool, ArrowRight
+  BarChart3, MessageCircle, Settings, PenTool, ArrowRight, Rocket
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -214,6 +214,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             {[
               { href: '/pubblica', label: 'Pubblica un nuovo libro', icon: Plus, desc: 'Carica e pubblica il tuo prossimo libro' },
+              { href: '/dashboard/promuovi', label: 'Promuovi i tuoi libri', icon: Rocket, desc: 'Boosta la visibilità spendendo token' },
               { href: '/dashboard/opere', label: 'Gestisci opere', icon: BookOpen, desc: 'Modifica, elimina o metti in pausa' },
               { href: '/dashboard/guadagni', label: 'Guadagni', icon: Coins, desc: 'Visualizza i tuoi guadagni in token' },
               { href: '/dashboard/analytics', label: 'Statistiche', icon: BarChart3, desc: 'Analisi dettagliate dei tuoi libri' },

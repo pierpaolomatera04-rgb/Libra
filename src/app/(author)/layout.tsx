@@ -6,12 +6,13 @@ import Navbar from '@/components/layout/Navbar'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   LayoutDashboard, BookOpen, BarChart3, Coins,
-  MessageCircle, UserCircle, Plus, Settings, ArrowLeft
+  MessageCircle, UserCircle, Plus, Settings, ArrowLeft, Rocket
 } from 'lucide-react'
 
 const studioLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/opere', label: 'Le mie opere', icon: BookOpen },
+  { href: '/dashboard/promuovi', label: 'Promuovi', icon: Rocket },
   { href: '/dashboard/analytics', label: 'Statistiche', icon: BarChart3 },
   { href: '/dashboard/guadagni', label: 'Guadagni', icon: Coins },
   { href: '/dashboard/commenti', label: 'Commenti', icon: MessageCircle },

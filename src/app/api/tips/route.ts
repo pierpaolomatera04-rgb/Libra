@@ -22,14 +22,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Non puoi inviare una mancia a te stesso' }, { status: 400 })
     }
 
-    // Fetch token utilizzabili per mance (escludi WELCOME e REWARD).
-    // I REWARD_TOKEN sono bonus da XP e NON possono pagare l'autore.
+    // Fetch token utilizzabili per mance.
+    // Esclusi: WELCOME, REWARD, MONTHLY (gli autori sono pagati dal pool
+    // abbonamenti — i MONTHLY_TOKEN sono trattati come bonus).
+    // Spendibili per mance: ANNUAL_BONUS_TOKEN e PURCHASED_TOKEN.
     const { data: allTokens, error: fetchErr } = await supabase
       .from('tokens')
       .select('id, amount, type, expires_at')
       .eq('user_id', user.id)
       .eq('spent', false)
-      .in('type', ['MONTHLY_TOKEN', 'ANNUAL_BONUS_TOKEN', 'PURCHASED_TOKEN'])
+      .in('type', ['ANNUAL_BONUS_TOKEN', 'PURCHASED_TOKEN'])
       .order('expires_at', { ascending: true, nullsFirst: false })
 
     if (fetchErr) {
@@ -42,17 +44,10 @@ export async function POST(request: NextRequest) {
       return new Date(t.expires_at) > now
     })
 
-    // Ordine: MONTHLY → ANNUAL_BONUS → PURCHASED
-    const monthlyTokens = validTokens
-      .filter(t => t.type === 'MONTHLY_TOKEN')
-      .sort((a, b) => {
-        if (!a.expires_at) return 1
-        if (!b.expires_at) return -1
-        return new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()
-      })
+    // Ordine di spesa: ANNUAL_BONUS → PURCHASED
     const annualTokens = validTokens.filter(t => t.type === 'ANNUAL_BONUS_TOKEN')
     const purchasedTokens = validTokens.filter(t => t.type === 'PURCHASED_TOKEN')
-    const orderedTokens = [...monthlyTokens, ...annualTokens, ...purchasedTokens]
+    const orderedTokens = [...annualTokens, ...purchasedTokens]
 
     const totalAvailable = orderedTokens.reduce((sum, t) => sum + t.amount, 0)
     if (totalAvailable < amount) {

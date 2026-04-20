@@ -68,8 +68,15 @@ export async function getTokenBalance(supabase: SupabaseClient, userId: string) 
     total: 0,
     // Spendibile per unlock/boost (esclude WELCOME che ha uso speciale).
     spendable: 0,
-    // Spendibile per mance: SOLO token "reali" (esclude WELCOME e REWARD).
+    // Spendibile per mance: SOLO token "reali" (ANNUAL_BONUS + PURCHASED).
+    // Esclusi: WELCOME, REWARD, MONTHLY (gli autori sono pagati dal pool
+    // abbonamenti, quindi i MONTHLY_TOKEN sono considerati bonus).
     tippable: 0,
+    // Bonus vs reali (per UI dashboard boost).
+    // Bonus: WELCOME + REWARD + MONTHLY + ANNUAL_BONUS  → boost OK, mance NO (MONTHLY, REWARD, WELCOME)
+    // Reali: PURCHASED                                  → boost + mance OK
+    bonus: 0,
+    purchased: 0,
   }
 
   for (const t of validTokens) {
@@ -78,8 +85,14 @@ export async function getTokenBalance(supabase: SupabaseClient, userId: string) 
     if (t.type !== 'WELCOME_TOKEN') {
       balance.spendable += t.amount
     }
-    if (t.type !== 'WELCOME_TOKEN' && t.type !== 'REWARD_TOKEN') {
+    if (t.type === 'ANNUAL_BONUS_TOKEN' || t.type === 'PURCHASED_TOKEN') {
       balance.tippable += t.amount
+    }
+    if (t.type === 'PURCHASED_TOKEN') {
+      balance.purchased += t.amount
+    } else {
+      // WELCOME + REWARD + MONTHLY + ANNUAL_BONUS
+      balance.bonus += t.amount
     }
   }
 
