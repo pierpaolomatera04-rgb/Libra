@@ -47,8 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_author_boosts_user
 CREATE INDEX IF NOT EXISTS idx_author_boosts_book
   ON public.author_boosts(book_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_author_boosts_active
-  ON public.author_boosts(book_id, expires_at)
-  WHERE expires_at > NOW();
+  ON public.author_boosts(book_id, expires_at);
 
 ALTER TABLE public.author_boosts ENABLE ROW LEVEL SECURITY;
 
