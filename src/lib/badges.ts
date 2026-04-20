@@ -89,126 +89,97 @@ export function getBadgeColor(badgeId: string): { bg: string; text: string; bord
 }
 
 // ============================================
-// SISTEMA XP — 50 LIVELLI con curva incrementale
+// SISTEMA XP — curva lineare infinita (100 XP/livello)
 // ============================================
-// Formula: threshold = Math.floor(20 * level^1.6)
-// Livello  1:    0 XP    Livello 10:  795 XP
-// Livello 20: 2640 XP    Livello 30: 5260 XP
-// Livello 40: 8540 XP    Livello 50: 12370 XP
+// Livello N richiede (N-1) * 100 XP cumulativi.
+// Rank:
+//   Bronzo:   livelli 1-9    (0-899 XP)
+//   Argento:  livelli 10-24  (900-2399 XP)
+//   Oro:      livelli 25-49  (2400-4899 XP)
+//   Diamante: livelli 50+    (4900+ XP)
+// ============================================
+
+export const XP_PER_LEVEL = 100
 
 export interface XpLevelInfo {
   level: number
   title: string
-  currentXp: number     // XP in questo livello
-  nextLevelXp: number   // XP totali per il prossimo livello
+  currentXp: number     // XP accumulati in questo livello
+  nextLevelXp: number   // XP richiesti per livello successivo
   totalXp: number       // XP totali dell'utente
   progress: number      // 0-1
 }
 
-// Calcola la soglia XP cumulativa per un dato livello
 function levelThreshold(level: number): number {
   if (level <= 1) return 0
-  return Math.floor(20 * Math.pow(level, 1.6))
+  return (level - 1) * XP_PER_LEVEL
 }
 
-// Genera tutti i livelli con titoli
+// Titoli dei primi 50 livelli (oltre il 50 resta "Asceso")
 const LEVEL_TITLES: Record<number, string> = {
-  1: 'Principiante',
-  2: 'Curioso',
-  3: 'Lettore',
-  4: 'Appassionato',
-  5: 'Esploratore',
-  6: 'Studioso',
-  7: 'Assiduo',
-  8: 'Dedito',
-  9: 'Veterano',
-  10: 'Esperto',
-  11: 'Navigato',
-  12: 'Avido',
-  13: 'Instancabile',
-  14: 'Raffinato',
-  15: 'Conoscitore',
-  16: 'Illuminato',
-  17: 'Saggio',
-  18: 'Erudito',
-  19: 'Maestro',
-  20: 'Virtuoso',
-  21: 'Mentore',
-  22: 'Custode',
-  23: 'Guardiano',
-  24: 'Campione',
-  25: 'Protagonista',
-  26: 'Titano',
-  27: 'Stratega',
-  28: 'Eroico',
-  29: 'Glorioso',
-  30: 'Leggenda',
-  31: 'Mitico',
-  32: 'Epico',
-  33: 'Trascendente',
-  34: 'Divino',
-  35: 'Eterno',
-  36: 'Celestiale',
-  37: 'Cosmico',
-  38: 'Supremo',
-  39: 'Onnisciente',
-  40: 'Immortale',
-  41: 'Arcano',
-  42: 'Primordiale',
-  43: 'Infinito',
-  44: 'Assoluto',
-  45: 'Trascendentale',
-  46: 'Universale',
-  47: 'Etereo',
-  48: 'Inarrestabile',
-  49: 'Definitivo',
-  50: 'Asceso',
+  1: 'Principiante', 2: 'Curioso', 3: 'Lettore', 4: 'Appassionato', 5: 'Esploratore',
+  6: 'Studioso', 7: 'Assiduo', 8: 'Dedito', 9: 'Veterano', 10: 'Esperto',
+  11: 'Navigato', 12: 'Avido', 13: 'Instancabile', 14: 'Raffinato', 15: 'Conoscitore',
+  16: 'Illuminato', 17: 'Saggio', 18: 'Erudito', 19: 'Maestro', 20: 'Virtuoso',
+  21: 'Mentore', 22: 'Custode', 23: 'Guardiano', 24: 'Campione', 25: 'Protagonista',
+  26: 'Titano', 27: 'Stratega', 28: 'Eroico', 29: 'Glorioso', 30: 'Leggenda',
+  31: 'Mitico', 32: 'Epico', 33: 'Trascendente', 34: 'Divino', 35: 'Eterno',
+  36: 'Celestiale', 37: 'Cosmico', 38: 'Supremo', 39: 'Onnisciente', 40: 'Immortale',
+  41: 'Arcano', 42: 'Primordiale', 43: 'Infinito', 44: 'Assoluto', 45: 'Trascendentale',
+  46: 'Universale', 47: 'Etereo', 48: 'Inarrestabile', 49: 'Definitivo', 50: 'Asceso',
 }
 
 export function getLevelTitle(level: number): string {
-  return LEVEL_TITLES[Math.min(level, 50)] || `Livello ${level}`
+  if (level >= 50) return LEVEL_TITLES[50]
+  return LEVEL_TITLES[level] || `Livello ${level}`
 }
 
 export function getXpLevel(totalXp: number): XpLevelInfo {
-  let level = 1
-  for (let l = 50; l >= 1; l--) {
-    if (totalXp >= levelThreshold(l)) {
-      level = l
-      break
-    }
-  }
-
+  const xp = Math.max(0, Math.floor(totalXp || 0))
+  const level = Math.floor(xp / XP_PER_LEVEL) + 1
   const currentThreshold = levelThreshold(level)
-  const nextThreshold = levelThreshold(Math.min(level + 1, 51))
-  const xpInLevel = totalXp - currentThreshold
-  const xpNeeded = nextThreshold - currentThreshold
-
+  const xpInLevel = xp - currentThreshold
   return {
     level,
     title: getLevelTitle(level),
     currentXp: xpInLevel,
-    nextLevelXp: xpNeeded,
-    totalXp,
-    progress: xpNeeded > 0 ? Math.min(1, xpInLevel / xpNeeded) : 1,
+    nextLevelXp: XP_PER_LEVEL,
+    totalXp: xp,
+    progress: Math.min(1, xpInLevel / XP_PER_LEVEL),
   }
 }
 
 // ============================================
-// PREMI AI LIVELLI CHIAVE
+// RANK (gradi community) basati su livello
+// ============================================
+export type RankTier = 'bronzo' | 'argento' | 'oro' | 'diamante'
+
+export function getRankTier(level: number): RankTier {
+  if (level >= 50) return 'diamante'
+  if (level >= 25) return 'oro'
+  if (level >= 10) return 'argento'
+  return 'bronzo'
+}
+
+// ============================================
+// PREMI AI LIVELLI CHIAVE (promozione di rank)
+// ============================================
+// Argento  (Lv 10): +80 REWARD_TOKEN
+// Oro      (Lv 25): +200 REWARD_TOKEN + badge esclusivo profilo
+// Diamante (Lv 50): +500 REWARD_TOKEN + badge + 1 mese Gold gratuito
 // ============================================
 export interface LevelReward {
   level: number
-  tokenBonus: number
+  rewardTokens: number
   specialReward?: string // descrizione testuale per reward non-token
+  grantsGoldMonth?: boolean
+  grantsExclusiveBadge?: boolean
 }
 
 export const LEVEL_REWARDS: LevelReward[] = [
-  { level: 5,  tokenBonus: 5 },
-  { level: 10, tokenBonus: 10 },
-  { level: 20, tokenBonus: 0, specialReward: 'Firma Animata Speciale sbloccata' },
-  { level: 30, tokenBonus: 50 },
-  { level: 40, tokenBonus: 20 },
-  { level: 50, tokenBonus: 100, specialReward: 'Nome Oro in classifiche e profilo' },
+  { level: 10, rewardTokens: 80, specialReward: 'Rango Argento sbloccato' },
+  { level: 25, rewardTokens: 200, grantsExclusiveBadge: true, specialReward: 'Rango Oro + Badge esclusivo profilo' },
+  { level: 50, rewardTokens: 500, grantsExclusiveBadge: true, grantsGoldMonth: true, specialReward: 'Rango Diamante + Badge + 1 mese Gold gratis' },
 ]
 
 export function getRewardForLevel(level: number): LevelReward | null {
@@ -218,13 +189,49 @@ export function getRewardForLevel(level: number): LevelReward | null {
 // ============================================
 // XP VALUES — punti per azione
 // ============================================
+// NB: Le regole di cap (max/giorno, una tantum, 1/settimana) sono
+// applicate lato server nella RPC award_xp tramite xp_event_log.
 export const XP_VALUES = {
-  COMMENT: 1,
-  TIP_SMALL: 1,       // mancia < 10 token
-  TIP_BIG: 10,        // mancia >= 10 token
-  PREMIUM_SIGNATURE: 5,
-  BOOST: 10,
-  BOOK_COMPLETE: 20,
-  BADGE_EARNED: 15,
+  // Lettura
   BLOCK_COMPLETE: 2,
+  BOOK_COMPLETE: 50,
+  // Social
+  COMMENT: 5,                  // max 5/giorno
+  SHARE_SENTENCE: 10,          // max 2/giorno
+  FOLLOW_AUTHOR: 5,            // max 3/giorno
+  // Sostegno
+  BOOST: 10,                   // per ogni boost
+  TIP: 20,                     // mancia min 5 token spendibili (escluso REWARD)
+  // Progressione personale
+  STREAK_WEEKLY: 50,           // streak 7 giorni consecutivi (1/settimana)
+  // One-time / lifecycle
+  SIGNUP_FIRST_LOGIN: 20,
+  PROFILE_COMPLETE: 30,        // avatar + bio
+  FIRST_SUBSCRIPTION: 100,
+  UPGRADE_SILVER_TO_GOLD: 50,
+  ANNUAL_SILVER_ACTIVATE: 360,
+  ANNUAL_GOLD_ACTIVATE: 720,
+  // Rinnovi mensili
+  SILVER_MONTHLY_RENEW: 30,
+  GOLD_MONTHLY_RENEW: 60,
+} as const
+
+// Reason keys usati lato server per daily caps / idempotency.
+export const XP_REASONS = {
+  BLOCK_COMPLETE: 'block_complete',
+  BOOK_COMPLETE: 'book_complete',
+  COMMENT: 'comment',
+  SHARE_SENTENCE: 'share_sentence',
+  FOLLOW_AUTHOR: 'follow_author',
+  BOOST: 'boost',
+  TIP: 'tip',
+  STREAK_WEEKLY: 'streak_weekly',
+  SIGNUP_FIRST_LOGIN: 'signup_first_login',
+  PROFILE_COMPLETE: 'profile_complete',
+  FIRST_SUBSCRIPTION: 'first_subscription',
+  UPGRADE_SILVER_TO_GOLD: 'upgrade_silver_to_gold',
+  ANNUAL_SILVER_ACTIVATE: 'annual_silver_activate',
+  ANNUAL_GOLD_ACTIVATE: 'annual_gold_activate',
+  SILVER_MONTHLY_RENEW: 'silver_monthly_renew',
+  GOLD_MONTHLY_RENEW: 'gold_monthly_renew',
 } as const

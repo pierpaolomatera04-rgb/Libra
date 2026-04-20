@@ -1,5 +1,4 @@
 import { toast } from 'sonner'
-import { XP_VALUES, getRewardForLevel } from './badges'
 
 export type XpResult = {
   success: boolean
@@ -8,12 +7,19 @@ export type XpResult = {
   new_level: number
   new_total_xp: number
   level_up: boolean
-  token_reward: number
+  // Premi accreditati ai cambi di rank (Argento/Oro/Diamante)
+  reward_tokens: number
+  granted_gold_month: boolean
+  granted_exclusive_badge: boolean
   special_reward: string | null
+  // Capping: se l'XP è stato negato per cap raggiunto
+  capped?: boolean
+  cap_reason?: string
 }
 
 /**
  * Assegna XP all'utente tramite RPC e mostra feedback.
+ * I cap (max/giorno, una tantum, 1/settimana) sono applicati lato server.
  * Restituisce il risultato per gestire level-up nel componente.
  */
 export async function awardXp(
@@ -37,16 +43,17 @@ export async function awardXp(
 
     const result = data as XpResult
 
+    // Se è stato cappato, niente toast (silenzioso)
+    if (result.capped) return result
+
     // Feedback "+X XP" animato
-    if (showToast && amount > 0) {
+    if (showToast && result.xp_added > 0) {
       if (result.level_up) {
-        // Il level-up verrà gestito dal componente LevelUpModal
-        // qui mostriamo solo un toast breve
-        toast.success(`+${amount} XP — Livello ${result.new_level}!`, {
+        toast.success(`+${result.xp_added} XP — Livello ${result.new_level}!`, {
           duration: 3000,
         })
       } else {
-        toast(`+${amount} XP`, {
+        toast(`+${result.xp_added} XP`, {
           duration: 2000,
           className: 'xp-toast',
         })
@@ -58,11 +65,4 @@ export async function awardXp(
     console.error('awardXp failed:', err)
     return null
   }
-}
-
-/**
- * Determina l'XP da dare per una mancia in base all'importo.
- */
-export function getXpForTip(amount: number): number {
-  return amount >= 10 ? XP_VALUES.TIP_BIG : XP_VALUES.TIP_SMALL
 }

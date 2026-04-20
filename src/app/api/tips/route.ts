@@ -14,15 +14,16 @@ export async function POST(request: NextRequest) {
 
     const { authorId, amount } = await request.json()
 
-    if (!authorId || !amount || amount < 1) {
-      return NextResponse.json({ error: 'authorId e amount (min 1) obbligatori' }, { status: 400 })
+    if (!authorId || !amount || amount < 5) {
+      return NextResponse.json({ error: 'authorId e amount (min 5 token) obbligatori' }, { status: 400 })
     }
 
     if (authorId === user.id) {
       return NextResponse.json({ error: 'Non puoi inviare una mancia a te stesso' }, { status: 400 })
     }
 
-    // Fetch token disponibili (escludi WELCOME_TOKEN)
+    // Fetch token utilizzabili per mance (escludi WELCOME e REWARD).
+    // I REWARD_TOKEN sono bonus da XP e NON possono pagare l'autore.
     const { data: allTokens, error: fetchErr } = await supabase
       .from('tokens')
       .select('id, amount, type, expires_at')
@@ -132,15 +133,14 @@ export async function POST(request: NextRequest) {
       data: { actor_name: actorName, amount, author_payout: authorPayout },
     })
 
-    // Award XP al donatore — +100 XP per ogni "mazzetto" di 5 token (min. 5 token)
-    const xpAmount = amount >= 5 ? Math.floor(amount / 5) * 100 : 0
-    const { data: xpResult } = xpAmount > 0
-      ? await supabase.rpc('award_xp', {
-          p_user_id: user.id,
-          p_amount: xpAmount,
-          p_reason: 'tip',
-        })
-      : { data: null }
+    // Award XP al donatore — +20 XP flat per ogni mancia (min 5 token già validato).
+    // Il cap eventuale e' gestito lato DB dalla RPC award_xp.
+    const xpAmount = 20
+    const { data: xpResult } = await supabase.rpc('award_xp', {
+      p_user_id: user.id,
+      p_amount: xpAmount,
+      p_reason: 'tip',
+    })
 
     return NextResponse.json({
       success: true,

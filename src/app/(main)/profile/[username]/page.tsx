@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import { createNotification } from '@/lib/notifications'
-import { ALL_BADGES, getBadgeColor, getXpLevel } from '@/lib/badges'
+import { ALL_BADGES, getBadgeColor, getXpLevel, XP_VALUES } from '@/lib/badges'
+import { awardXp } from '@/lib/xp'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { MACRO_AREAS } from '@/lib/genres'
 import { toast } from 'sonner'
@@ -285,6 +286,11 @@ export default function UnifiedProfilePage() {
       await supabase.from('followers').insert({ follower_id: user.id, following_id: profileData.id })
       setIsFollowing(true)
       setProfileData(prev => prev ? { ...prev, followers_count: prev.followers_count + 1 } : null)
+
+      // +5 XP per follow di un autore (max 3/giorno — cap DB)
+      if (profileData.is_author) {
+        awardXp(supabase, user.id, XP_VALUES.FOLLOW_AUTHOR, 'follow_author', true)
+      }
 
       const actorName = myProfile?.author_pseudonym || myProfile?.name || 'Un utente'
       createNotification({

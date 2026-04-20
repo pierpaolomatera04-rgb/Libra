@@ -4,21 +4,19 @@ import { getXpLevel } from '@/lib/badges'
 export type LevelRank = 'bronzo' | 'argento' | 'oro' | 'diamante' | null
 
 /**
- * Mappatura livello XP → grado Community.
- * Le soglie seguono i livelli chiave del sistema XP esistente (max 50).
- *   Bronzo:   livello 10 (~797 XP)
- *   Argento:  livello 20 (~2412 XP)
- *   Oro:      livello 35 (~5947 XP)
- *   Diamante: livello 50 (~10485 XP)
+ * Mappatura livello XP → grado Community (curva lineare 100 XP/livello).
+ *   Bronzo:   livelli 1-9    (0 XP+)       — tier di default
+ *   Argento:  livelli 10-24  (900 XP+)
+ *   Oro:      livelli 25-49  (2400 XP+)
+ *   Diamante: livelli 50+    (4900 XP+)
  */
 export function getLevelRank(totalXp: number | null | undefined): LevelRank {
   const xp = totalXp ?? 0
   const { level } = getXpLevel(xp)
   if (level >= 50) return 'diamante'
-  if (level >= 35) return 'oro'
-  if (level >= 20) return 'argento'
-  if (level >= 10) return 'bronzo'
-  return null
+  if (level >= 25) return 'oro'
+  if (level >= 10) return 'argento'
+  return 'bronzo'
 }
 
 const RANK_STYLES: Record<Exclude<LevelRank, null>, {
@@ -67,7 +65,8 @@ interface LevelBadgeProps {
 
 /**
  * Badge Community basato sul livello XP (Bronzo/Argento/Oro/Diamante).
- * Sotto il livello 10 non viene renderizzato nulla.
+ * Bronzo è il tier di default (livelli 1-9); Argento/Oro/Diamante sono
+ * sbloccati rispettivamente a livello 10, 25 e 50.
  */
 export function LevelBadge({
   totalXp,

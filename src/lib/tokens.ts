@@ -4,7 +4,13 @@ import { SupabaseClient } from '@supabase/supabase-js'
 // SISTEMA TOKEN — Sezione 3 Specifiche Tecniche
 // ============================================
 
-export type TokenType = 'WELCOME_TOKEN' | 'MONTHLY_TOKEN' | 'PURCHASED_TOKEN' | 'ANNUAL_BONUS_TOKEN'
+export type TokenType =
+  | 'WELCOME_TOKEN'
+  | 'MONTHLY_TOKEN'
+  | 'PURCHASED_TOKEN'
+  | 'ANNUAL_BONUS_TOKEN'
+  | 'REWARD_TOKEN' // token bonus da livelli XP — NO mance, NO payout autore
+
 
 export type PlanType = 'free' | 'silver_monthly' | 'silver_annual' | 'gold_monthly' | 'gold_annual'
 
@@ -58,9 +64,12 @@ export async function getTokenBalance(supabase: SupabaseClient, userId: string) 
     MONTHLY_TOKEN: 0,
     PURCHASED_TOKEN: 0,
     ANNUAL_BONUS_TOKEN: 0,
+    REWARD_TOKEN: 0,
     total: 0,
-    // Token spendibili (esclude WELCOME_TOKEN che hanno uso speciale)
+    // Spendibile per unlock/boost (esclude WELCOME che ha uso speciale).
     spendable: 0,
+    // Spendibile per mance: SOLO token "reali" (esclude WELCOME e REWARD).
+    tippable: 0,
   }
 
   for (const t of validTokens) {
@@ -68,6 +77,9 @@ export async function getTokenBalance(supabase: SupabaseClient, userId: string) 
     balance.total += t.amount
     if (t.type !== 'WELCOME_TOKEN') {
       balance.spendable += t.amount
+    }
+    if (t.type !== 'WELCOME_TOKEN' && t.type !== 'REWARD_TOKEN') {
+      balance.tippable += t.amount
     }
   }
 
@@ -130,9 +142,12 @@ export async function spendTokens(
 
   const annualTokens = validTokens.filter(t => t.type === 'ANNUAL_BONUS_TOKEN')
   const purchasedTokens = validTokens.filter(t => t.type === 'PURCHASED_TOKEN')
+  // REWARD_TOKEN (bonus da livelli XP) vengono spesi per primi: sono gratuiti
+  // per la piattaforma, quindi non generano payout autore.
+  const rewardTokens = validTokens.filter(t => t.type === 'REWARD_TOKEN')
 
-  // Ordine di spesa: MONTHLY → ANNUAL_BONUS → PURCHASED
-  const orderedTokens = [...monthlyTokens, ...annualTokens, ...purchasedTokens]
+  // Ordine di spesa: REWARD → MONTHLY → ANNUAL_BONUS → PURCHASED
+  const orderedTokens = [...rewardTokens, ...monthlyTokens, ...annualTokens, ...purchasedTokens]
 
   // Calcola se ci sono abbastanza token
   const totalAvailable = orderedTokens.reduce((sum, t) => sum + t.amount, 0)
@@ -186,15 +201,20 @@ export async function spendTokens(
     if (spentErr) return { success: false, error: `Errore marcatura token spesi: ${spentErr.message}`, tokensSpent: [], totalSpent: 0, authorPayout: 0, platformPayout: 0 }
   }
 
-  // Calcola payout — 70% autore, 30% piattaforma
+  // Calcola payout — 70% autore, 30% piattaforma.
+  // I REWARD_TOKEN NON generano payout (sono bonus gratuiti).
   // Valore in euro: 1 token = €0.10
-  const euroValue = discountedAmount * 0.10
+  const payableTokens = tokensSpent
+    .filter(t => t.type !== 'REWARD_TOKEN')
+    .reduce((sum, t) => sum + t.amount, 0)
+  const euroValue = payableTokens * 0.10
   const authorPayout = Math.round(euroValue * 0.70 * 100) / 100
   const platformPayout = Math.round(euroValue * 0.30 * 100) / 100
 
   // Registra transazione per ogni tipo di token usato
   for (const spent of tokensSpent) {
-    const spentEuro = spent.amount * 0.10
+    const isReward = spent.type === 'REWARD_TOKEN'
+    const spentEuro = isReward ? 0 : spent.amount * 0.10
     const { error: txErr } = await supabase
       .from('token_transactions')
       .insert({
@@ -202,8 +222,8 @@ export async function spendTokens(
         book_id: bookId,
         token_type: spent.type,
         tokens_spent: spent.amount,
-        author_payout: Math.round(spentEuro * 0.70 * 100) / 100,
-        platform_payout: Math.round(spentEuro * 0.30 * 100) / 100,
+        author_payout: isReward ? 0 : Math.round(spentEuro * 0.70 * 100) / 100,
+        platform_payout: isReward ? 0 : Math.round(spentEuro * 0.30 * 100) / 100,
       })
 
     if (txErr) console.error('Errore inserimento transazione:', txErr.message)

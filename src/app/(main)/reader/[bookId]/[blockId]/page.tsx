@@ -607,7 +607,19 @@ export default function ReaderPage() {
             setTimeout(() => setLevelUpResult(xpRes), 2500)
           }
 
-          // Check for new badges
+          // Se e' l'ultimo blocco del libro → bonus "Libro Completato" (+50 XP)
+          if (blocks.length > 0 && blockNumber === blocks.length) {
+            const completeXp = await awardXp(
+              supabase, user.id, XP_VALUES.BOOK_COMPLETE,
+              `book_complete:${bookId}`, // idempotente per libro lato server
+              true,
+            )
+            if (completeXp?.level_up) {
+              setTimeout(() => setLevelUpResult(completeXp), 3500)
+            }
+          }
+
+          // Check for new badges (niente XP aggiuntivo: fuori spec)
           try {
             const { data: badgeResults } = await supabase.rpc('check_and_award_badges', { p_user_id: user.id })
             if (badgeResults) {
@@ -615,11 +627,6 @@ export default function ReaderPage() {
               if (newBadges.length > 0) {
                 const badge = getBadgeById(newBadges[0].badge_id)
                 if (badge) {
-                  // +15 XP per badge ottenuto
-                  const badgeXp = await awardXp(supabase, user.id, XP_VALUES.BADGE_EARNED, 'badge_earned', true)
-                  if (badgeXp?.level_up) {
-                    setTimeout(() => setLevelUpResult(badgeXp), 4000)
-                  }
                   setTimeout(() => {
                     setShowCelebration({
                       type: 'badge',
@@ -1080,9 +1087,7 @@ export default function ReaderPage() {
             }))
             toast.success('Commento con firma premium pubblicato')
             refreshProfile?.()
-            // +5 XP per firma animata
-            const sigXp = await awardXp(supabase, user.id, XP_VALUES.PREMIUM_SIGNATURE, 'premium_signature', true)
-            if (sigXp?.level_up) setTimeout(() => setLevelUpResult(sigXp), 1500)
+            // Nessun XP addizionale per firma premium (fuori spec).
           }
         } catch (e: any) {
           toast.warning('Firma premium non applicata', { description: e?.message || 'Riprova' })
@@ -1218,6 +1223,9 @@ export default function ReaderPage() {
 
       if (mode === 'public') {
         toast.success('Citazione pubblicata!')
+        // +10 XP per condivisione frase (max 2/giorno — cap DB)
+        const shareXp = await awardXp(supabase, user.id, XP_VALUES.SHARE_SENTENCE, 'share_sentence', true)
+        if (shareXp?.level_up) setTimeout(() => setLevelUpResult(shareXp), 1500)
       } else {
         // Link al tab "Frasi Salvate" nel profilo utente
         const profileUrl = profile?.username

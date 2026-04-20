@@ -10,12 +10,15 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { MACRO_AREAS, getMacroAreaByGenre, type MacroArea } from '@/lib/genres'
+import { awardXp } from '@/lib/xp'
+import { XP_VALUES } from '@/lib/badges'
 
 const CERT_MIN_BOOKS = 3
-// Soglie XP: livello 20 (Argento ~2412 XP) per certificazione, livello 10 (Bronzo ~797 XP) per TOP.
-const CERT_MIN_XP = 2412
+// Soglie XP (curva lineare 100 XP/livello): livello 25 = Oro = 2400 XP per
+// certificazione, livello 10 = Argento = 900 XP per il TOP glow.
+const CERT_MIN_XP = 2400
 const CERT_MIN_LIKES = 50
-const TOP_XP_THRESHOLD = 797
+const TOP_XP_THRESHOLD = 900
 const NEW_AUTHOR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 type ViewTab = 'scopri' | 'seguiti' | 'nuovi'
@@ -210,6 +213,8 @@ export default function AuthorsPage() {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: authorId })
       setFollowedIds(prev => [...prev, authorId])
       setAuthors(prev => prev.map(a => a.id === authorId ? { ...a, totalFollowers: a.totalFollowers + 1 } : a))
+      // +5 XP per follow (max 3/giorno — cap DB)
+      awardXp(supabase, user.id, XP_VALUES.FOLLOW_AUTHOR, 'follow_author', true)
     }
   }
 
