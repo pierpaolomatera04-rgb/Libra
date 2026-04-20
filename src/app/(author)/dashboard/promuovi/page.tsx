@@ -15,7 +15,6 @@ type BookRow = {
   title: string
   cover_image_url: string | null
   total_reads: number
-  visibility_score: number | null
   boost_expires_at: string | null
   boost_multiplier: number | null
   status: string
@@ -79,13 +78,16 @@ export default function PromuoviPage() {
     if (!user) return
     setLoading(true)
     try {
-      // Libri dell'autore
-      const { data: booksData } = await supabase
+      // Libri dell'autore — tutti i libri dell'utente loggato, a prescindere dallo status
+      const { data: booksData, error: booksErr } = await supabase
         .from('books')
-        .select('id, title, cover_image_url, total_reads, visibility_score, boost_expires_at, boost_multiplier, status')
+        .select('id, title, cover_image_url, total_reads, boost_expires_at, boost_multiplier, status')
         .eq('author_id', user.id)
         .order('created_at', { ascending: false })
 
+      if (booksErr) {
+        console.error('❌ Errore fetch libri promuovi:', booksErr.message)
+      }
       setBooks((booksData as BookRow[]) || [])
 
       // Saldo segmentato via RPC
@@ -279,8 +281,8 @@ export default function PromuoviPage() {
                     <span className="flex items-center gap-1">
                       <Eye className="w-3 h-3" /> {book.total_reads || 0} letture
                     </span>
-                    <span className="flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" /> score {book.visibility_score || 0}
+                    <span className="flex items-center gap-1 capitalize">
+                      <TrendingUp className="w-3 h-3" /> {book.status}
                     </span>
                     {isActive && remaining && (
                       <span className="flex items-center gap-1 text-amber-700 font-semibold">
