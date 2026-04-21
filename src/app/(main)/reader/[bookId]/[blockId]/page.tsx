@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { createNotification } from '@/lib/notifications'
 import {
   ChevronLeft, ChevronRight, Heart, Bookmark, MessageCircle,
-  Lock, Coins, Sun, Moon, Type, Loader2,
+  Lock, Coins, Sun, Moon, Loader2,
   ArrowLeft, Send, Flame, Sparkles, CheckCircle2, Trophy,
   Highlighter, Save, Share, X, Zap
 } from 'lucide-react'
@@ -160,7 +160,6 @@ export default function ReaderPage() {
   const [newComment, setNewComment] = useState('')
   const [showComments, setShowComments] = useState(false)
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null)
-  const [fontSize, setFontSize] = useState(16)
   const [blueLightFilter, setBlueLightFilter] = useState(false)
   const [readStartTime, setReadStartTime] = useState<number>(Date.now())
   const [completionData, setCompletionData] = useState<{
@@ -196,31 +195,28 @@ export default function ReaderPage() {
   const [boosting, setBoosting] = useState(false)
   const [hoursUntilBoost, setHoursUntilBoost] = useState<number | null>(null)
 
-  // Tracciamento pagine virtuali: 1 pagina = 250 parole, sosta minima 5s
-  const segmentRefs = useRef<Record<number, HTMLSpanElement | null>>({})
-  const recordedSegmentsRef = useRef<Set<number>>(new Set())
+  // ── Paginazione stile Kindle/iBooks ──
+  // Visual pages = pagine effettivamente renderizzate (variano con textSize e viewport).
+  // Accumulator parole (persistito per libro in localStorage): ogni 250 parole viste
+  // per ≥30s incrementa user_library.pages_read di 1, indipendente dalla dimensione testo.
+  type TextSize = 'small' | 'medium' | 'large'
+  const TEXT_SIZE_PX: Record<TextSize, number> = { small: 15, medium: 18, large: 22 }
+  const [textSize, setTextSize] = useState<TextSize>('medium')
+  const fontSize = TEXT_SIZE_PX[textSize]
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const pagerRef = useRef<HTMLDivElement | null>(null)
+  const countedPagesRef = useRef<Set<number>>(new Set())
+  const wordsAccumulatedRef = useRef<number>(0)
+  const pendingIncrementRef = useRef<number>(0)
+  const touchStartXRef = useRef<number | null>(null)
 
-  // Split del contenuto in segmenti da ~250 parole (preserva whitespace/punteggiatura)
-  const contentSegments = useMemo<string[]>(() => {
-    const content: string = block?.content || ''
-    if (!content) return []
-    const WORDS_PER_SEGMENT = 250
-    const tokens = content.split(/(\s+)/) // mantiene gli spazi
-    const segments: string[] = []
-    let current = ''
-    let wordCount = 0
-    for (const tok of tokens) {
-      current += tok
-      if (/\S/.test(tok)) wordCount++
-      if (wordCount >= WORDS_PER_SEGMENT) {
-        segments.push(current)
-        current = ''
-        wordCount = 0
-      }
-    }
-    if (current.length > 0) segments.push(current)
-    return segments.length > 0 ? segments : [content]
-  }, [block?.content])
+  // Hydrate accumulator parole dal localStorage per libro
+  useEffect(() => {
+    if (!bookId || typeof window === 'undefined') return
+    const raw = window.localStorage.getItem(`reader:words:${bookId}`)
+    wordsAccumulatedRef.current = raw ? Math.max(0, Number(raw) || 0) : 0
+  }, [bookId])
 
   // Open book = free for everyone (still gated UI, but no token cost)
   const isOpenBook = book?.access_level === 'open' || book?.tier === 'free'
@@ -490,68 +486,94 @@ export default function ReaderPage() {
     fetchData()
   }, [fetchData])
 
-  // Reset tracking pagine virtuali quando cambia blocco (nuova "sessione di lettura")
+  // Reset tracking pagine quando cambia blocco (nuova sessione di lettura)
   useEffect(() => {
-    recordedSegmentsRef.current = new Set()
-    segmentRefs.current = {}
+    countedPagesRef.current = new Set()
   }, [block?.id])
 
-  // Intersection Observer per tracciamento pagine virtuali (250 parole, sosta 5s)
+  // Ricalcola il numero totale di pagine visive quando cambia il contenuto
+  // o la dimensione testo. Usa CSS multi-column: totalPages = scrollWidth/clientWidth.
   useEffect(() => {
-    if (!user || !block || isLocked) return
-    if (contentSegments.length === 0) return
-
-    const pendingTimers = new Map<number, ReturnType<typeof setTimeout>>()
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const idxAttr = entry.target.getAttribute('data-segment-index')
-        if (!idxAttr) return
-        const idx = parseInt(idxAttr, 10)
-        if (Number.isNaN(idx) || idx < 0) return
-        if (recordedSegmentsRef.current.has(idx)) return
-
-        if (entry.isIntersecting) {
-          // Avvia timer 5s (se non gia in corso)
-          if (!pendingTimers.has(idx)) {
-            const timer = setTimeout(async () => {
-              pendingTimers.delete(idx)
-              if (recordedSegmentsRef.current.has(idx)) return
-              recordedSegmentsRef.current.add(idx)
-              try {
-                await supabase.rpc('record_segment_read', {
-                  p_block_id: block.id,
-                  p_segment_index: idx,
-                })
-              } catch (err) {
-                // Silenzioso: non bloccare l'esperienza di lettura
-                console.warn('record_segment_read error', err)
-              }
-            }, 5000)
-            pendingTimers.set(idx, timer)
-          }
-        } else {
-          // Uscito dal viewport prima di 5s → reset timer
-          const timer = pendingTimers.get(idx)
-          if (timer) {
-            clearTimeout(timer)
-            pendingTimers.delete(idx)
-          }
-        }
-      })
-    }, { threshold: [0, 0.25, 0.5] })
-
-    // Osserva tutti i segmenti presenti nel DOM
-    const refs = segmentRefs.current
-    Object.values(refs).forEach((el) => {
-      if (el) observer.observe(el)
-    })
-
-    return () => {
-      observer.disconnect()
-      pendingTimers.forEach((t) => clearTimeout(t))
+    const el = pagerRef.current
+    if (!el || !block?.content) return
+    const recompute = () => {
+      const tp = Math.max(1, Math.round(el.scrollWidth / Math.max(1, el.clientWidth)))
+      setTotalPages(tp)
+      // Al primo layout: riprendi dall'ultima pagina salvata per questo blocco
+      if (typeof window !== 'undefined') {
+        const saved = Number(window.localStorage.getItem(`reader:page:${block.id}`) || 0)
+        const target = Math.min(Math.max(0, saved), tp - 1)
+        el.scrollLeft = target * el.clientWidth
+        setCurrentPage(target)
+      }
     }
-  }, [user, block, isLocked, contentSegments.length, supabase])
+    // Attendi il layout del browser prima di misurare
+    const t = setTimeout(recompute, 50)
+    const ro = new ResizeObserver(() => recompute())
+    ro.observe(el)
+    return () => { clearTimeout(t); ro.disconnect() }
+  }, [block?.content, block?.id, fontSize])
+
+  // Tieni currentPage in sync con lo scroll orizzontale
+  useEffect(() => {
+    const el = pagerRef.current
+    if (!el) return
+    const onScroll = () => {
+      const p = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
+      setCurrentPage(p)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [totalPages])
+
+  // Persisti pagina corrente per resume
+  useEffect(() => {
+    if (!block?.id || typeof window === 'undefined') return
+    window.localStorage.setItem(`reader:page:${block.id}`, String(currentPage))
+  }, [currentPage, block?.id])
+
+  // ── Tracker pagamento autore ──
+  // Ogni pagina visiva tenuta ≥30s conta. Le parole della pagina si sommano
+  // all'accumulatore del libro; ogni 250 parole → +1 in user_library.pages_read.
+  useEffect(() => {
+    if (!user || !block || isLocked || totalPages < 1) return
+    const wordCount: number = Number(block.word_count) || 0
+    if (wordCount <= 0) return
+    if (countedPagesRef.current.has(currentPage)) return
+
+    const timer = setTimeout(() => {
+      if (countedPagesRef.current.has(currentPage)) return
+      if (document.visibilityState === 'hidden') return
+      countedPagesRef.current.add(currentPage)
+
+      const wordsPerPage = wordCount / totalPages
+      const prev = wordsAccumulatedRef.current
+      const next = prev + wordsPerPage
+      wordsAccumulatedRef.current = next
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(`reader:words:${bookId}`, String(next))
+      }
+
+      const delta = Math.floor(next / 250) - Math.floor(prev / 250)
+      const pending = pendingIncrementRef.current + delta
+      pendingIncrementRef.current = pending
+      if (pending > 0) {
+        supabase.rpc('increment_library_pages_read', {
+          p_book_id: bookId,
+          p_delta: pending,
+        }).then((res: any) => {
+          if (res?.error) {
+            console.warn('increment_library_pages_read error', res.error.message)
+          } else {
+            pendingIncrementRef.current = 0
+          }
+        })
+      }
+    }, 30000)
+
+    return () => clearTimeout(timer)
+  }, [currentPage, totalPages, user, block, isLocked, bookId, supabase])
 
   // Record read when leaving/navigating
   useEffect(() => {
@@ -1284,12 +1306,23 @@ export default function ReaderPage() {
             <button onClick={() => setBlueLightFilter(!blueLightFilter)} className="p-2 text-bark-400 hover:text-sage-600">
               {blueLightFilter ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </button>
-            <button
-              onClick={() => setFontSize(prev => prev === 20 ? 14 : prev + 2)}
-              className="p-2 text-bark-400 hover:text-sage-600"
-            >
-              <Type className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-0.5 bg-sage-50 dark:bg-sage-900/40 rounded-lg p-0.5">
+              {(['small','medium','large'] as const).map(sz => (
+                <button
+                  key={sz}
+                  onClick={() => setTextSize(sz)}
+                  className={`px-2 py-0.5 rounded-md text-xs font-semibold transition-colors ${
+                    textSize === sz
+                      ? 'bg-sage-600 text-white'
+                      : 'text-bark-500 hover:text-sage-700'
+                  }`}
+                  aria-label={`Testo ${sz}`}
+                  title={sz === 'small' ? 'Piccolo' : sz === 'medium' ? 'Medio' : 'Grande'}
+                >
+                  {sz === 'small' ? 'S' : sz === 'medium' ? 'M' : 'L'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -1499,48 +1532,79 @@ export default function ReaderPage() {
               <h2 className="text-xl font-bold text-sage-900 mb-6 text-center">{block.title}</h2>
             )}
 
-            {/* Reading content */}
-            <article
-              id="reading-content"
-              onMouseUp={handleTextSelect}
-              onTouchEnd={handleTextSelect}
-              className="reading-text text-bark-700 mb-12 animate-fade-in whitespace-pre-wrap select-text"
-              style={{ fontSize: `${fontSize}px` }}
-            >
-              {contentSegments.map((segmentText, segIdx) => {
-                // Applica highlights all'interno di questo segmento (se presenti)
-                const parts: { text: string; isHighlight: boolean; id?: string }[] = []
-                if (highlights.length === 0) {
-                  parts.push({ text: segmentText, isHighlight: false })
-                } else {
-                  let remaining = segmentText
-                  const sortedHls = [...highlights].sort((a, b) => b.content.length - a.content.length)
-                  while (remaining.length > 0) {
-                    let earliestIdx = -1
-                    let earliestHl: any = null
-                    for (const hl of sortedHls) {
-                      const idx = remaining.indexOf(hl.content)
-                      if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
-                        earliestIdx = idx
-                        earliestHl = hl
-                      }
+            {/* Reading content — paginazione orizzontale stile Kindle */}
+            {(() => {
+              const fullText = block?.content || ''
+              // Segmenta il testo full applicando gli highlights
+              const parts: { text: string; isHighlight: boolean; id?: string }[] = []
+              if (highlights.length === 0) {
+                parts.push({ text: fullText, isHighlight: false })
+              } else {
+                let remaining = fullText
+                const sortedHls = [...highlights].sort((a, b) => b.content.length - a.content.length)
+                while (remaining.length > 0) {
+                  let earliestIdx = -1
+                  let earliestHl: any = null
+                  for (const hl of sortedHls) {
+                    const idx = remaining.indexOf(hl.content)
+                    if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
+                      earliestIdx = idx
+                      earliestHl = hl
                     }
-                    if (earliestIdx === -1) {
-                      parts.push({ text: remaining, isHighlight: false })
-                      break
-                    }
-                    if (earliestIdx > 0) {
-                      parts.push({ text: remaining.slice(0, earliestIdx), isHighlight: false })
-                    }
-                    parts.push({ text: earliestHl.content, isHighlight: true, id: earliestHl.id })
-                    remaining = remaining.slice(earliestIdx + earliestHl.content.length)
                   }
+                  if (earliestIdx === -1) {
+                    parts.push({ text: remaining, isHighlight: false })
+                    break
+                  }
+                  if (earliestIdx > 0) {
+                    parts.push({ text: remaining.slice(0, earliestIdx), isHighlight: false })
+                  }
+                  parts.push({ text: earliestHl.content, isHighlight: true, id: earliestHl.id })
+                  remaining = remaining.slice(earliestIdx + earliestHl.content.length)
                 }
-                return (
-                  <span
-                    key={segIdx}
-                    data-segment-index={segIdx}
-                    ref={(el) => { segmentRefs.current[segIdx] = el }}
+              }
+
+              const goPrev = () => {
+                const el = pagerRef.current
+                if (!el) return
+                el.scrollBy({ left: -el.clientWidth, behavior: 'smooth' })
+              }
+              const goNext = () => {
+                const el = pagerRef.current
+                if (!el) return
+                el.scrollBy({ left: el.clientWidth, behavior: 'smooth' })
+              }
+
+              return (
+                <div className="relative mb-8 animate-fade-in">
+                  <div
+                    ref={pagerRef}
+                    id="reading-content"
+                    onMouseUp={handleTextSelect}
+                    onTouchEnd={(e) => {
+                      // swipe detect
+                      if (touchStartXRef.current !== null) {
+                        const dx = e.changedTouches[0].clientX - touchStartXRef.current
+                        if (Math.abs(dx) > 50) {
+                          if (dx < 0) goNext(); else goPrev()
+                          touchStartXRef.current = null
+                          return
+                        }
+                        touchStartXRef.current = null
+                      }
+                      handleTextSelect()
+                    }}
+                    onTouchStart={(e) => { touchStartXRef.current = e.touches[0].clientX }}
+                    className="reading-text text-bark-700 dark:text-sage-200 whitespace-pre-wrap select-text overflow-x-auto overflow-y-hidden"
+                    style={{
+                      fontSize: `${fontSize}px`,
+                      height: 'calc(100vh - 260px)',
+                      columnWidth: '100%',
+                      columnGap: '2rem',
+                      columnFill: 'auto',
+                      scrollSnapType: 'x mandatory',
+                      scrollbarWidth: 'none',
+                    }}
                   >
                     {parts.map((p, j) =>
                       p.isHighlight ? (
@@ -1555,10 +1619,33 @@ export default function ReaderPage() {
                         <span key={j}>{p.text}</span>
                       )
                     )}
-                  </span>
-                )
-              })}
-            </article>
+                  </div>
+
+                  {/* Tap zones laterali per girare pagina */}
+                  <button
+                    onClick={goPrev}
+                    disabled={currentPage === 0}
+                    aria-label="Pagina precedente"
+                    className="absolute left-0 top-0 h-full w-16 md:w-20 flex items-center justify-start pl-1 md:pl-2 text-bark-400 hover:text-sage-700 disabled:opacity-20 disabled:pointer-events-none transition-opacity"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={goNext}
+                    disabled={currentPage >= totalPages - 1}
+                    aria-label="Pagina successiva"
+                    className="absolute right-0 top-0 h-full w-16 md:w-20 flex items-center justify-end pr-1 md:pr-2 text-bark-400 hover:text-sage-700 disabled:opacity-20 disabled:pointer-events-none transition-opacity"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+
+                  {/* Page indicator */}
+                  <div className="mt-4 text-center text-xs text-bark-400 dark:text-sage-500 font-medium tabular-nums">
+                    {currentPage + 1} / {totalPages}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Selection popover */}
             {selectionPopover && (
