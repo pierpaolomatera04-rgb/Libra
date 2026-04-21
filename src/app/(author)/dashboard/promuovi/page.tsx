@@ -72,6 +72,7 @@ export default function PromuoviPage() {
   const [loading, setLoading] = useState(true)
   const [selectedBook, setSelectedBook] = useState<BookRow | null>(null)
   const [modalTokens, setModalTokens] = useState(10)
+  const [modalDays, setModalDays] = useState(3)
   const [submitting, setSubmitting] = useState(false)
 
   const fetchAll = useCallback(async () => {
@@ -123,7 +124,8 @@ export default function PromuoviPage() {
 
   const openBoostModal = (book: BookRow) => {
     setSelectedBook(book)
-    setModalTokens(10)
+    setModalTokens(Math.min(30, Math.max(10, balance.boostable)))
+    setModalDays(3)
   }
 
   const closeModal = () => {
@@ -133,8 +135,12 @@ export default function PromuoviPage() {
 
   const handleBoost = async () => {
     if (!selectedBook) return
-    if (modalTokens < 10 || modalTokens % 10 !== 0) {
-      toast.error('Minimo 10 token, multipli di 10')
+    if (modalTokens < 10) {
+      toast.error('Minimo 10 token')
+      return
+    }
+    if (modalDays < 1 || modalDays > 30) {
+      toast.error('Durata: 1-30 giorni')
       return
     }
     if (modalTokens > balance.boostable) {
@@ -147,14 +153,14 @@ export default function PromuoviPage() {
       const res = await fetch('/api/author-boost', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookId: selectedBook.id, tokens: modalTokens }),
+        body: JSON.stringify({ bookId: selectedBook.id, tokens: modalTokens, days: modalDays }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
         toast.error(json.error || 'Boost non riuscito')
         return
       }
-      toast.success(`Boost attivo! ${json.duration_days} ${json.duration_days === 1 ? 'giorno' : 'giorni'} di visibilità x${json.multiplier}`)
+      toast.success(`Boost attivo! ${json.duration_days} ${json.duration_days === 1 ? 'giorno' : 'giorni'} ×${Number(json.multiplier).toFixed(1)}`)
       setSelectedBook(null)
       await fetchAll()
     } catch (err: any) {
@@ -182,10 +188,16 @@ export default function PromuoviPage() {
     )
   }
 
-  const modalDays = Math.floor(modalTokens / 10)
   const modalBonusUsed = Math.min(modalTokens, balance.bonus)
-  const modalRealUsed = modalTokens - modalBonusUsed
-  const canAfford = modalTokens <= balance.boostable
+  const modalRealUsed = Math.max(0, modalTokens - modalBonusUsed)
+  const tokensPerDay = modalDays > 0 ? modalTokens / modalDays : 0
+  const computedMultiplier = Math.min(5.0, Math.max(1.1, 1 + tokensPerDay * 0.1))
+  const canAfford = modalTokens >= 10 && modalTokens <= balance.boostable && modalDays >= 1 && modalDays <= 30
+  const tokensError = modalTokens < 10
+    ? 'Minimo 10 token'
+    : modalTokens > balance.boostable
+      ? `Massimo ${balance.boostable} (saldo disponibile)`
+      : null
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
@@ -427,58 +439,76 @@ export default function PromuoviPage() {
               </div>
             </div>
 
-            {/* Input tokens */}
+            {/* Durata — slider + input */}
             <label className="block text-xs font-semibold uppercase tracking-wider text-bark-500 mb-2">
-              Token da spendere (multipli di 10)
+              Durata boost (1-30 giorni)
             </label>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-3 mb-5">
+              <input
+                type="range"
+                min={1}
+                max={30}
+                step={1}
+                value={modalDays}
+                onChange={(e) => setModalDays(Number(e.target.value))}
+                disabled={submitting}
+                className="flex-1 accent-sage-600"
+              />
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={modalDays}
+                onChange={(e) => {
+                  const v = Math.max(1, Math.min(30, Math.floor(Number(e.target.value))))
+                  setModalDays(Number.isFinite(v) ? v : 1)
+                }}
+                disabled={submitting}
+                className="w-20 border-2 border-sage-200 rounded-xl px-3 py-2 text-center font-bold text-sm focus:border-sage-500 outline-none"
+              />
+              <span className="text-xs text-bark-500 font-medium">
+                {modalDays === 1 ? 'giorno' : 'giorni'}
+              </span>
+            </div>
+
+            {/* Token — input libero con +/- */}
+            <label className="block text-xs font-semibold uppercase tracking-wider text-bark-500 mb-2">
+              Token da spendere (min 10 · max {balance.boostable})
+            </label>
+            <div className="flex items-center gap-2 mb-1">
               <button
                 type="button"
-                onClick={() => setModalTokens(Math.max(10, modalTokens - 10))}
-                className="w-10 h-10 rounded-xl bg-sage-100 hover:bg-sage-200 font-bold text-sage-700"
-                disabled={submitting}
+                onClick={() => setModalTokens(Math.max(10, modalTokens - 1))}
+                disabled={submitting || modalTokens <= 10}
+                className="w-10 h-10 rounded-xl bg-sage-100 hover:bg-sage-200 font-bold text-sage-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >−</button>
               <input
                 type="number"
                 min={10}
-                step={10}
+                max={balance.boostable}
                 value={modalTokens}
                 onChange={(e) => {
-                  const v = Math.max(10, Math.floor(Number(e.target.value) / 10) * 10)
+                  const v = Math.floor(Number(e.target.value))
                   setModalTokens(Number.isFinite(v) ? v : 10)
                 }}
-                className="flex-1 border-2 border-sage-200 rounded-xl px-4 py-2 text-center font-bold text-lg focus:border-sage-500 outline-none"
                 disabled={submitting}
+                className={`flex-1 border-2 rounded-xl px-4 py-2 text-center font-bold text-lg outline-none transition ${
+                  tokensError ? 'border-red-300 focus:border-red-500' : 'border-sage-200 focus:border-sage-500'
+                }`}
               />
               <button
                 type="button"
-                onClick={() => setModalTokens(Math.min(balance.boostable || 10, modalTokens + 10))}
-                className="w-10 h-10 rounded-xl bg-sage-100 hover:bg-sage-200 font-bold text-sage-700"
-                disabled={submitting}
+                onClick={() => setModalTokens(Math.min(balance.boostable, modalTokens + 1))}
+                disabled={submitting || modalTokens >= balance.boostable}
+                className="w-10 h-10 rounded-xl bg-sage-100 hover:bg-sage-200 font-bold text-sage-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >+</button>
             </div>
+            {tokensError && (
+              <p className="text-xs text-red-600 mb-3 font-medium">{tokensError}</p>
+            )}
+            {!tokensError && <div className="mb-4" />}
 
-            {/* Preset rapidi */}
-            <div className="flex gap-2 mb-5 flex-wrap">
-              {[10, 30, 70, 100].map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => setModalTokens(preset)}
-                  disabled={preset > balance.boostable || submitting}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    modalTokens === preset
-                      ? 'bg-sage-500 text-white'
-                      : preset > balance.boostable
-                        ? 'bg-sage-50 text-bark-300 cursor-not-allowed'
-                        : 'bg-sage-100 text-sage-700 hover:bg-sage-200'
-                  }`}
-                >
-                  {preset} tk ({preset / 10}g)
-                </button>
-              ))}
-            </div>
-
-            {/* Anteprima */}
+            {/* Anteprima dinamica */}
             <div className={`rounded-2xl p-4 mb-5 border-2 ${
               canAfford
                 ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'
@@ -488,10 +518,10 @@ export default function PromuoviPage() {
                 <>
                   <p className="text-sm font-bold text-amber-900 mb-1 flex items-center gap-2">
                     <Zap className="w-4 h-4" />
-                    Il tuo libro apparirà in evidenza per {modalDays} {modalDays === 1 ? 'giorno' : 'giorni'}
+                    In evidenza per {modalDays} {modalDays === 1 ? 'giorno' : 'giorni'} con {tokensPerDay.toFixed(1)} token/giorno
                   </p>
                   <p className="text-xs text-amber-800/80 mb-2">
-                    Visibility score ×2.0 fino a {new Date(Date.now() + modalDays * 86400000).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    Visibility score ×{computedMultiplier.toFixed(1)} fino a {new Date(Date.now() + modalDays * 86400000).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </p>
                   <div className="border-t border-amber-200/50 pt-2 text-xs text-amber-900 space-y-0.5">
                     <div className="flex justify-between">
@@ -502,11 +532,15 @@ export default function PromuoviPage() {
                       <span>Token reali usati</span>
                       <span className="font-bold">{modalRealUsed}</span>
                     </div>
+                    <div className="flex justify-between pt-1 border-t border-amber-200/40 mt-1">
+                      <span className="font-semibold">Totale</span>
+                      <span className="font-bold">{modalTokens} tk</span>
+                    </div>
                   </div>
                 </>
               ) : (
                 <p className="text-sm font-bold text-red-800">
-                  Token insufficienti. Disponibili: {balance.boostable}
+                  {tokensError || 'Configurazione non valida'}
                 </p>
               )}
             </div>

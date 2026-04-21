@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
     }
 
-    const { bookId, tokens } = await request.json()
+    const { bookId, tokens, days } = await request.json()
 
     if (!bookId || typeof tokens !== 'number' || tokens < 10) {
       return NextResponse.json(
@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (tokens % 10 !== 0) {
+    if (typeof days !== 'number' || days < 1 || days > 30) {
       return NextResponse.json(
-        { error: 'I token devono essere multipli di 10 (10 token = 1 giorno)' },
+        { error: 'days deve essere un intero tra 1 e 30' },
         { status: 400 },
       )
     }
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase.rpc('create_author_boost', {
       p_book_id: bookId,
       p_tokens: tokens,
+      p_days: days,
     })
 
     if (error) {
