@@ -195,26 +195,20 @@ export default function ReaderPage() {
   const [boosting, setBoosting] = useState(false)
   const [hoursUntilBoost, setHoursUntilBoost] = useState<number | null>(null)
 
-  // ── Paginazione stile Kindle/iBooks ──
-  // Visual pages = pagine effettivamente renderizzate (variano con textSize e viewport).
-  // Accumulator parole (persistito per libro in localStorage): ogni 250 parole viste
-  // per ≥30s incrementa user_library.pages_read di 1, indipendente dalla dimensione testo.
+  // ── Lettura: scroll verticale semplice fino a fine blocco ──
+  // Accumulator parole (persistito per libro in localStorage): ogni 250 parole
+  // scrollate (calcolate dalla frazione di scroll) incrementa
+  // user_library.pages_read di 1, indipendente dalla dimensione testo.
   type TextSize = 'small' | 'medium' | 'large'
   const TEXT_SIZE_PX: Record<TextSize, number> = { small: 15, medium: 18, large: 22 }
   const [textSize, setTextSize] = useState<TextSize>('medium')
   const fontSize = TEXT_SIZE_PX[textSize]
-  const [currentPage, setCurrentPage] = useState(0)
-  const [totalPages, setTotalPages] = useState(1)
-  // Paginazione JS con translateY: molto più affidabile del CSS multi-column
-  // che ha comportamenti inconsistenti tra browser. Snappiamo all'altezza di
-  // linea per non tagliare righe a metà tra una pagina e l'altra.
-  const [pageHeight, setPageHeight] = useState(0)
   const pagerRef = useRef<HTMLDivElement | null>(null)
-  const columnRef = useRef<HTMLDivElement | null>(null)
-  const countedPagesRef = useRef<Set<number>>(new Set())
   const wordsAccumulatedRef = useRef<number>(0)
   const pendingIncrementRef = useRef<number>(0)
-  const touchStartXRef = useRef<number | null>(null)
+  // Frazione max di scroll raggiunta (0..1) per il blocco corrente — serve
+  // per accreditare parole solo quando l'utente effettivamente prosegue.
+  const maxScrollFractionRef = useRef<number>(0)
 
   // Hydrate accumulator parole dal localStorage per libro
   useEffect(() => {
@@ -491,112 +485,69 @@ export default function ReaderPage() {
     fetchData()
   }, [fetchData])
 
-  // Reset tracking pagine quando cambia blocco (nuova sessione di lettura)
+  // Reset tracker scroll quando cambia blocco (nuova sessione di lettura)
   useEffect(() => {
-    countedPagesRef.current = new Set()
+    maxScrollFractionRef.current = 0
   }, [block?.id])
 
-  // Ricalcola il numero totale di pagine misurando l'altezza reale del
-  // contenuto renderizzato e dividendola per l'altezza di una pagina
-  // (snappata al multiplo più vicino dell'altezza-di-riga per non tagliare
-  // righe a metà). Ri-osserva a ogni cambio di font, resize, orientamento.
+  // ── Tracker pagine lette basato sullo scroll della finestra ──
+  // Monitora quanto l'utente ha scrollato attraverso il contenuto del blocco.
+  // Ogni volta che la frazione massima di scroll raggiunta cresce, accredita
+  // (wordCount * deltaFrazione) all'accumulatore parole; ogni 250 parole → +1
+  // in user_library.pages_read. L'accumulatore persiste in localStorage, quindi
+  // non si resetta tra sessioni diverse.
   useEffect(() => {
-    const outer = pagerRef.current
-    const inner = columnRef.current
-    if (!outer || !inner || !block?.content) return
-    let cancelled = false
-    const recompute = () => {
-      if (cancelled || !pagerRef.current || !columnRef.current) return
-      const o = pagerRef.current
-      const n = columnRef.current
-      const available = o.clientHeight
-      // Line-height effettivo: match col CSS (.reading-text => 1.8)
-      const lh = Math.max(1, fontSize * 1.8)
-      const linesPerPage = Math.max(1, Math.floor(available / lh))
-      const snapped = linesPerPage * lh
-      setPageHeight(snapped)
-      // Misuriamo senza transform applicato (temporaneamente)
-      const prevTransform = n.style.transform
-      n.style.transform = 'none'
-      const contentH = n.scrollHeight
-      n.style.transform = prevTransform
-      const tp = Math.max(1, Math.ceil(contentH / snapped))
-      setTotalPages(tp)
-      if (typeof window !== 'undefined') {
-        const saved = Number(window.localStorage.getItem(`reader:page:${block.id}`) || 0)
-        const target = Math.min(Math.max(0, saved), tp - 1)
-        setCurrentPage(target)
-      }
-    }
-    // Doppio rAF: attendi il layout dopo il cambio di font-size/viewport
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(recompute)
-      ;(recompute as any)._raf2 = raf2
-    })
-    const ro = new ResizeObserver(recompute)
-    ro.observe(outer)
-    ro.observe(inner)
-    window.addEventListener('resize', recompute)
-    window.addEventListener('orientationchange', recompute)
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(raf1)
-      if ((recompute as any)._raf2) cancelAnimationFrame((recompute as any)._raf2)
-      ro.disconnect()
-      window.removeEventListener('resize', recompute)
-      window.removeEventListener('orientationchange', recompute)
-    }
-  }, [block?.content, block?.id, fontSize])
-
-  // Persisti pagina corrente per resume
-  useEffect(() => {
-    if (!block?.id || typeof window === 'undefined') return
-    window.localStorage.setItem(`reader:page:${block.id}`, String(currentPage))
-  }, [currentPage, block?.id])
-
-  // ── Tracker pagine lette ──
-  // Ogni pagina visiva tenuta ≥10s conta. Le parole della pagina si sommano
-  // all'accumulatore del libro (persistito in localStorage, NON si resetta tra
-  // sessioni); ogni 250 parole → +1 in user_library.pages_read.
-  useEffect(() => {
-    if (!user || !block || isLocked || totalPages < 1) return
+    if (!user || !block || isLocked) return
     const wordCount: number = Number(block.word_count) || 0
     if (wordCount <= 0) return
-    if (countedPagesRef.current.has(currentPage)) return
 
-    const timer = setTimeout(() => {
-      if (countedPagesRef.current.has(currentPage)) return
-      if (document.visibilityState === 'hidden') return
-      countedPagesRef.current.add(currentPage)
+    let pending = 0
+    const onScroll = () => {
+      const el = pagerRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const vh = window.innerHeight
+      // Frazione di contenuto già passata: quanto del blocco è sopra la
+      // metà inferiore della viewport. 0 = ancora tutto sotto, 1 = fine blocco.
+      const total = Math.max(1, rect.height)
+      const visibleEnd = Math.min(rect.bottom, vh) - rect.top
+      const frac = Math.max(0, Math.min(1, visibleEnd / total))
+      if (frac <= maxScrollFractionRef.current) return
+      const delta = frac - maxScrollFractionRef.current
+      maxScrollFractionRef.current = frac
 
-      const wordsPerPage = wordCount / totalPages
       const prev = wordsAccumulatedRef.current
-      const next = prev + wordsPerPage
+      const next = prev + wordCount * delta
       wordsAccumulatedRef.current = next
-
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(`reader:words:${bookId}`, String(next))
       }
-
-      const delta = Math.floor(next / 250) - Math.floor(prev / 250)
-      const pending = pendingIncrementRef.current + delta
+      const pagesDelta = Math.floor(next / 250) - Math.floor(prev / 250)
+      pending += pagesDelta
       pendingIncrementRef.current = pending
       if (pending > 0) {
+        const toSend = pending
         supabase.rpc('increment_library_pages_read', {
           p_book_id: bookId,
-          p_delta: pending,
+          p_delta: toSend,
         }).then((res: any) => {
           if (res?.error) {
             console.warn('increment_library_pages_read error', res.error.message)
           } else {
-            pendingIncrementRef.current = 0
+            pending -= toSend
+            pendingIncrementRef.current = pending
           }
         })
       }
-    }, 10000)
-
-    return () => clearTimeout(timer)
-  }, [currentPage, totalPages, user, block, isLocked, bookId, supabase])
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    // Trigger iniziale: se il blocco è corto, fire subito
+    const t = setTimeout(onScroll, 500)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      clearTimeout(t)
+    }
+  }, [user, block, isLocked, bookId, supabase])
 
   // Record read when leaving/navigating
   useEffect(() => {
@@ -1636,85 +1587,28 @@ export default function ReaderPage() {
                 }
               }
 
-              const goPrev = () => setCurrentPage(p => Math.max(0, p - 1))
-              const goNext = () => setCurrentPage(p => Math.min(totalPages - 1, p + 1))
-
               return (
-                <div className="relative mb-8 animate-fade-in">
-                  {/* Paginazione via translateY — l'outer è una "finestra"
-                      di altezza fissa che mostra una porzione del contenuto;
-                      l'inner contiene TUTTO il testo e viene traslato in su
-                      di pageHeight * currentPage per rivelare la pagina. */}
-                  <div
-                    ref={pagerRef}
-                    id="reading-content"
-                    onMouseUp={handleTextSelect}
-                    onTouchEnd={(e) => {
-                      if (touchStartXRef.current !== null) {
-                        const dx = e.changedTouches[0].clientX - touchStartXRef.current
-                        if (Math.abs(dx) > 50) {
-                          if (dx < 0) goNext(); else goPrev()
-                          touchStartXRef.current = null
-                          return
-                        }
-                        touchStartXRef.current = null
-                      }
-                      handleTextSelect()
-                    }}
-                    onTouchStart={(e) => { touchStartXRef.current = e.touches[0].clientX }}
-                    className="relative overflow-hidden"
-                    style={{
-                      height: 'calc(100vh - 260px)',
-                    }}
-                  >
-                    <div
-                      ref={columnRef}
-                      className="reading-text text-bark-700 dark:text-sage-200 whitespace-pre-wrap select-text"
-                      style={{
-                        fontSize: `${fontSize}px`,
-                        transform: pageHeight > 0 ? `translateY(-${currentPage * pageHeight}px)` : 'none',
-                        transition: 'transform 300ms ease',
-                        willChange: 'transform',
-                      }}
-                    >
-                      {parts.map((p, j) =>
-                        p.isHighlight ? (
-                          <mark
-                            key={j}
-                            data-highlight-id={p.id}
-                            className={`${macroArea?.color?.bgLight || 'bg-yellow-100'} ${macroArea?.color?.textLight || 'text-bark-800'} rounded px-0.5`}
-                          >
-                            {p.text}
-                          </mark>
-                        ) : (
-                          <span key={j}>{p.text}</span>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tap zones laterali per girare pagina */}
-                  <button
-                    onClick={goPrev}
-                    disabled={currentPage === 0}
-                    aria-label="Pagina precedente"
-                    className="absolute left-0 top-0 h-full w-16 md:w-20 flex items-center justify-start pl-1 md:pl-2 text-bark-400 hover:text-sage-700 disabled:opacity-20 disabled:pointer-events-none transition-opacity"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={goNext}
-                    disabled={currentPage >= totalPages - 1}
-                    aria-label="Pagina successiva"
-                    className="absolute right-0 top-0 h-full w-16 md:w-20 flex items-center justify-end pr-1 md:pr-2 text-bark-400 hover:text-sage-700 disabled:opacity-20 disabled:pointer-events-none transition-opacity"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-
-                  {/* Page indicator */}
-                  <div className="mt-4 text-center text-xs text-bark-400 dark:text-sage-500 font-medium tabular-nums">
-                    {currentPage + 1} / {totalPages}
-                  </div>
+                <div
+                  ref={pagerRef}
+                  id="reading-content"
+                  onMouseUp={handleTextSelect}
+                  onTouchEnd={handleTextSelect}
+                  className="reading-text text-bark-700 dark:text-sage-200 whitespace-pre-wrap select-text mb-8 animate-fade-in"
+                  style={{ fontSize: `${fontSize}px` }}
+                >
+                  {parts.map((p, j) =>
+                    p.isHighlight ? (
+                      <mark
+                        key={j}
+                        data-highlight-id={p.id}
+                        className={`${macroArea?.color?.bgLight || 'bg-yellow-100'} ${macroArea?.color?.textLight || 'text-bark-800'} rounded px-0.5`}
+                      >
+                        {p.text}
+                      </mark>
+                    ) : (
+                      <span key={j}>{p.text}</span>
+                    )
+                  )}
                 </div>
               )
             })()}
@@ -1842,42 +1736,39 @@ export default function ReaderPage() {
               </div>
             )}
 
-            {/* Navigation — visibile solo sull'ultima pagina del blocco
-                (nessun riferimento al blocco successivo prima di allora) */}
-            {currentPage >= totalPages - 1 && (
-              <div className="flex items-center justify-between py-8 animate-fade-in">
-                {blockNumber > 1 ? (
-                  <Link
-                    href={`/reader/${bookId}/${blockNumber - 1}`}
-                    className="flex items-center gap-1 px-4 py-2 text-sm text-sage-600 hover:bg-sage-50 rounded-xl"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Blocco precedente
-                  </Link>
-                ) : <div />}
+            {/* Navigation blocchi a fine contenuto */}
+            <div className="flex items-center justify-between py-8">
+              {blockNumber > 1 ? (
+                <Link
+                  href={`/reader/${bookId}/${blockNumber - 1}`}
+                  className="flex items-center gap-1 px-4 py-2 text-sm text-sage-600 hover:bg-sage-50 rounded-xl"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Blocco precedente
+                </Link>
+              ) : <div />}
 
-                {blockNumber < blocks.length ? (
+              {blockNumber < blocks.length ? (
+                <Link
+                  href={`/reader/${bookId}/${blockNumber + 1}`}
+                  onClick={handleNextBlock}
+                  className="flex items-center gap-2 px-6 py-3 text-sm bg-sage-500 text-white rounded-xl hover:bg-sage-600 font-medium shadow-sm hover:shadow-md transition-all"
+                >
+                  Prossimo blocco
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-sage-600 font-medium">Hai letto tutti i blocchi disponibili!</p>
                   <Link
-                    href={`/reader/${bookId}/${blockNumber + 1}`}
-                    onClick={handleNextBlock}
-                    className="flex items-center gap-2 px-6 py-3 text-sm bg-sage-500 text-white rounded-xl hover:bg-sage-600 font-medium shadow-sm hover:shadow-md transition-all"
+                    href={`/libro/${bookId}`}
+                    className="text-xs text-sage-500 hover:text-sage-700 mt-1 inline-block"
                   >
-                    Prossimo blocco
-                    <ChevronRight className="w-4 h-4" />
+                    Torna alla pagina del libro
                   </Link>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-sage-600 font-medium">Hai letto tutti i blocchi disponibili!</p>
-                    <Link
-                      href={`/libro/${bookId}`}
-                      className="text-xs text-sage-500 hover:text-sage-700 mt-1 inline-block"
-                    >
-                      Torna alla pagina del libro
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </>
         )}
 
