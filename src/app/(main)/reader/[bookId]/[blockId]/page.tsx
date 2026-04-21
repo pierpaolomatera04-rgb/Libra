@@ -205,6 +205,10 @@ export default function ReaderPage() {
   const fontSize = TEXT_SIZE_PX[textSize]
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+  // Larghezza/altezza effettive del pager in px. Servono per impostare
+  // column-width in px (l'uso di '100%' NON è valido per column-width e fa
+  // collassare il layout multi-column in una sola pagina).
+  const [pagerSize, setPagerSize] = useState<{ w: number; h: number } | null>(null)
   const pagerRef = useRef<HTMLDivElement | null>(null)
   const countedPagesRef = useRef<Set<number>>(new Set())
   const wordsAccumulatedRef = useRef<number>(0)
@@ -491,28 +495,66 @@ export default function ReaderPage() {
     countedPagesRef.current = new Set()
   }, [block?.id])
 
-  // Ricalcola il numero totale di pagine visive quando cambia il contenuto
-  // o la dimensione testo. Usa CSS multi-column: totalPages = scrollWidth/clientWidth.
+  // Osserva le dimensioni effettive del pager (viewport reale per la pagina).
+  // Questo valore guida sia il column-width in px sia il ricalcolo del numero
+  // totale di pagine: cambia con fontSize, orientamento schermo, resize finestra.
   useEffect(() => {
     const el = pagerRef.current
-    if (!el || !block?.content) return
+    if (!el) return
+    const measure = () => {
+      const w = el.clientWidth
+      const h = el.clientHeight
+      if (w > 0 && h > 0) {
+        setPagerSize(prev => (prev && prev.w === w && prev.h === h ? prev : { w, h }))
+      }
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    // Riallinea anche a orientamento cambiato / load immagini
+    window.addEventListener('resize', measure)
+    window.addEventListener('orientationchange', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('orientationchange', measure)
+    }
+  }, [block?.id])
+
+  // Ricalcola il numero totale di pagine visive quando cambia il contenuto,
+  // la dimensione testo o la viewport. Misura SOLO dopo che il browser ha
+  // applicato il layout (doppio rAF), altrimenti scrollWidth == clientWidth
+  // e tutto finirebbe in una sola pagina.
+  useEffect(() => {
+    const el = pagerRef.current
+    if (!el || !block?.content || !pagerSize) return
+    let rafA = 0, rafB = 0, cancelled = false
     const recompute = () => {
-      const tp = Math.max(1, Math.round(el.scrollWidth / Math.max(1, el.clientWidth)))
+      if (cancelled || !pagerRef.current) return
+      const node = pagerRef.current
+      const cw = node.clientWidth
+      const sw = node.scrollWidth
+      if (cw <= 0) return
+      const tp = Math.max(1, Math.round(sw / cw))
       setTotalPages(tp)
-      // Al primo layout: riprendi dall'ultima pagina salvata per questo blocco
       if (typeof window !== 'undefined') {
         const saved = Number(window.localStorage.getItem(`reader:page:${block.id}`) || 0)
         const target = Math.min(Math.max(0, saved), tp - 1)
-        el.scrollLeft = target * el.clientWidth
+        node.scrollLeft = target * cw
         setCurrentPage(target)
       }
     }
-    // Attendi il layout del browser prima di misurare
-    const t = setTimeout(recompute, 50)
-    const ro = new ResizeObserver(() => recompute())
-    ro.observe(el)
-    return () => { clearTimeout(t); ro.disconnect() }
-  }, [block?.content, block?.id, fontSize])
+    // Doppio rAF: garantisce che le colonne CSS siano state layoutate prima
+    // di leggere scrollWidth.
+    rafA = requestAnimationFrame(() => {
+      rafB = requestAnimationFrame(recompute)
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafA)
+      cancelAnimationFrame(rafB)
+    }
+  }, [block?.content, block?.id, fontSize, pagerSize])
 
   // Tieni currentPage in sync con lo scroll orizzontale
   useEffect(() => {
@@ -532,9 +574,10 @@ export default function ReaderPage() {
     window.localStorage.setItem(`reader:page:${block.id}`, String(currentPage))
   }, [currentPage, block?.id])
 
-  // ── Tracker pagamento autore ──
-  // Ogni pagina visiva tenuta ≥30s conta. Le parole della pagina si sommano
-  // all'accumulatore del libro; ogni 250 parole → +1 in user_library.pages_read.
+  // ── Tracker pagine lette ──
+  // Ogni pagina visiva tenuta ≥10s conta. Le parole della pagina si sommano
+  // all'accumulatore del libro (persistito in localStorage, NON si resetta tra
+  // sessioni); ogni 250 parole → +1 in user_library.pages_read.
   useEffect(() => {
     if (!user || !block || isLocked || totalPages < 1) return
     const wordCount: number = Number(block.word_count) || 0
@@ -570,7 +613,7 @@ export default function ReaderPage() {
           }
         })
       }
-    }, 30000)
+    }, 10000)
 
     return () => clearTimeout(timer)
   }, [currentPage, totalPages, user, block, isLocked, bookId, supabase])
@@ -1647,9 +1690,13 @@ export default function ReaderPage() {
                     className="reading-text text-bark-700 dark:text-sage-200 whitespace-pre-wrap select-text overflow-x-auto overflow-y-hidden"
                     style={{
                       fontSize: `${fontSize}px`,
+                      // Altezza disponibile = viewport − navbar/header/indicator/padding
                       height: 'calc(100vh - 260px)',
-                      columnWidth: '100%',
-                      columnGap: '2rem',
+                      // ⚠️ column-width NON accetta percentuali: usare px misurati.
+                      // Con colonne larghe quanto il container + column-fill:auto +
+                      // overflow-x:auto, il testo scorre orizzontalmente pagina per pagina.
+                      columnWidth: pagerSize ? `${pagerSize.w}px` : 'auto',
+                      columnGap: '0px',
                       columnFill: 'auto',
                       scrollSnapType: 'x mandatory',
                       scrollbarWidth: 'none',
@@ -1819,39 +1866,42 @@ export default function ReaderPage() {
               </div>
             )}
 
-            {/* Navigation */}
-            <div className="flex items-center justify-between py-8">
-              {blockNumber > 1 ? (
-                <Link
-                  href={`/reader/${bookId}/${blockNumber - 1}`}
-                  className="flex items-center gap-1 px-4 py-2 text-sm text-sage-600 hover:bg-sage-50 rounded-xl"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Blocco precedente
-                </Link>
-              ) : <div />}
-
-              {blockNumber < blocks.length ? (
-                <Link
-                  href={`/reader/${bookId}/${blockNumber + 1}`}
-                  onClick={handleNextBlock}
-                  className="flex items-center gap-2 px-6 py-3 text-sm bg-sage-500 text-white rounded-xl hover:bg-sage-600 font-medium shadow-sm hover:shadow-md transition-all"
-                >
-                  Prossimo blocco
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-sage-600 font-medium">Hai letto tutti i blocchi disponibili!</p>
+            {/* Navigation — visibile solo sull'ultima pagina del blocco
+                (nessun riferimento al blocco successivo prima di allora) */}
+            {currentPage >= totalPages - 1 && (
+              <div className="flex items-center justify-between py-8 animate-fade-in">
+                {blockNumber > 1 ? (
                   <Link
-                    href={`/libro/${bookId}`}
-                    className="text-xs text-sage-500 hover:text-sage-700 mt-1 inline-block"
+                    href={`/reader/${bookId}/${blockNumber - 1}`}
+                    className="flex items-center gap-1 px-4 py-2 text-sm text-sage-600 hover:bg-sage-50 rounded-xl"
                   >
-                    Torna alla pagina del libro
+                    <ChevronLeft className="w-4 h-4" />
+                    Blocco precedente
                   </Link>
-                </div>
-              )}
-            </div>
+                ) : <div />}
+
+                {blockNumber < blocks.length ? (
+                  <Link
+                    href={`/reader/${bookId}/${blockNumber + 1}`}
+                    onClick={handleNextBlock}
+                    className="flex items-center gap-2 px-6 py-3 text-sm bg-sage-500 text-white rounded-xl hover:bg-sage-600 font-medium shadow-sm hover:shadow-md transition-all"
+                  >
+                    Prossimo blocco
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-sage-600 font-medium">Hai letto tutti i blocchi disponibili!</p>
+                    <Link
+                      href={`/libro/${bookId}`}
+                      className="text-xs text-sage-500 hover:text-sage-700 mt-1 inline-block"
+                    >
+                      Torna alla pagina del libro
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
