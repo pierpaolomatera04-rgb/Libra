@@ -209,7 +209,12 @@ export default function ReaderPage() {
   // column-width in px (l'uso di '100%' NON è valido per column-width e fa
   // collassare il layout multi-column in una sola pagina).
   const [pagerSize, setPagerSize] = useState<{ w: number; h: number } | null>(null)
+  // Due layer separati: outer gestisce lo scroll orizzontale e la scroll-snap,
+  // inner applica il multi-column CSS. Mettendoli sullo stesso elemento
+  // alcuni browser (Safari in particolare) non propagano l'overflow delle
+  // colonne e il risultato è sempre 1/1.
   const pagerRef = useRef<HTMLDivElement | null>(null)
+  const columnRef = useRef<HTMLDivElement | null>(null)
   const countedPagesRef = useRef<Set<number>>(new Set())
   const wordsAccumulatedRef = useRef<number>(0)
   const pendingIncrementRef = useRef<number>(0)
@@ -523,36 +528,44 @@ export default function ReaderPage() {
 
   // Ricalcola il numero totale di pagine visive quando cambia il contenuto,
   // la dimensione testo o la viewport. Misura SOLO dopo che il browser ha
-  // applicato il layout (doppio rAF), altrimenti scrollWidth == clientWidth
-  // e tutto finirebbe in una sola pagina.
+  // applicato il layout. Il totalPages deriva dalla larghezza dell'INNER
+  // column container (che cresce orizzontalmente quando le colonne si
+  // formano) rispetto alla larghezza dell'OUTER scroll container.
   useEffect(() => {
-    const el = pagerRef.current
-    if (!el || !block?.content || !pagerSize) return
-    let rafA = 0, rafB = 0, cancelled = false
+    const outer = pagerRef.current
+    const inner = columnRef.current
+    if (!outer || !inner || !block?.content || !pagerSize) return
+    let rafA = 0, rafB = 0, rafC = 0, cancelled = false
     const recompute = () => {
-      if (cancelled || !pagerRef.current) return
-      const node = pagerRef.current
-      const cw = node.clientWidth
-      const sw = node.scrollWidth
+      if (cancelled || !pagerRef.current || !columnRef.current) return
+      const o = pagerRef.current
+      const n = columnRef.current
+      const cw = o.clientWidth
+      // scrollWidth dell'outer + width dell'inner combinati: prendo il max
+      // per robustezza cross-browser.
+      const sw = Math.max(o.scrollWidth, n.scrollWidth, n.getBoundingClientRect().width)
       if (cw <= 0) return
       const tp = Math.max(1, Math.round(sw / cw))
       setTotalPages(tp)
       if (typeof window !== 'undefined') {
         const saved = Number(window.localStorage.getItem(`reader:page:${block.id}`) || 0)
         const target = Math.min(Math.max(0, saved), tp - 1)
-        node.scrollLeft = target * cw
+        o.scrollLeft = target * cw
         setCurrentPage(target)
       }
     }
-    // Doppio rAF: garantisce che le colonne CSS siano state layoutate prima
-    // di leggere scrollWidth.
+    // Triplo rAF: alcuni browser impiegano più di un frame per applicare
+    // il layout multi-column dopo un cambio di font-size/viewport.
     rafA = requestAnimationFrame(() => {
-      rafB = requestAnimationFrame(recompute)
+      rafB = requestAnimationFrame(() => {
+        rafC = requestAnimationFrame(recompute)
+      })
     })
     return () => {
       cancelled = true
       cancelAnimationFrame(rafA)
       cancelAnimationFrame(rafB)
+      cancelAnimationFrame(rafC)
     }
   }, [block?.content, block?.id, fontSize, pagerSize])
 
@@ -1669,12 +1682,12 @@ export default function ReaderPage() {
 
               return (
                 <div className="relative mb-8 animate-fade-in">
+                  {/* OUTER: gestisce scroll orizzontale, scroll-snap, touch */}
                   <div
                     ref={pagerRef}
                     id="reading-content"
                     onMouseUp={handleTextSelect}
                     onTouchEnd={(e) => {
-                      // swipe detect
                       if (touchStartXRef.current !== null) {
                         const dx = e.changedTouches[0].clientX - touchStartXRef.current
                         if (Math.abs(dx) > 50) {
@@ -1687,34 +1700,45 @@ export default function ReaderPage() {
                       handleTextSelect()
                     }}
                     onTouchStart={(e) => { touchStartXRef.current = e.touches[0].clientX }}
-                    className="reading-text text-bark-700 dark:text-sage-200 whitespace-pre-wrap select-text overflow-x-auto overflow-y-hidden"
+                    className="overflow-x-auto overflow-y-hidden"
                     style={{
-                      fontSize: `${fontSize}px`,
                       // Altezza disponibile = viewport − navbar/header/indicator/padding
                       height: 'calc(100vh - 260px)',
-                      // ⚠️ column-width NON accetta percentuali: usare px misurati.
-                      // Con colonne larghe quanto il container + column-fill:auto +
-                      // overflow-x:auto, il testo scorre orizzontalmente pagina per pagina.
-                      columnWidth: pagerSize ? `${pagerSize.w}px` : 'auto',
-                      columnGap: '0px',
-                      columnFill: 'auto',
                       scrollSnapType: 'x mandatory',
                       scrollbarWidth: 'none',
                     }}
                   >
-                    {parts.map((p, j) =>
-                      p.isHighlight ? (
-                        <mark
-                          key={j}
-                          data-highlight-id={p.id}
-                          className={`${macroArea?.color?.bgLight || 'bg-yellow-100'} ${macroArea?.color?.textLight || 'text-bark-800'} rounded px-0.5`}
-                        >
-                          {p.text}
-                        </mark>
-                      ) : (
-                        <span key={j}>{p.text}</span>
-                      )
-                    )}
+                    {/* INNER: applica il multi-column. Alcuni browser non
+                        producono il reflow delle colonne se multi-column +
+                        overflow sono sullo stesso elemento. Separandoli,
+                        inner cresce in larghezza e outer scrolla. */}
+                    <div
+                      ref={columnRef}
+                      className="reading-text text-bark-700 dark:text-sage-200 whitespace-pre-wrap select-text"
+                      style={{
+                        fontSize: `${fontSize}px`,
+                        height: '100%',
+                        // column-width in px misurati dall'outer (NON '100%':
+                        // i browser non supportano percentuali per column-width).
+                        columnWidth: pagerSize ? `${pagerSize.w}px` : 'auto',
+                        columnGap: '0px',
+                        columnFill: 'auto',
+                      }}
+                    >
+                      {parts.map((p, j) =>
+                        p.isHighlight ? (
+                          <mark
+                            key={j}
+                            data-highlight-id={p.id}
+                            className={`${macroArea?.color?.bgLight || 'bg-yellow-100'} ${macroArea?.color?.textLight || 'text-bark-800'} rounded px-0.5`}
+                          >
+                            {p.text}
+                          </mark>
+                        ) : (
+                          <span key={j}>{p.text}</span>
+                        )
+                      )}
+                    </div>
                   </div>
 
                   {/* Tap zones laterali per girare pagina */}
