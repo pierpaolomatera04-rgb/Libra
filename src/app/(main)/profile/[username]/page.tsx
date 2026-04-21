@@ -9,6 +9,7 @@ import { createNotification } from '@/lib/notifications'
 import { ALL_BADGES, getBadgeColor, getXpLevel, XP_VALUES } from '@/lib/badges'
 import { awardXp } from '@/lib/xp'
 import { LevelBadge } from '@/components/ui/LevelBadge'
+import BookCard from '@/components/book/BookCard'
 import { MACRO_AREAS } from '@/lib/genres'
 import { toast } from 'sonner'
 import {
@@ -241,11 +242,16 @@ export default function UnifiedProfilePage() {
         } catch { /* noop */ }
       }
 
-      // Fetch library if public
-      if (pData.library_public !== false) {
+      // Fetch library if public (o sempre per il profilo proprio)
+      if (pData.library_public !== false || (user && user.id === pData.id)) {
         const { data: libData } = await supabase
           .from('user_library')
-          .select('*, book:books!user_library_book_id_fkey(id, title, cover_image_url, genre, author:profiles!books_author_id_fkey(name, author_pseudonym))')
+          .select(`*, book:books!user_library_book_id_fkey(
+            id, title, description, cover_image_url, genre,
+            total_blocks, total_likes, total_reads, total_saves,
+            trending_score, access_level, first_block_free, status, published_at,
+            author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
+          )`)
           .eq('user_id', pData.id)
           .in('status', ['reading', 'completed'])
           .order('updated_at', { ascending: false })
@@ -809,52 +815,9 @@ export default function UnifiedProfilePage() {
             <span className="text-xs text-bark-400 dark:text-sage-500 ml-auto">{authorBooks.length} libri</span>
           </div>
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {authorBooks.map((book) => (
-              <Link key={book.id} href={`/libro/${book.id}`} className="group">
-                <div className="w-full" style={{ maxWidth: '140px' }}>
-                  <div className="aspect-[2/3] rounded-lg overflow-hidden bg-sage-100 dark:bg-sage-800 relative">
-                    {book.cover_image_url ? (
-                      <img
-                        src={book.cover_image_url}
-                        alt={book.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <BookOpen className="w-6 h-6 text-sage-300 dark:text-sage-600" />
-                      </div>
-                    )}
-                    {(book.status === 'ongoing' || book.status === 'published') && (
-                      <div className="absolute top-1.5 right-1.5">
-                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500/90 text-white text-[9px] font-semibold rounded-full backdrop-blur-sm">
-                          <Radio className="w-2.5 h-2.5" />
-                          Live
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-1.5">
-                    <p className="text-xs font-medium text-sage-800 dark:text-sage-200 line-clamp-2 leading-tight group-hover:text-sage-600 dark:group-hover:text-sage-400">
-                      {book.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-                      {book.total_reads > 0 && (
-                        <span className="flex items-center gap-0.5">
-                          <Eye className="w-2.5 h-2.5" />
-                          {book.total_reads >= 1000 ? `${(book.total_reads / 1000).toFixed(1)}k` : book.total_reads}
-                        </span>
-                      )}
-                      {book.total_likes > 0 && (
-                        <span className="flex items-center gap-0.5">
-                          <Heart className="w-2.5 h-2.5" />
-                          {book.total_likes}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
+              <BookCard key={book.id} book={book} />
             ))}
           </div>
         </div>
@@ -985,24 +948,10 @@ export default function UnifiedProfilePage() {
                 : 'Nessun libro nella libreria'}
             </p>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-              {libraryBooks.map(entry => (
-                <Link key={entry.id} href={`/libro/${entry.book?.id}`} className="group">
-                  <div className="aspect-[2/3] rounded-xl overflow-hidden bg-sage-100 dark:bg-sage-800 mb-1.5">
-                    {entry.book?.cover_image_url ? (
-                      <img src={entry.book.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <BookOpen className="w-6 h-6 text-sage-300 dark:text-sage-600" />
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs font-medium text-sage-800 dark:text-sage-200 line-clamp-2 group-hover:text-sage-600">{entry.book?.title}</p>
-                  <p className="text-[10px] text-bark-400 dark:text-sage-500">
-                    {entry.status === 'completed' ? 'Completato' : 'In corso'}
-                  </p>
-                </Link>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              {libraryBooks.map(entry =>
+                entry.book ? <BookCard key={entry.id} book={entry.book} /> : null
+              )}
             </div>
           )}
         </div>

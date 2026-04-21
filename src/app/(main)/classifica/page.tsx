@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel } from '@/lib/badges'
+import BookCard from '@/components/book/BookCard'
 
 type MainTab = 'libri' | 'autori' | 'community'
 type BookFilter = 'reads' | 'likes' | 'trending' | 'new' | 'serializing'
@@ -129,30 +130,49 @@ export default function ClassificaPage() {
   // ============================================
 
   const renderBookCard = (b: any, i: number) => {
-    const authorName = b.author?.author_pseudonym || b.author?.name || 'Autore'
+    // Normalizza l'oggetto per BookCard (campi aggiuntivi presenti in tutti i RPC rank)
+    const bookForCard = {
+      id: b.id,
+      title: b.title,
+      description: b.description ?? null,
+      cover_image_url: b.cover_image_url ?? null,
+      genre: b.genre ?? null,
+      total_blocks: b.total_blocks ?? 0,
+      total_likes: b.total_likes ?? 0,
+      total_reads: b.total_reads ?? 0,
+      total_saves: b.total_saves ?? 0,
+      trending_score: b.trending_score ?? 0,
+      access_level: b.access_level ?? 'open',
+      first_block_free: b.first_block_free ?? true,
+      status: b.status ?? 'published',
+      published_at: b.published_at ?? null,
+      author: {
+        id: b.author?.id ?? '',
+        name: b.author?.name ?? null,
+        username: b.author?.username ?? null,
+        author_pseudonym: b.author?.author_pseudonym ?? null,
+        avatar_url: b.author?.avatar_url ?? null,
+      },
+    }
     return (
-      <Link
-        key={b.id}
-        href={`/libro/${b.id}`}
-        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
-      >
-        <RankColumn index={i} />
-        <div className="flex-shrink-0 w-10 h-14 rounded-md overflow-hidden bg-sage-100 dark:bg-sage-800">
-          {b.cover_image_url ? (
-            <img src={b.cover_image_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-sage-300 dark:text-sage-600" />
-            </div>
-          )}
+      <div key={b.id} className="relative group">
+        {/* Badge rank sovrapposto */}
+        <div className="absolute -top-1 -left-1 z-20">
+          <div className={`flex items-center justify-center w-8 h-8 rounded-full font-black text-sm shadow-md ${
+            i === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-amber-900' :
+            i === 1 ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800' :
+            i === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900' :
+            'bg-white dark:bg-sage-800 text-sage-700 dark:text-sage-200 border border-sage-200 dark:border-sage-700'
+          }`}>
+            {i + 1}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 line-clamp-1">{b.title}</p>
-          <p className="text-xs text-bark-400 dark:text-sage-500 truncate">{authorName}</p>
-          {renderBookSecondary(b)}
+        <BookCard book={bookForCard} showTrending={bookFilter === 'trending'} trendingPosition={bookFilter === 'trending' ? i + 1 : undefined} />
+        {/* Stat filter-specifica sotto il card */}
+        <div className="px-2 -mt-1 mb-2 flex items-center justify-center">
+          {renderBookStat(b, i)}
         </div>
-        <div className="flex-shrink-0">{renderBookStat(b, i)}</div>
-      </Link>
+      </div>
     )
   }
 
@@ -530,11 +550,16 @@ export default function ClassificaPage() {
             ? emptyState(Sparkles, 'Nessun autore qui', 'Cambia filtro o torna più tardi.')
             : emptyState(Users, 'Nessun dato ancora', 'Guadagna XP, commenta e supporta gli autori per apparire in classifica.')
       ) : (
-        <div className="space-y-2">
-          {mainTab === 'libri' && items.map((b, i) => renderBookCard(b, i))}
-          {mainTab === 'autori' && items.map((a, i) => renderAuthorCard(a, i))}
-          {mainTab === 'community' && items.map((u, i) => renderCommunityCard(u, i))}
-        </div>
+        mainTab === 'libri' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {items.map((b, i) => renderBookCard(b, i))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {mainTab === 'autori' && items.map((a, i) => renderAuthorCard(a, i))}
+            {mainTab === 'community' && items.map((u, i) => renderCommunityCard(u, i))}
+          </div>
+        )
       )}
     </div>
   )
