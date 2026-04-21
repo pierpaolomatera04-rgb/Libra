@@ -1426,98 +1426,149 @@ export default function ReaderPage() {
               </>
             ) : (
               (() => {
-                // ── Paywall ricco: adatta messaggio e CTA in base al tier del libro
+                // ── Upsell integrato stile Kindle: copertina sfocata + 2 CTA chiare
                 const bookTier = (book?.tier || 'silver') as 'silver' | 'gold' | 'free'
                 const isGoldBook = bookTier === 'gold' || book?.access_level === 'gold_exclusive'
-                const isSilverBook = bookTier === 'silver' || book?.access_level === 'silver_choice'
-                const tierLabel = isGoldBook ? 'Gold' : 'Silver'
                 const price = block?.token_price || book?.token_price_per_block || 5
                 const insufficientTokens = totalTokens < price
-                const tierBadge = isGoldBook
-                  ? 'from-amber-400 to-yellow-600'
-                  : 'from-slate-400 to-slate-600'
+                const planPrice = isGoldBook ? '9,99€' : '4,99€'
+                const planLabel = isGoldBook ? 'Gold' : 'Silver'
+                const planBenefits = isGoldBook
+                  ? [
+                      'Libri illimitati ogni mese',
+                      'Anteprima fino a 7 giorni prima',
+                      '−25% sui token acquistati',
+                      'Accesso a tutti i titoli esclusivi Gold',
+                    ]
+                  : [
+                      '3 libri al mese inclusi',
+                      'Anteprima 24h prima del rilascio',
+                      '−15% sui token acquistati',
+                      'Accesso a tutto il catalogo Silver',
+                    ]
 
                 return (
-                  <div className="max-w-lg mx-auto">
-                    {/* Hero icon con tier */}
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${tierBadge} mb-4`}>
-                      <Sparkles className="w-3 h-3" />
-                      {tierLabel}
-                    </div>
+                  <div className="relative -mx-4 -my-8 min-h-[calc(100vh-120px)] overflow-hidden rounded-none animate-fade-in">
+                    {/* Background: copertina sfocata */}
+                    {book?.cover_image_url ? (
+                      <div
+                        aria-hidden
+                        className="absolute inset-0 -z-10"
+                        style={{
+                          backgroundImage: `url(${book.cover_image_url})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          filter: 'blur(38px) saturate(1.1)',
+                          transform: 'scale(1.15)',
+                        }}
+                      />
+                    ) : (
+                      <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-br from-sage-200 to-amber-200 dark:from-sage-900 dark:to-bark-900" />
+                    )}
+                    {/* Overlay per leggibilità */}
+                    <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-cream-50/70 via-cream-50/85 to-cream-50/95 dark:from-[#161a14]/75 dark:via-[#161a14]/88 dark:to-[#161a14]/96" />
 
-                    <h2 className="text-2xl font-bold text-sage-900 dark:text-sage-100 mb-3">
-                      Continua la lettura!
-                    </h2>
-                    <p className="text-bark-500 dark:text-sage-400 mb-2">
-                      Questo capitolo è riservato agli utenti <strong>{tierLabel}</strong>
-                      {' '}o può essere sbloccato singolarmente con i token.
-                    </p>
-                    <p className="text-sm text-bark-400 dark:text-sage-500 mb-8">
-                      Hai <strong>{totalTokens} token</strong> disponibili · Costo: <strong>{price} token</strong>
-                    </p>
+                    <div className="relative max-w-lg mx-auto px-5 pt-10 pb-12 text-center">
+                      {/* Copertina piccola */}
+                      {book?.cover_image_url && (
+                        <img
+                          src={book.cover_image_url}
+                          alt=""
+                          className="w-28 h-40 mx-auto rounded-xl shadow-2xl object-cover mb-5"
+                        />
+                      )}
 
-                    {/* CTA principale: sblocca singolo capitolo con token */}
-                    <div className="flex flex-col gap-3">
+                      <h2 className="text-2xl sm:text-3xl font-bold text-sage-900 dark:text-sage-100 mb-2 leading-tight">
+                        Continua a leggere questo libro
+                      </h2>
+                      <p className="text-sm text-bark-500 dark:text-sage-400 mb-8">
+                        Hai letto il primo capitolo. Scegli come andare avanti.
+                      </p>
+
+                      {/* Opzione 1 — Abbonamento */}
+                      <Link
+                        href="/impostazioni"
+                        className={`block text-left p-5 rounded-2xl border-2 mb-3 transition-all hover:shadow-lg ${
+                          isGoldBook
+                            ? 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/10 border-amber-300 dark:border-amber-700/60 hover:border-amber-400'
+                            : 'bg-gradient-to-br from-slate-50 to-sage-50 dark:from-slate-900/40 dark:to-sage-900/20 border-slate-300 dark:border-slate-600 hover:border-slate-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              isGoldBook ? 'bg-amber-500' : 'bg-slate-500'
+                            }`}>
+                              <Sparkles className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-xs font-bold uppercase tracking-wider text-bark-600 dark:text-sage-300">Consigliato</span>
+                          </div>
+                          <span className={`text-lg font-black ${
+                            isGoldBook ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'
+                          }`}>
+                            {planPrice}<span className="text-xs font-medium text-bark-400">/mese</span>
+                          </span>
+                        </div>
+                        <p className="font-bold text-sage-900 dark:text-sage-100 text-base mb-2">
+                          Abbonati a {planLabel}
+                        </p>
+                        <ul className="space-y-1">
+                          {planBenefits.map((b, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs text-bark-600 dark:text-sage-400">
+                              <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                                isGoldBook ? 'text-amber-500' : 'text-slate-500'
+                              }`} />
+                              <span>{b}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </Link>
+
+                      {/* Opzione 2 — Acquista singolo blocco */}
                       <button
                         onClick={handleUnlock}
                         disabled={unlocking || insufficientTokens}
-                        className="px-8 py-3.5 bg-sage-500 text-white rounded-xl font-semibold hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 justify-center shadow-sm"
+                        className="w-full text-left p-5 rounded-2xl border-2 border-sage-200 dark:border-sage-700 bg-white/80 dark:bg-[#1e221c]/80 backdrop-blur-sm hover:border-sage-400 transition-all mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        {unlocking ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Coins className="w-4 h-4" />
-                        )}
-                        Sblocca questo capitolo ({price} Token)
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-sage-500 flex items-center justify-center">
+                              {unlocking ? (
+                                <Loader2 className="w-4 h-4 text-white animate-spin" />
+                              ) : (
+                                <Coins className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                            <span className="text-xs font-bold uppercase tracking-wider text-bark-500 dark:text-sage-400">Una tantum</span>
+                          </div>
+                          <span className="text-lg font-black text-sage-700 dark:text-sage-200">
+                            {price}<span className="text-xs font-medium text-bark-400"> tk</span>
+                          </span>
+                        </div>
+                        <p className="font-bold text-sage-900 dark:text-sage-100 text-base">
+                          Acquista questo blocco
+                        </p>
+                        <p className="text-xs text-bark-500 dark:text-sage-500 mt-1">
+                          Hai {totalTokens} token disponibili
+                        </p>
                       </button>
 
-                      {/* CTA secondaria: upgrade al piano */}
-                      <Link
-                        href="/wallet"
-                        className={`px-8 py-3.5 rounded-xl font-semibold transition-colors flex items-center gap-2 justify-center border-2 bg-gradient-to-r ${tierBadge} bg-clip-text text-transparent border-current hover:bg-opacity-10`}
-                        style={isGoldBook
-                          ? { borderColor: '#d4af37', background: 'rgba(212, 175, 55, 0.05)' }
-                          : { borderColor: '#94a3b8', background: 'rgba(148, 163, 184, 0.05)' }
-                        }
-                      >
-                        <Sparkles className={`w-4 h-4 ${isGoldBook ? 'text-amber-500' : 'text-slate-500'}`} />
-                        <span className={`${isGoldBook ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'} font-semibold`}>
-                          Passa al Piano {tierLabel}
-                        </span>
-                      </Link>
-
-                      {/* Avviso token insufficienti */}
                       {insufficientTokens && (
-                        <div className="mt-2 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-left">
-                          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">
-                            Saldo insufficiente
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-left mb-4">
+                          <p className="text-xs text-amber-800 dark:text-amber-300">
+                            Ti mancano <strong>{price - totalTokens} token</strong>.{' '}
+                            <Link href="/wallet" className="font-semibold underline">Ricarica il wallet</Link>.
                           </p>
-                          <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">
-                            Ti servono ancora {price - totalTokens} token. Ricarica il tuo wallet per continuare.
-                          </p>
-                          <Link
-                            href="/wallet"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-amber-900 dark:text-amber-300 hover:underline"
-                          >
-                            <Coins className="w-3 h-3" />
-                            Vai al wallet &rarr;
-                          </Link>
                         </div>
                       )}
+
+                      <Link
+                        href="/cammino-lettore"
+                        className="inline-block text-xs font-medium text-bark-500 dark:text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 underline underline-offset-2"
+                      >
+                        Scopri tutti i piani
+                      </Link>
                     </div>
-
-                    {/* Hint: se sei già su piano inferiore, info comparativa */}
-                    {isGoldBook && profile?.subscription_plan === 'silver' && (
-                      <p className="text-xs text-bark-400 dark:text-sage-500 mt-5">
-                        Hai già il piano Silver. Fai upgrade a Gold per accedere a tutti i contenuti esclusivi.
-                      </p>
-                    )}
-
-                    {accessMessage && (
-                      <p className="text-xs text-bark-400 dark:text-sage-500 mt-4 italic">
-                        {accessMessage}
-                      </p>
-                    )}
                   </div>
                 )
               })()
