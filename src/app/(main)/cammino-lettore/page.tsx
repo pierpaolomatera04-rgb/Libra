@@ -18,7 +18,7 @@ type XpAction = {
 }
 
 const XP_ACTIONS: XpAction[] = [
-  { label: 'Blocco Letto', xp: XP_VALUES.BLOCK_COMPLETE, icon: BookOpen, desc: 'Ogni capitolo letto ti avvicina alla meta', color: 'bg-sage-50 text-sage-600 border-sage-200' },
+  { label: 'Blocco Letto', xp: XP_VALUES.BLOCK_COMPLETE, icon: BookOpen, cap: 'una sola volta per blocco', desc: 'Ogni capitolo letto ti avvicina alla meta', color: 'bg-sage-50 text-sage-600 border-sage-200' },
   { label: 'Libro Completato', xp: XP_VALUES.BOOK_COMPLETE, icon: Trophy, cap: '1 per libro', desc: 'Il premio per la tua costanza', color: 'bg-amber-50 text-amber-600 border-amber-200' },
   { label: 'Commento', xp: XP_VALUES.COMMENT, icon: MessageCircle, cap: 'max 5/giorno', desc: 'Partecipa alla discussione', color: 'bg-blue-50 text-blue-600 border-blue-200' },
   { label: 'Condivisione Frase', xp: XP_VALUES.SHARE_SENTENCE, icon: Share2, cap: 'max 2/giorno', desc: 'Diffondi le citazioni che ami', color: 'bg-cyan-50 text-cyan-600 border-cyan-200' },

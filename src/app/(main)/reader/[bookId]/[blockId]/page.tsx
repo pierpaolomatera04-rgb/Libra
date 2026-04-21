@@ -623,11 +623,9 @@ export default function ReaderPage() {
           setShowCompletion(true)
           refreshProfile()
 
-          // Award XP per completamento blocco
-          const xpRes = await awardXp(supabase, user.id, XP_VALUES.BLOCK_COMPLETE, 'block_complete', true)
-          if (xpRes?.level_up) {
-            setTimeout(() => setLevelUpResult(xpRes), 2500)
-          }
+          // XP blocco letto (+5) già assegnato da record_block_completion,
+          // che è idempotente via reading_progress.UNIQUE(user_id, block_id).
+          // La notifica finale compare via setShowCompletion(true) (CompletionBanner).
 
           // Se e' l'ultimo blocco del libro → bonus "Libro Completato" (+50 XP)
           if (blocks.length > 0 && blockNumber === blocks.length) {

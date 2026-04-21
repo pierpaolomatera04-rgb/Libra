@@ -193,7 +193,7 @@ export function getRewardForLevel(level: number): LevelReward | null {
 // applicate lato server nella RPC award_xp tramite xp_event_log.
 export const XP_VALUES = {
   // Lettura
-  BLOCK_COMPLETE: 2,
+  BLOCK_COMPLETE: 5,
   BOOK_COMPLETE: 50,
   // Social
   COMMENT: 5,                  // max 5/giorno
