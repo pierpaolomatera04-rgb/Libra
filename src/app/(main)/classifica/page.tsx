@@ -4,13 +4,12 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
-  Flame, Trophy, Loader2, Crown, BookOpen,
-  Users, TrendingUp, Heart, Eye, Sparkles, Calendar,
+  Trophy, Loader2, Crown, BookOpen,
+  Users, TrendingUp, Heart, Eye, Sparkles,
   Layers, UserPlus, Zap, Coins, MessageCircle, PenTool,
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
-import { getXpLevel } from '@/lib/badges'
-import BookCard from '@/components/book/BookCard'
+import { getXpLevel, getRankTier, type RankTier } from '@/lib/badges'
 
 type MainTab = 'libri' | 'autori' | 'community'
 type BookFilter = 'reads' | 'likes' | 'trending' | 'new' | 'serializing'
@@ -129,154 +128,55 @@ export default function ClassificaPage() {
   // RENDER HELPERS
   // ============================================
 
+  // ── Libro: riga in lista verticale (stesso layout di Autori/Community) ──
   const renderBookCard = (b: any, i: number) => {
-    // Normalizza l'oggetto per BookCard (campi aggiuntivi presenti in tutti i RPC rank)
-    const bookForCard = {
-      id: b.id,
-      title: b.title,
-      description: b.description ?? null,
-      cover_image_url: b.cover_image_url ?? null,
-      genre: b.genre ?? null,
-      total_blocks: b.total_blocks ?? 0,
-      total_likes: b.total_likes ?? 0,
-      total_reads: b.total_reads ?? 0,
-      total_saves: b.total_saves ?? 0,
-      trending_score: b.trending_score ?? 0,
-      access_level: b.access_level ?? 'open',
-      first_block_free: b.first_block_free ?? true,
-      status: b.status ?? 'published',
-      published_at: b.published_at ?? null,
-      author: {
-        id: b.author?.id ?? '',
-        name: b.author?.name ?? null,
-        username: b.author?.username ?? null,
-        author_pseudonym: b.author?.author_pseudonym ?? null,
-        avatar_url: b.author?.avatar_url ?? null,
-      },
-    }
+    const authorName = b.author?.author_pseudonym || b.author?.name || b.author?.username || 'Autore'
     return (
-      <div key={b.id} className="relative group">
-        {/* Badge rank sovrapposto */}
-        <div className="absolute -top-1 -left-1 z-20">
-          <div className={`flex items-center justify-center w-8 h-8 rounded-full font-black text-sm shadow-md ${
-            i === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-amber-900' :
-            i === 1 ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800' :
-            i === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900' :
-            'bg-white dark:bg-sage-800 text-sage-700 dark:text-sage-200 border border-sage-200 dark:border-sage-700'
-          }`}>
-            {i + 1}
+      <Link
+        key={b.id}
+        href={`/libro/${b.id}`}
+        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
+      >
+        <RankColumn index={i} />
+        {/* Copertina: stesso "slot" di un avatar, ma rettangolare 2/3 */}
+        <div className="w-12 h-16 rounded-md overflow-hidden flex-shrink-0 bg-sage-100 dark:bg-sage-800 border border-sage-200 dark:border-sage-700 shadow-sm">
+          {b.cover_image_url ? (
+            <img src={b.cover_image_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-sage-400" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">{b.title}</p>
+          <p className="text-xs text-bark-400 dark:text-sage-500 truncate">di {authorName}</p>
+          <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+              <Layers className="w-2.5 h-2.5" /> {b.total_blocks || 0}
+            </span>
+            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+              <Heart className="w-2.5 h-2.5" /> {fmt(b.total_likes || 0)}
+            </span>
+            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+              <MessageCircle className="w-2.5 h-2.5" /> {fmt(b.total_comments || 0)}
+            </span>
+            {bookFilter === 'trending' && b.is_boosted ? (
+              <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+                <Zap className="w-2.5 h-2.5" /> BOOST
+              </span>
+            ) : null}
           </div>
         </div>
-        <BookCard book={bookForCard} showTrending={bookFilter === 'trending'} trendingPosition={bookFilter === 'trending' ? i + 1 : undefined} />
-        {/* Stat filter-specifica sotto il card */}
-        <div className="px-2 -mt-1 mb-2 flex items-center justify-center">
-          {renderBookStat(b, i)}
+        {/* Metrica principale tab Libri: lettori totali */}
+        <div className="flex-shrink-0">
+          <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
+            <Eye className="w-3.5 h-3.5 text-sage-500" />
+            <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(b.total_reads || 0)}</span>
+          </div>
         </div>
-      </div>
+      </Link>
     )
-  }
-
-  const renderBookSecondary = (b: any) => {
-    if (bookFilter === 'reads') {
-      return (
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Users className="w-2.5 h-2.5" /> {b.active_readers || 0} attivi
-          </span>
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Heart className="w-2.5 h-2.5" /> {b.total_likes || 0}
-          </span>
-        </div>
-      )
-    }
-    if (bookFilter === 'likes') {
-      return (
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <MessageCircle className="w-2.5 h-2.5" /> {b.total_comments || 0}
-          </span>
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Eye className="w-2.5 h-2.5" /> {fmt(b.total_reads || 0)}
-          </span>
-        </div>
-      )
-    }
-    if (bookFilter === 'trending') {
-      return (
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          <span className="text-[10px] text-bark-400 dark:text-sage-500">{b.reads7 || 0} letture 7gg</span>
-          <span className="text-[10px] text-bark-400 dark:text-sage-500">+{b.new_readers7 || 0} nuovi</span>
-          {b.is_boosted ? (
-            <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
-              <Zap className="w-2.5 h-2.5" /> BOOST
-            </span>
-          ) : null}
-        </div>
-      )
-    }
-    if (bookFilter === 'new') {
-      const d = b.published_at ? new Date(b.published_at) : null
-      return (
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Calendar className="w-2.5 h-2.5" />
-            {d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '—'}
-          </span>
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Eye className="w-2.5 h-2.5" /> {fmt(b.total_reads || 0)}
-          </span>
-        </div>
-      )
-    }
-    if (bookFilter === 'serializing') {
-      return (
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Layers className="w-2.5 h-2.5" /> {b.total_blocks || 0} blocchi
-          </span>
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Eye className="w-2.5 h-2.5" /> {fmt(b.total_reads || 0)}
-          </span>
-        </div>
-      )
-    }
-    return null
-  }
-
-  const renderBookStat = (b: any, _i: number) => {
-    if (bookFilter === 'reads') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full">
-        <Eye className="w-3.5 h-3.5 text-sage-500" />
-        <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(b.total_reads || 0)}</span>
-      </div>
-    )
-    if (bookFilter === 'likes') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/20 rounded-full">
-        <Heart className="w-3.5 h-3.5 text-red-400" />
-        <span className="text-xs font-bold text-red-600 dark:text-red-400">{b.total_likes || 0}</span>
-      </div>
-    )
-    if (bookFilter === 'trending') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-full border border-orange-200 dark:border-orange-800">
-        <Flame className="w-3.5 h-3.5 text-orange-500" />
-        <span className="text-xs font-bold text-orange-700 dark:text-orange-400">
-          {b.trending_score_7d ? Math.round(Number(b.trending_score_7d)) : 0}
-        </span>
-      </div>
-    )
-    if (bookFilter === 'new') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full border border-emerald-200 dark:border-emerald-800">
-        <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">NUOVO</span>
-      </div>
-    )
-    if (bookFilter === 'serializing') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-purple-50 dark:bg-purple-900/20 rounded-full border border-purple-200 dark:border-purple-800">
-        <Users className="w-3.5 h-3.5 text-purple-500" />
-        <span className="text-xs font-bold text-purple-700 dark:text-purple-400">{b.active_followers || 0}</span>
-      </div>
-    )
-    return null
   }
 
   const renderAuthorCard = (a: any, i: number) => {
@@ -303,75 +203,39 @@ export default function ClassificaPage() {
           {a.username && (
             <p className="text-xs text-bark-400 dark:text-sage-500 truncate">@{a.username}</p>
           )}
-          {renderAuthorSecondary(a)}
+          {/* Statistiche fisse: pagine lette + opere */}
+          <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+              <Eye className="w-2.5 h-2.5" /> {fmt(a.total_reads || 0)} pagine lette
+            </span>
+            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+              <BookOpen className="w-2.5 h-2.5" /> {a.books_count || 0} opere
+            </span>
+          </div>
         </div>
-        <div className="flex-shrink-0">{renderAuthorStat(a)}</div>
+        {/* Metrica principale tab Autori: follower */}
+        <div className="flex-shrink-0">
+          <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
+            <Users className="w-3.5 h-3.5 text-sage-500" />
+            <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(a.follower_count || 0)}</span>
+          </div>
+        </div>
       </Link>
     )
   }
 
-  const renderAuthorSecondary = (a: any) => {
-    if (authorFilter === 'followers') return (
-      <div className="flex items-center gap-3 mt-0.5">
-        <span className="text-[10px] text-bark-400 dark:text-sage-500">{fmt(a.total_reads || 0)} pagine lette</span>
-        <span className="text-[10px] text-bark-400 dark:text-sage-500">{a.books_count || 0} opere</span>
-      </div>
-    )
-    if (authorFilter === 'reads') return (
-      <div className="flex items-center gap-3 mt-0.5">
-        <span className="text-[10px] text-bark-400 dark:text-sage-500">{a.books_count || 0} opere</span>
-        <span className="text-[10px] text-bark-400 dark:text-sage-500">{fmt(a.follower_count || 0)} follower</span>
-      </div>
-    )
-    if (authorFilter === 'active') {
-      const d = a.last_block_at ? new Date(a.last_block_at) : null
-      return (
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[10px] text-bark-400 dark:text-sage-500">
-            Ultimo: {d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '—'}
-          </span>
-          <span className="text-[10px] text-bark-400 dark:text-sage-500">{fmt(a.follower_count || 0)} follower</span>
-        </div>
-      )
-    }
-    if (authorFilter === 'new') {
-      const d = a.created_at ? new Date(a.created_at) : null
-      return (
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-            <Calendar className="w-2.5 h-2.5" />
-            {d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '—'}
-          </span>
-        </div>
-      )
-    }
-    return null
-  }
-
-  const renderAuthorStat = (a: any) => {
-    if (authorFilter === 'followers' || authorFilter === 'new') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
-        <Users className="w-3.5 h-3.5 text-sage-500" />
-        <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(a.follower_count || 0)}</span>
-      </div>
-    )
-    if (authorFilter === 'reads') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full border border-blue-200 dark:border-blue-800">
-        <Eye className="w-3.5 h-3.5 text-blue-500" />
-        <span className="text-xs font-bold text-blue-700 dark:text-blue-400">{fmt(a.total_reads || 0)}</span>
-      </div>
-    )
-    if (authorFilter === 'active') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full border border-emerald-200 dark:border-emerald-800">
-        <PenTool className="w-3.5 h-3.5 text-emerald-500" />
-        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{a.blocks_30d || 0}</span>
-      </div>
-    )
-    return null
+  // Stile pill rank per tier
+  const RANK_TIER_STYLES: Record<RankTier, { cls: string; label: string }> = {
+    bronzo:   { cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300', label: 'Bronzo' },
+    argento:  { cls: 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200', label: 'Argento' },
+    oro:      { cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', label: 'Oro' },
+    diamante: { cls: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300', label: 'Diamante' },
   }
 
   const renderCommunityCard = (u: any, i: number) => {
     const { level } = getXpLevel(u.total_xp ?? 0)
+    const tier = getRankTier(level)
+    const tierStyle = RANK_TIER_STYLES[tier]
     const displayName = u.name || u.username || 'Utente'
     return (
       <Link
@@ -380,11 +244,10 @@ export default function ClassificaPage() {
         className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
       >
         <RankColumn index={i} />
-        {i === 0 && <Crown className="w-4 h-4 text-amber-500 -ml-1 flex-shrink-0" />}
         {u.avatar_url ? (
-          <img src={u.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
+          <img src={u.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
         ) : (
-          <div className="w-11 h-11 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0">
+          <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm">
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
@@ -397,73 +260,28 @@ export default function ClassificaPage() {
             }`}>
               {displayName}
             </p>
-            <LevelBadge totalXp={u.total_xp ?? 0} size="xs" />
+            {i === 0 && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
           </div>
-          {u.username && <p className="text-xs text-bark-400 dark:text-sage-500">@{u.username}</p>}
-          {renderCommunitySecondary(u)}
+          {u.username && <p className="text-xs text-bark-400 dark:text-sage-500 truncate">@{u.username}</p>}
+          {/* Statistiche fisse: livello + badge rank */}
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
+              <Sparkles className="w-2.5 h-2.5" /> Livello {level}
+            </span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tierStyle.cls}`}>
+              {tierStyle.label}
+            </span>
+          </div>
         </div>
-        <div className="flex-shrink-0">{renderCommunityStat(u)}</div>
+        {/* Metrica principale tab Community: XP */}
+        <div className="flex-shrink-0">
+          <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-sage-50 to-emerald-50 dark:from-sage-800 dark:to-emerald-900/20 rounded-full border border-sage-100 dark:border-sage-700">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="text-xs font-bold text-sage-700 dark:text-sage-200">{fmt(u.total_xp || 0)} XP</span>
+          </div>
+        </div>
       </Link>
     )
-  }
-
-  const renderCommunitySecondary = (u: any) => {
-    if (communityFilter === 'xp') {
-      const { level } = getXpLevel(u.total_xp ?? 0)
-      return (
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[10px] text-bark-400 dark:text-sage-500">Livello {level}</span>
-          {u.daily_streak > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-              <Flame className="w-2.5 h-2.5 text-orange-400" /> {u.daily_streak}
-            </span>
-          )}
-        </div>
-      )
-    }
-    if (communityFilter === 'active') return (
-      <div className="flex items-center gap-3 mt-0.5">
-        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-          <MessageCircle className="w-2.5 h-2.5" /> {u.comments_30d || 0}
-        </span>
-        <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-          <Heart className="w-2.5 h-2.5" /> {u.likes_30d || 0}
-        </span>
-        {u.shares_30d > 0 && (
-          <span className="text-[10px] text-bark-400 dark:text-sage-500">{u.shares_30d} cond.</span>
-        )}
-      </div>
-    )
-    if (communityFilter === 'donors') return (
-      <div className="flex items-center gap-3 mt-0.5">
-        <span className="text-[10px] text-bark-400 dark:text-sage-500">
-          {u.authors_count || 0} {u.authors_count === 1 ? 'autore' : 'autori'} supportati
-        </span>
-      </div>
-    )
-    return null
-  }
-
-  const renderCommunityStat = (u: any) => {
-    if (communityFilter === 'xp') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-sage-50 to-emerald-50 dark:from-sage-800 dark:to-emerald-900/20 rounded-full border border-sage-100 dark:border-sage-700">
-        <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-        <span className="text-xs font-bold text-sage-700 dark:text-sage-200">{fmt(u.total_xp || 0)} XP</span>
-      </div>
-    )
-    if (communityFilter === 'active') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 rounded-full border border-indigo-200 dark:border-indigo-800">
-        <Zap className="w-3.5 h-3.5 text-indigo-500" />
-        <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">{u.activity_total || 0}</span>
-      </div>
-    )
-    if (communityFilter === 'donors') return (
-      <div className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 rounded-full border border-amber-200 dark:border-amber-800">
-        <Coins className="w-3.5 h-3.5 text-amber-500" />
-        <span className="text-xs font-bold text-amber-700 dark:text-amber-400">{fmt(u.tokens_donated || 0)} tk</span>
-      </div>
-    )
-    return null
   }
 
   const emptyState = (icon: any, title: string, hint: string) => {
@@ -550,16 +368,11 @@ export default function ClassificaPage() {
             ? emptyState(Sparkles, 'Nessun autore qui', 'Cambia filtro o torna più tardi.')
             : emptyState(Users, 'Nessun dato ancora', 'Guadagna XP, commenta e supporta gli autori per apparire in classifica.')
       ) : (
-        mainTab === 'libri' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {items.map((b, i) => renderBookCard(b, i))}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {mainTab === 'autori' && items.map((a, i) => renderAuthorCard(a, i))}
-            {mainTab === 'community' && items.map((u, i) => renderCommunityCard(u, i))}
-          </div>
-        )
+        <div className="space-y-2">
+          {mainTab === 'libri' && items.map((b, i) => renderBookCard(b, i))}
+          {mainTab === 'autori' && items.map((a, i) => renderAuthorCard(a, i))}
+          {mainTab === 'community' && items.map((u, i) => renderCommunityCard(u, i))}
+        </div>
       )}
     </div>
   )
