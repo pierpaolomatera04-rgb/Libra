@@ -205,14 +205,10 @@ export default function ReaderPage() {
   const fontSize = TEXT_SIZE_PX[textSize]
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  // Larghezza/altezza effettive del pager in px. Servono per impostare
-  // column-width in px (l'uso di '100%' NON è valido per column-width e fa
-  // collassare il layout multi-column in una sola pagina).
-  const [pagerSize, setPagerSize] = useState<{ w: number; h: number } | null>(null)
-  // Due layer separati: outer gestisce lo scroll orizzontale e la scroll-snap,
-  // inner applica il multi-column CSS. Mettendoli sullo stesso elemento
-  // alcuni browser (Safari in particolare) non propagano l'overflow delle
-  // colonne e il risultato è sempre 1/1.
+  // Paginazione JS con translateY: molto più affidabile del CSS multi-column
+  // che ha comportamenti inconsistenti tra browser. Snappiamo all'altezza di
+  // linea per non tagliare righe a metà tra una pagina e l'altra.
+  const [pageHeight, setPageHeight] = useState(0)
   const pagerRef = useRef<HTMLDivElement | null>(null)
   const columnRef = useRef<HTMLDivElement | null>(null)
   const countedPagesRef = useRef<Set<number>>(new Set())
@@ -500,86 +496,57 @@ export default function ReaderPage() {
     countedPagesRef.current = new Set()
   }, [block?.id])
 
-  // Osserva le dimensioni effettive del pager (viewport reale per la pagina).
-  // Questo valore guida sia il column-width in px sia il ricalcolo del numero
-  // totale di pagine: cambia con fontSize, orientamento schermo, resize finestra.
-  useEffect(() => {
-    const el = pagerRef.current
-    if (!el) return
-    const measure = () => {
-      const w = el.clientWidth
-      const h = el.clientHeight
-      if (w > 0 && h > 0) {
-        setPagerSize(prev => (prev && prev.w === w && prev.h === h ? prev : { w, h }))
-      }
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    // Riallinea anche a orientamento cambiato / load immagini
-    window.addEventListener('resize', measure)
-    window.addEventListener('orientationchange', measure)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', measure)
-      window.removeEventListener('orientationchange', measure)
-    }
-  }, [block?.id])
-
-  // Ricalcola il numero totale di pagine visive quando cambia il contenuto,
-  // la dimensione testo o la viewport. Misura SOLO dopo che il browser ha
-  // applicato il layout. Il totalPages deriva dalla larghezza dell'INNER
-  // column container (che cresce orizzontalmente quando le colonne si
-  // formano) rispetto alla larghezza dell'OUTER scroll container.
+  // Ricalcola il numero totale di pagine misurando l'altezza reale del
+  // contenuto renderizzato e dividendola per l'altezza di una pagina
+  // (snappata al multiplo più vicino dell'altezza-di-riga per non tagliare
+  // righe a metà). Ri-osserva a ogni cambio di font, resize, orientamento.
   useEffect(() => {
     const outer = pagerRef.current
     const inner = columnRef.current
-    if (!outer || !inner || !block?.content || !pagerSize) return
-    let rafA = 0, rafB = 0, rafC = 0, cancelled = false
+    if (!outer || !inner || !block?.content) return
+    let cancelled = false
     const recompute = () => {
       if (cancelled || !pagerRef.current || !columnRef.current) return
       const o = pagerRef.current
       const n = columnRef.current
-      const cw = o.clientWidth
-      // scrollWidth dell'outer + width dell'inner combinati: prendo il max
-      // per robustezza cross-browser.
-      const sw = Math.max(o.scrollWidth, n.scrollWidth, n.getBoundingClientRect().width)
-      if (cw <= 0) return
-      const tp = Math.max(1, Math.round(sw / cw))
+      const available = o.clientHeight
+      // Line-height effettivo: match col CSS (.reading-text => 1.8)
+      const lh = Math.max(1, fontSize * 1.8)
+      const linesPerPage = Math.max(1, Math.floor(available / lh))
+      const snapped = linesPerPage * lh
+      setPageHeight(snapped)
+      // Misuriamo senza transform applicato (temporaneamente)
+      const prevTransform = n.style.transform
+      n.style.transform = 'none'
+      const contentH = n.scrollHeight
+      n.style.transform = prevTransform
+      const tp = Math.max(1, Math.ceil(contentH / snapped))
       setTotalPages(tp)
       if (typeof window !== 'undefined') {
         const saved = Number(window.localStorage.getItem(`reader:page:${block.id}`) || 0)
         const target = Math.min(Math.max(0, saved), tp - 1)
-        o.scrollLeft = target * cw
         setCurrentPage(target)
       }
     }
-    // Triplo rAF: alcuni browser impiegano più di un frame per applicare
-    // il layout multi-column dopo un cambio di font-size/viewport.
-    rafA = requestAnimationFrame(() => {
-      rafB = requestAnimationFrame(() => {
-        rafC = requestAnimationFrame(recompute)
-      })
+    // Doppio rAF: attendi il layout dopo il cambio di font-size/viewport
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(recompute)
+      ;(recompute as any)._raf2 = raf2
     })
+    const ro = new ResizeObserver(recompute)
+    ro.observe(outer)
+    ro.observe(inner)
+    window.addEventListener('resize', recompute)
+    window.addEventListener('orientationchange', recompute)
     return () => {
       cancelled = true
-      cancelAnimationFrame(rafA)
-      cancelAnimationFrame(rafB)
-      cancelAnimationFrame(rafC)
+      cancelAnimationFrame(raf1)
+      if ((recompute as any)._raf2) cancelAnimationFrame((recompute as any)._raf2)
+      ro.disconnect()
+      window.removeEventListener('resize', recompute)
+      window.removeEventListener('orientationchange', recompute)
     }
-  }, [block?.content, block?.id, fontSize, pagerSize])
-
-  // Tieni currentPage in sync con lo scroll orizzontale
-  useEffect(() => {
-    const el = pagerRef.current
-    if (!el) return
-    const onScroll = () => {
-      const p = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
-      setCurrentPage(p)
-    }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [totalPages])
+  }, [block?.content, block?.id, fontSize])
 
   // Persisti pagina corrente per resume
   useEffect(() => {
@@ -1669,20 +1636,15 @@ export default function ReaderPage() {
                 }
               }
 
-              const goPrev = () => {
-                const el = pagerRef.current
-                if (!el) return
-                el.scrollBy({ left: -el.clientWidth, behavior: 'smooth' })
-              }
-              const goNext = () => {
-                const el = pagerRef.current
-                if (!el) return
-                el.scrollBy({ left: el.clientWidth, behavior: 'smooth' })
-              }
+              const goPrev = () => setCurrentPage(p => Math.max(0, p - 1))
+              const goNext = () => setCurrentPage(p => Math.min(totalPages - 1, p + 1))
 
               return (
                 <div className="relative mb-8 animate-fade-in">
-                  {/* OUTER: gestisce scroll orizzontale, scroll-snap, touch */}
+                  {/* Paginazione via translateY — l'outer è una "finestra"
+                      di altezza fissa che mostra una porzione del contenuto;
+                      l'inner contiene TUTTO il testo e viene traslato in su
+                      di pageHeight * currentPage per rivelare la pagina. */}
                   <div
                     ref={pagerRef}
                     id="reading-content"
@@ -1700,29 +1662,19 @@ export default function ReaderPage() {
                       handleTextSelect()
                     }}
                     onTouchStart={(e) => { touchStartXRef.current = e.touches[0].clientX }}
-                    className="overflow-x-auto overflow-y-hidden"
+                    className="relative overflow-hidden"
                     style={{
-                      // Altezza disponibile = viewport − navbar/header/indicator/padding
                       height: 'calc(100vh - 260px)',
-                      scrollSnapType: 'x mandatory',
-                      scrollbarWidth: 'none',
                     }}
                   >
-                    {/* INNER: applica il multi-column. Alcuni browser non
-                        producono il reflow delle colonne se multi-column +
-                        overflow sono sullo stesso elemento. Separandoli,
-                        inner cresce in larghezza e outer scrolla. */}
                     <div
                       ref={columnRef}
                       className="reading-text text-bark-700 dark:text-sage-200 whitespace-pre-wrap select-text"
                       style={{
                         fontSize: `${fontSize}px`,
-                        height: '100%',
-                        // column-width in px misurati dall'outer (NON '100%':
-                        // i browser non supportano percentuali per column-width).
-                        columnWidth: pagerSize ? `${pagerSize.w}px` : 'auto',
-                        columnGap: '0px',
-                        columnFill: 'auto',
+                        transform: pageHeight > 0 ? `translateY(-${currentPage * pageHeight}px)` : 'none',
+                        transition: 'transform 300ms ease',
+                        willChange: 'transform',
                       }}
                     >
                       {parts.map((p, j) =>
