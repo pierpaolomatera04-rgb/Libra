@@ -101,9 +101,7 @@ export default function BrowsePage() {
   const [continueReading, setContinueReading] = useState<any[]>([])
   const [trendingBooks, setTrendingBooks] = useState<any[]>([])
   const [recommended, setRecommended] = useState<any[]>([])
-  const [mostSaved, setMostSaved] = useState<any[]>([])
-
-  const [viewAll, setViewAll] = useState(false)
+  const [mostCommented, setMostCommented] = useState<any[]>([])
 
   // ── Hide-on-scroll-down / show-on-scroll-up per la barra filtri ──
   // La navbar principale resta fissa; solo questa barra si nasconde.
@@ -146,11 +144,12 @@ export default function BrowsePage() {
   }, [])
 
   const hasActiveFilters = genre || activeMacro || statusFilter !== 'all' || readingTime !== null || sort !== null
-  const isDiscoveryMode = false
+  // Le categorie colorate (macro/genre) NON escono dalla discovery mode: filtrano sia sezioni che griglia.
+  // Solo i filtri dell'imbuto (sort, status, readingTime) o la search attivano la grid mode.
+  const isDiscoveryMode = sort === null && statusFilter === 'all' && readingTime === null && !search
 
   const showFullCatalog = (sortBy: SortOption) => {
     setSort(sortBy)
-    setViewAll(true)
   }
 
   /* ── Fetch filtered books ── */
@@ -213,6 +212,23 @@ export default function BrowsePage() {
 
   /* ── Fetch discovery sections ── */
   const fetchDiscoverySections = useCallback(async () => {
+    // Helper: applica filtro macro/genre a una query sui books
+    const applyCategoryFilter = (q: any) => {
+      if (genre) return q.eq('genre', genre)
+      if (activeMacro) {
+        const subGenreValues = activeMacro.subGenres.map(sg => sg.value)
+        return q.in('genre', subGenreValues)
+      }
+      return q
+    }
+
+    // Determina generi ammessi per filtrare in-memory i risultati di "Continua a leggere"
+    const allowedGenres: string[] | null = genre
+      ? [genre]
+      : activeMacro
+        ? activeMacro.subGenres.map(sg => sg.value)
+        : null
+
     // 1. Continua a leggere (solo utenti loggati)
     if (user) {
       const { data: libraryData } = await supabase
@@ -223,7 +239,7 @@ export default function BrowsePage() {
           updated_at,
           book:books!user_library_book_id_fkey(
             id, title, description, cover_image_url, genre, total_blocks,
-            total_likes, total_reads, trending_score, access_level,
+            total_likes, total_reads, total_saves, total_comments, trending_score, access_level,
             first_block_free, status, published_at,
             author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
           )
@@ -234,8 +250,11 @@ export default function BrowsePage() {
         .limit(10)
 
       if (libraryData) {
+        const filtered = allowedGenres
+          ? libraryData.filter((item: any) => item.book && allowedGenres.includes(item.book.genre))
+          : libraryData
         const booksWithProgress = await Promise.all(
-          libraryData
+          filtered
             .filter((item: any) => item.book)
             .map(async (item: any) => {
               let currentBlock = 0
@@ -256,6 +275,8 @@ export default function BrowsePage() {
         )
         setContinueReading(booksWithProgress)
       }
+    } else {
+      setContinueReading([])
     }
 
     // 2. In tendenza — legge dalla cache velocity per performance
@@ -263,11 +284,11 @@ export default function BrowsePage() {
       .from('trending_cache')
       .select('book_id, score, position')
       .order('position', { ascending: true })
-      .limit(12)
+      .limit(30)
 
     if (cacheData && cacheData.length > 0) {
       const bookIds = cacheData.map((c: any) => c.book_id)
-      const { data: trendData } = await supabase
+      let trendQ = supabase
         .from('books')
         .select(`
           *,
@@ -275,24 +296,27 @@ export default function BrowsePage() {
         `)
         .in('id', bookIds)
         .in('status', ['published', 'ongoing', 'completed'])
+      trendQ = applyCategoryFilter(trendQ)
+      const { data: trendData } = await trendQ
 
-      // Riordina in base alla posizione della cache e attacca la position
       if (trendData) {
         const posMap = new Map<string, number>(cacheData.map((c: any) => [c.book_id, Number(c.position)]))
         const sorted = [...trendData]
           .map(b => ({ ...b, _trendingPosition: posMap.get(b.id) || 99 }))
           .sort((a, b) => a._trendingPosition - b._trendingPosition)
+          .slice(0, 12)
         setTrendingBooks(sorted)
       }
     } else {
-      // Fallback: se la cache è vuota, usa il vecchio trending_score
-      const { data: trendData } = await supabase
+      let trendQ = supabase
         .from('books')
         .select(`
           *,
           author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
         `)
         .in('status', ['published', 'ongoing', 'completed'])
+      trendQ = applyCategoryFilter(trendQ)
+      const { data: trendData } = await trendQ
         .order('trending_score', { ascending: false })
         .limit(12)
 
@@ -300,7 +324,8 @@ export default function BrowsePage() {
     }
 
     // 3. Consigliati per te
-    if (profile?.preferred_genres && profile.preferred_genres.length > 0) {
+    // Se la categoria è già selezionata, usiamo quella; altrimenti i preferiti del profilo.
+    if (!genre && !activeMacro && profile?.preferred_genres && profile.preferred_genres.length > 0) {
       const { data: recData } = await supabase
         .from('books')
         .select(`
@@ -314,32 +339,36 @@ export default function BrowsePage() {
 
       if (recData) setRecommended(recData)
     } else {
-      const { data: recData } = await supabase
+      let recQ = supabase
         .from('books')
         .select(`
           *,
           author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
         `)
         .in('status', ['published', 'ongoing', 'completed'])
+      recQ = applyCategoryFilter(recQ)
+      const { data: recData } = await recQ
         .order('total_likes', { ascending: false })
         .limit(12)
 
       if (recData) setRecommended(recData)
     }
 
-    // 4. I più salvati
-    const { data: savedData } = await supabase
+    // 4. I più commentati
+    let commQ = supabase
       .from('books')
       .select(`
         *,
         author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
       `)
       .in('status', ['published', 'ongoing', 'completed'])
-      .order('total_likes', { ascending: false })
+    commQ = applyCategoryFilter(commQ)
+    const { data: commData } = await commQ
+      .order('total_comments', { ascending: false })
       .limit(12)
 
-    if (savedData) setMostSaved(savedData)
-  }, [supabase, user, profile])
+    if (commData) setMostCommented(commData)
+  }, [supabase, user, profile, activeMacro, genre])
 
   useEffect(() => {
     fetchBooks()
@@ -364,19 +393,16 @@ export default function BrowsePage() {
 
   const handleMacroClick = (macro: MacroArea) => {
     if (activeMacro?.value === macro.value) {
-      // Deselect macro
       setActiveMacro(null)
       setGenre(null)
     } else {
       setActiveMacro(macro)
-      setGenre(null) // reset sub-genre when switching macro
+      setGenre(null)
     }
-    setViewAll(true)
   }
 
   const handleSubGenreClick = (subGenreValue: string) => {
     setGenre(genre === subGenreValue ? null : subGenreValue)
-    setViewAll(true)
   }
 
   return (
@@ -423,7 +449,7 @@ export default function BrowsePage() {
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
           <button
-            onClick={() => { setActiveMacro(null); setGenre(null); setViewAll(false) }}
+            onClick={() => { setActiveMacro(null); setGenre(null) }}
             className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border ${
               !activeMacro
                 ? 'bg-sage-600 text-white border-sage-600'
@@ -498,7 +524,7 @@ export default function BrowsePage() {
             <p className="text-xs font-medium text-bark-400 mb-2">ORDINAMENTO</p>
             <div className="flex flex-wrap gap-1.5">
               <button
-                onClick={() => { setSort(null); setViewAll(false) }}
+                onClick={() => setSort(null)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   sort === null ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
                 }`}
@@ -508,7 +534,7 @@ export default function BrowsePage() {
               {SORT_OPTIONS.map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => { setSort(key); setViewAll(false) }}
+                  onClick={() => setSort(key)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     sort === key ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-700 hover:bg-sage-100'
                   }`}
@@ -673,11 +699,11 @@ export default function BrowsePage() {
             </section>
           )}
 
-          {/* 4. I più salvati */}
-          {mostSaved.length > 0 && (
+          {/* 4. I più commentati */}
+          {mostCommented.length > 0 && (
             <section>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-sage-900">I pi&#249; salvati</h2>
+                <h2 className="text-base font-bold text-sage-900">I pi&#249; commentati</h2>
                 <button
                   onClick={() => showFullCatalog('popular')}
                   className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5"
@@ -686,7 +712,7 @@ export default function BrowsePage() {
                 </button>
               </div>
               <HorizontalCarousel>
-                {mostSaved.map((book: any) => (
+                {mostCommented.map((book: any) => (
                   <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
                     <BookCard book={book} />
                   </div>
