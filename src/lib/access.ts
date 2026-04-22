@@ -143,11 +143,14 @@ export async function canAccessBlock(
     return { access: 'GRANTED_PLAN', canRead: true, message: 'Accesso tramite abbonamento' }
   }
 
-  // REGOLA 5: Libro FREE tier (o access_level=open) — accessibile a tutti dopo rilascio
-  // Considera disponibile anche se scheduled_date è passata (cron non ancora eseguito)
+  // REGOLA 5: Libro FREE tier — accessibile a tutti dopo rilascio
+  // NB: `tier` è il campo commerciale autoritativo. `access_level` è un hint
+  // di categoria/presentazione che di default vale 'open' anche per libri Silver/Gold,
+  // quindi NON può essere usato in OR qui (altrimenti i Silver/Gold diventerebbero free).
+  // Considera disponibile anche se scheduled_date è passata (cron non ancora eseguito).
   const blockEffectivelyReleased = block.is_released || (block.scheduled_date && new Date(block.scheduled_date) <= now)
-  const isOpenBook = book.tier === 'free' || book.access_level === 'open'
-  if (isOpenBook && blockEffectivelyReleased) {
+  const isFreeBook = book.tier === 'free'
+  if (isFreeBook && blockEffectivelyReleased) {
     return { access: 'GRANTED_FREE', canRead: true, message: 'Contenuto gratuito' }
   }
 

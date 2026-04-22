@@ -170,6 +170,13 @@ export default function BookEditPage() {
           mood: mood || null,
           cover_image_url: coverUrl,
           access_level: accessLevel,
+          // tier autoritativo per l'access check
+          tier:
+            accessLevel === 'silver_choice'
+              ? 'silver'
+              : accessLevel === 'gold_exclusive'
+              ? 'gold'
+              : 'free',
           token_price_per_block: finalTokenPrice,
           price_full: accessLevel === 'open' ? 0 : priceFull,
           first_block_free: firstBlockFree,

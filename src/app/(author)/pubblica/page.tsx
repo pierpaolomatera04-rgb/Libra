@@ -526,6 +526,14 @@ export default function PublishPage() {
         mood: data.mood || null,
         total_blocks: data.blocks.length,
         access_level: data.accessLevel,
+        // tier è il campo commerciale autoritativo usato dall'access check.
+        // Derivalo da accessLevel così Silver/Gold non finiscono come 'free'.
+        tier:
+          data.accessLevel === 'silver_choice'
+            ? 'silver'
+            : data.accessLevel === 'gold_exclusive'
+            ? 'gold'
+            : 'free',
         token_price_per_block: data.accessLevel === 'open' ? 0 : data.tokenPricePerBlock,
         price_full: data.accessLevel === 'open' ? 0 : data.priceFull,
         first_block_free: data.accessLevel === 'open' ? true : data.firstBlockFree,
