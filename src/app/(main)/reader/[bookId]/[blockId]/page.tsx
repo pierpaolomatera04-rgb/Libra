@@ -18,6 +18,7 @@ import { getMacroAreaByGenre } from '@/lib/genres'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { awardXp, type XpResult } from '@/lib/xp'
 import LevelUpModal from '@/components/LevelUpModal'
+import ReviewWidget from '@/components/reviews/ReviewWidget'
 
 // Reazioni al commento:
 // 1. REACTION_TYPES = reazioni statiche gratis (fuoco, cuore, penna) per chi risponde
@@ -168,6 +169,8 @@ export default function ReaderPage() {
   const [showCompletion, setShowCompletion] = useState(false)
   const [showCelebration, setShowCelebration] = useState<{ type: 'badge' | 'streak'; title: string; subtitle: string; emoji: string } | null>(null)
   const [levelUpResult, setLevelUpResult] = useState<XpResult | null>(null)
+  // Review: modale fine libro
+  const [showFinalReview, setShowFinalReview] = useState(false)
 
   // Highlight system
   const [highlights, setHighlights] = useState<any[]>([])
@@ -1760,15 +1763,37 @@ export default function ReaderPage() {
               ) : (
                 <div className="text-center py-4">
                   <p className="text-sm text-sage-600 font-medium">Hai letto tutti i blocchi disponibili!</p>
+                  <button
+                    onClick={() => setShowFinalReview(true)}
+                    className="mt-2 inline-block px-4 py-2 rounded-xl text-sm font-semibold bg-sage-500 text-white hover:bg-sage-600"
+                  >
+                    Lascia la tua recensione
+                  </button>
                   <Link
                     href={`/libro/${bookId}`}
-                    className="text-xs text-sage-500 hover:text-sage-700 mt-1 inline-block"
+                    className="text-xs text-sage-500 hover:text-sage-700 mt-2 block"
                   >
                     Torna alla pagina del libro
                   </Link>
                 </div>
               )}
             </div>
+
+            {/* Widget recensione leggero fine blocco */}
+            {!isLocked && user && (
+              <div className="flex justify-center -mt-4 mb-2">
+                <ReviewWidget bookId={bookId} variant="inline" />
+              </div>
+            )}
+
+            {/* Modale recensione fine libro */}
+            <ReviewWidget
+              bookId={bookId}
+              variant="modal"
+              open={showFinalReview}
+              onClose={() => setShowFinalReview(false)}
+              title="Come valuteresti questo libro?"
+            />
           </>
         )}
 

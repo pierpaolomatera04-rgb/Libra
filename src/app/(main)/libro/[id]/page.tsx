@@ -15,6 +15,8 @@ import {
 import { getGenreTagColor } from '@/lib/genres'
 import { awardXp } from '@/lib/xp'
 import { XP_VALUES } from '@/lib/badges'
+import ReviewWidget from '@/components/reviews/ReviewWidget'
+import StarRating from '@/components/reviews/StarRating'
 
 export default function BookDetailPage() {
   const params = useParams()
@@ -510,6 +512,36 @@ export default function BookDetailPage() {
               </span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Recensioni (media + pulsante lascia recensione per chi ha letto ≥1 blocco) */}
+      <div className="mt-8">
+        <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center">
+              <span className="text-3xl font-bold text-amber-500">
+                {book.total_reviews > 0 && book.average_rating
+                  ? Number(book.average_rating).toFixed(1)
+                  : '—'}
+              </span>
+              <StarRating value={Math.round(Number(book.average_rating) || 0)} readOnly size={14} />
+              <span className="text-[11px] text-bark-400 dark:text-sage-500 mt-0.5">
+                {book.total_reviews || 0} {(book.total_reviews || 0) === 1 ? 'recensione' : 'recensioni'}
+              </span>
+            </div>
+          </div>
+          <div className="flex-1" />
+          {user && readBlocks.size > 0 && (
+            <div className="w-full sm:w-auto sm:min-w-[320px]">
+              <ReviewWidget bookId={bookId} variant="section" />
+            </div>
+          )}
+          {user && readBlocks.size === 0 && (
+            <p className="text-xs text-bark-400 dark:text-sage-500 italic">
+              Leggi almeno un blocco per lasciare una recensione
+            </p>
+          )}
         </div>
       </div>
 

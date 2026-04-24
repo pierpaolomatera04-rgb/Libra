@@ -252,7 +252,8 @@ export default function UnifiedProfilePage() {
           .from('user_library')
           .select(`*, book:books!user_library_book_id_fkey(
             id, title, description, cover_image_url, genre,
-            total_blocks, total_likes, total_reads, total_saves,
+            total_blocks, total_likes, total_reads, total_saves, total_comments,
+            total_reviews, average_rating, unique_readers,
             trending_score, access_level, first_block_free, status, published_at,
             author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
           )`)
