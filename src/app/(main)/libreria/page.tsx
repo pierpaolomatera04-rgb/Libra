@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import { BookOpen, Clock, Check, Bookmark, Globe2, Lock } from 'lucide-react'
 import BookCard from '@/components/book/BookCard'
+import HorizontalCarousel from '@/components/ui/HorizontalCarousel'
 import { toast } from 'sonner'
 
 type Tab = 'reading' | 'saved' | 'completed'
@@ -144,11 +145,11 @@ export default function LibraryPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="flex flex-col items-center gap-2 p-3">
-              <div className="w-[130px] aspect-[2/3] bg-sage-100 rounded animate-pulse" />
-              <div className="h-3 w-24 bg-sage-100 rounded animate-pulse" />
+        <div className="flex gap-4 overflow-hidden">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="flex-shrink-0 w-40 sm:w-44">
+              <div className="w-full aspect-[2/3] bg-sage-100 dark:bg-sage-800 rounded animate-pulse" />
+              <div className="h-3 w-24 bg-sage-100 dark:bg-sage-800 rounded animate-pulse mt-2" />
             </div>
           ))}
         </div>
@@ -161,11 +162,15 @@ export default function LibraryPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        <HorizontalCarousel>
           {books.map((item) =>
-            item.book ? <BookCard key={item.id} book={item.book} /> : null
+            item.book ? (
+              <div key={item.id} className="flex-shrink-0 w-36 sm:w-44">
+                <BookCard book={item.book} />
+              </div>
+            ) : null
           )}
-        </div>
+        </HorizontalCarousel>
       )}
     </div>
   )

@@ -10,6 +10,7 @@ import { ALL_BADGES, getBadgeColor, getXpLevel, XP_VALUES } from '@/lib/badges'
 import { awardXp } from '@/lib/xp'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import BookCard from '@/components/book/BookCard'
+import HorizontalCarousel from '@/components/ui/HorizontalCarousel'
 import { MACRO_AREAS } from '@/lib/genres'
 import { toast } from 'sonner'
 import {
@@ -815,11 +816,13 @@ export default function UnifiedProfilePage() {
             <span className="text-xs text-bark-400 dark:text-sage-500 ml-auto">{authorBooks.length} libri</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          <HorizontalCarousel>
             {authorBooks.map((book) => (
-              <BookCard key={book.id} book={book} />
+              <div key={book.id} className="flex-shrink-0 w-36 sm:w-44">
+                <BookCard book={book} />
+              </div>
             ))}
-          </div>
+          </HorizontalCarousel>
         </div>
       )}
 
@@ -948,11 +951,15 @@ export default function UnifiedProfilePage() {
                 : 'Nessun libro nella libreria'}
             </p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            <HorizontalCarousel>
               {libraryBooks.map(entry =>
-                entry.book ? <BookCard key={entry.id} book={entry.book} /> : null
+                entry.book ? (
+                  <div key={entry.id} className="flex-shrink-0 w-36 sm:w-44">
+                    <BookCard book={entry.book} />
+                  </div>
+                ) : null
               )}
-            </div>
+            </HorizontalCarousel>
           )}
         </div>
       )}
