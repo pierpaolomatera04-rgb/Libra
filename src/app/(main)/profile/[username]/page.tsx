@@ -11,6 +11,7 @@ import { awardXp } from '@/lib/xp'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import BookCard from '@/components/book/BookCard'
 import HorizontalCarousel from '@/components/ui/HorizontalCarousel'
+import CitationComments from '@/components/CitationComments'
 import { MACRO_AREAS } from '@/lib/genres'
 import { toast } from 'sonner'
 import {
@@ -69,6 +70,8 @@ export default function UnifiedProfilePage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'citazioni' | 'frasi'>(initialTab)
   const [highlights, setHighlights] = useState<any[]>([])
   const [highlightLikes, setHighlightLikes] = useState<Set<string>>(new Set())
+  // Accordion commenti citazione: set di highlight aperti
+  const [openCommentsFor, setOpenCommentsFor] = useState<Set<string>>(new Set())
   const [savedPhrases, setSavedPhrases] = useState<any[]>([])
   const [deletingPhraseId, setDeletingPhraseId] = useState<string | null>(null)
 
@@ -683,13 +686,24 @@ export default function UnifiedProfilePage() {
                         {hl.likes_count || 0}
                       </button>
 
-                      <Link
-                        href={deepLink}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-bark-400 dark:text-sage-500 hover:text-sage-600 hover:bg-sage-100 dark:hover:bg-sage-800 transition-colors"
+                      <button
+                        onClick={() =>
+                          setOpenCommentsFor((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(hl.id)) next.delete(hl.id)
+                            else next.add(hl.id)
+                            return next
+                          })
+                        }
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          openCommentsFor.has(hl.id)
+                            ? 'text-sage-700 dark:text-sage-200 bg-sage-100 dark:bg-sage-800'
+                            : 'text-bark-400 dark:text-sage-500 hover:text-sage-600 hover:bg-sage-100 dark:hover:bg-sage-800'
+                        }`}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        Commenta
-                      </Link>
+                        {hl.citation_comments_count || 0}
+                      </button>
 
                       {!isOwnProfile && (
                         <button
@@ -708,6 +722,21 @@ export default function UnifiedProfilePage() {
                         Leggi nel contesto &rarr;
                       </Link>
                     </div>
+
+                    {/* Sezione commenti inline — accordion */}
+                    <CitationComments
+                      highlightId={hl.id}
+                      open={openCommentsFor.has(hl.id)}
+                      onCountChange={(delta) => {
+                        setHighlights((prev) =>
+                          prev.map((h) =>
+                            h.id === hl.id
+                              ? { ...h, citation_comments_count: Math.max(0, (h.citation_comments_count || 0) + delta) }
+                              : h
+                          )
+                        )
+                      }}
+                    />
                   </article>
                 )
               })}
