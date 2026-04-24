@@ -167,56 +167,10 @@ export default function CompactReviewBar({
       <div className={`grid transition-all duration-300 ${open ? 'grid-rows-[1fr] mt-2' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
           <div className="pt-3 pb-1 border-t border-sage-100 dark:border-sage-800">
-            {/* Form recensione */}
-            {user && (
-              <div>
-                {unlocked ? (
-                  <>
-                    <p className="text-xs font-medium text-bark-500 dark:text-sage-400 mb-1.5">
-                      {existingId ? 'La tua recensione' : 'Lascia la tua recensione'}
-                    </p>
-                    <StarRating value={stars} onChange={setStars} size={26} />
-
-                    {/* Textarea: appare solo dopo aver votato */}
-                    {stars > 0 && (
-                      <textarea
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        placeholder="La tua opinione (opzionale)…"
-                        rows={2}
-                        maxLength={2000}
-                        className="w-full mt-2 px-3 py-2 rounded-xl border border-sage-200 dark:border-sage-700 bg-sage-50 dark:bg-sage-900/40 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 resize-none"
-                      />
-                    )}
-
-                    {/* Salva: solo se dirty */}
-                    {dirty && stars > 0 && (
-                      <button
-                        onClick={save}
-                        disabled={saving}
-                        className="mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sage-500 text-white hover:bg-sage-600 disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                        {existingId ? 'Aggiorna recensione' : 'Pubblica recensione'}
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sage-50 dark:bg-sage-900/40 text-xs text-bark-500 dark:text-sage-400">
-                    <Lock className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>
-                      Leggi almeno {requiredBlocks} {requiredBlocks === 1 ? 'blocco' : 'blocchi'} per sbloccare la recensione
-                      {blocksLeft > 0 && ` (ne mancano ${blocksLeft})`}.
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Ultime recensioni */}
-            <div className="mt-4">
+            {/* Recensioni della community — sempre visibili a tutti */}
+            <div>
               <p className="text-xs font-medium text-bark-500 dark:text-sage-400 mb-2">
-                Ultime recensioni
+                Recensioni della community
               </p>
               {loadingList ? (
                 <div className="space-y-2">
@@ -271,6 +225,48 @@ export default function CompactReviewBar({
                 </Link>
               )}
             </div>
+
+            {/* Lascia la tua recensione — solo per utenti loggati */}
+            {user && (
+              <div className="mt-5 pt-4 border-t border-sage-100 dark:border-sage-800">
+                <p className="text-xs font-medium text-bark-500 dark:text-sage-400 mb-1.5">
+                  {existingId ? 'La tua recensione' : 'Lascia la tua recensione'}
+                </p>
+                {unlocked ? (
+                  <>
+                    <StarRating value={stars} onChange={setStars} size={26} />
+                    {stars > 0 && (
+                      <textarea
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="La tua opinione (opzionale)…"
+                        rows={2}
+                        maxLength={2000}
+                        className="w-full mt-2 px-3 py-2 rounded-xl border border-sage-200 dark:border-sage-700 bg-sage-50 dark:bg-sage-900/40 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 resize-none"
+                      />
+                    )}
+                    {dirty && stars > 0 && (
+                      <button
+                        onClick={save}
+                        disabled={saving}
+                        className="mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sage-500 text-white hover:bg-sage-600 disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {existingId ? 'Aggiorna recensione' : 'Pubblica recensione'}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sage-50 dark:bg-sage-900/40 text-xs text-bark-500 dark:text-sage-400">
+                    <Lock className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>
+                      Leggi almeno {requiredBlocks} {requiredBlocks === 1 ? 'blocco' : 'blocchi'} per poter lasciare la tua recensione
+                      {blocksLeft > 0 && ` (ne mancano ${blocksLeft})`}.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

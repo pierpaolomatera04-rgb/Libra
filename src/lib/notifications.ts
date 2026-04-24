@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
-type NotificationType = 'follow' | 'like' | 'save' | 'comment' | 'unlock' | 'tip' | 'mention' | 'badge'
+type NotificationType = 'follow' | 'like' | 'save' | 'comment' | 'unlock' | 'tip' | 'mention' | 'badge' | 'review'
 
 interface CreateNotificationParams {
   supabase: SupabaseClient
