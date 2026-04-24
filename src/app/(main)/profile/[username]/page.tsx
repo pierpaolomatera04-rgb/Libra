@@ -687,14 +687,17 @@ export default function UnifiedProfilePage() {
                       </button>
 
                       <button
-                        onClick={() =>
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
                           setOpenCommentsFor((prev) => {
                             const next = new Set(prev)
                             if (next.has(hl.id)) next.delete(hl.id)
                             else next.add(hl.id)
                             return next
                           })
-                        }
+                        }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                           openCommentsFor.has(hl.id)
                             ? 'text-sage-700 dark:text-sage-200 bg-sage-100 dark:bg-sage-800'
@@ -702,7 +705,10 @@ export default function UnifiedProfilePage() {
                         }`}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        {hl.citation_comments_count || 0}
+                        <span>Commenta</span>
+                        {(hl.citation_comments_count || 0) > 0 && (
+                          <span className="font-semibold">({hl.citation_comments_count})</span>
+                        )}
                       </button>
 
                       {!isOwnProfile && (
