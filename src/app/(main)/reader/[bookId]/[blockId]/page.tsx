@@ -19,6 +19,7 @@ import { LevelBadge } from '@/components/ui/LevelBadge'
 import { awardXp, type XpResult } from '@/lib/xp'
 import LevelUpModal from '@/components/LevelUpModal'
 import ReviewWidget from '@/components/reviews/ReviewWidget'
+import BlockRating from '@/components/reviews/BlockRating'
 
 // Reazioni al commento:
 // 1. REACTION_TYPES = reazioni statiche gratis (fuoco, cuore, penna) per chi risponde
@@ -1702,6 +1703,9 @@ export default function ReaderPage() {
                 )}
                 {canBoost ? 'Boost 10tk' : `${hoursUntilBoost ?? 24}h`}
               </button>
+              {!isLocked && user && (
+                <BlockRating bookId={bookId} blockId={block.id} size={18} className="ml-1" />
+              )}
             </div>
 
             {/* Completion feedback */}
@@ -1778,13 +1782,6 @@ export default function ReaderPage() {
                 </div>
               )}
             </div>
-
-            {/* Widget recensione leggero fine blocco */}
-            {!isLocked && user && (
-              <div className="flex justify-center -mt-4 mb-2">
-                <ReviewWidget bookId={bookId} variant="inline" />
-              </div>
-            )}
 
             {/* Modale recensione fine libro */}
             <ReviewWidget
