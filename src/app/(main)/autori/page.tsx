@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  Search, BookOpen, Users, X, Pencil, Award, Heart, MessageCircle, Gift,
-  ChevronLeft, ChevronRight, Sparkles, TrendingUp, Star,
+  Search, BookOpen, Users, X, Pencil, Award, Gift,
+  Sparkles, TrendingUp, Star, Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { MACRO_AREAS, getMacroAreaByGenre, type MacroArea } from '@/lib/genres'
@@ -14,8 +15,6 @@ import { awardXp } from '@/lib/xp'
 import { XP_VALUES } from '@/lib/badges'
 
 const CERT_MIN_BOOKS = 3
-// Soglie XP (curva lineare 100 XP/livello): livello 25 = Oro = 2400 XP per
-// certificazione, livello 10 = Argento = 900 XP per il TOP glow.
 const CERT_MIN_XP = 2400
 const CERT_MIN_LIKES = 50
 const TOP_XP_THRESHOLD = 900
@@ -40,48 +39,10 @@ interface AuthorEntry {
   totalFollowers: number
   engagementScore: number
   totalTipped: number
+  avgRating: number | null
   genres: string[]
   booksByMacro: Record<string, number>
   certifiedIn: string[]
-}
-
-/* Carosello orizzontale (stesso pattern della pagina Sfoglia) */
-function HorizontalCarousel({ children }: { children: React.ReactNode }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [canLeft, setCanLeft] = useState(false)
-  const [canRight, setCanRight] = useState(false)
-  const check = () => {
-    const el = scrollRef.current
-    if (!el) return
-    setCanLeft(el.scrollLeft > 0)
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
-  }
-  useEffect(() => {
-    check()
-    const el = scrollRef.current
-    if (el) el.addEventListener('scroll', check)
-    return () => el?.removeEventListener('scroll', check)
-  }, [children])
-  const scroll = (dir: 'left' | 'right') => {
-    scrollRef.current?.scrollBy({ left: dir === 'left' ? -300 : 300, behavior: 'smooth' })
-  }
-  return (
-    <div className="relative group/carousel">
-      {canLeft && (
-        <button onClick={() => scroll('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 bg-white/90 dark:bg-[#1e221c]/90 backdrop-blur border border-sage-200 dark:border-sage-700 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity">
-          <ChevronLeft className="w-5 h-5 text-sage-700 dark:text-sage-300" />
-        </button>
-      )}
-      <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {children}
-      </div>
-      {canRight && (
-        <button onClick={() => scroll('right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 bg-white/90 dark:bg-[#1e221c]/90 backdrop-blur border border-sage-200 dark:border-sage-700 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity">
-          <ChevronRight className="w-5 h-5 text-sage-700 dark:text-sage-300" />
-        </button>
-      )}
-    </div>
-  )
 }
 
 export default function AuthorsPage() {
@@ -105,7 +66,10 @@ export default function AuthorsPage() {
     if (data && data.length > 0) {
       const authorIds = data.map((a: any) => a.id)
       const [allBooksRes, followersRes, donationsRes] = await Promise.all([
-        supabase.from('books').select('id, author_id, total_likes, total_reads, genre, status').in('author_id', authorIds).in('status', ['published', 'ongoing', 'completed']),
+        supabase.from('books')
+          .select('id, author_id, total_likes, total_reads, genre, status, average_rating, total_reviews')
+          .in('author_id', authorIds)
+          .in('status', ['published', 'ongoing', 'completed']),
         supabase.from('follows').select('following_id').in('following_id', authorIds),
         supabase.from('donations').select('author_id, amount').in('author_id', authorIds).gte('amount', 5),
       ])
@@ -113,7 +77,6 @@ export default function AuthorsPage() {
       const allFollows = followersRes.data || []
       const allDonations = donationsRes.data || []
 
-      // Bulk: commenti e sblocchi sui libri degli autori
       const bookIds = allBooks.map((b: any) => b.id)
       const commentsPerBook = new Map<string, number>()
       const unlocksPerBook = new Map<string, number>()
@@ -140,6 +103,7 @@ export default function AuthorsPage() {
       const enriched: AuthorEntry[] = data.map((a: any) => {
         const books = booksByAuthor.get(a.id) || []
         let totalLikes = 0, totalReads = 0, totalComments = 0, totalUnlocks = 0
+        let ratedBooks = 0, ratingSum = 0
         const booksByMacro: Record<string, number> = {}
         const genres = new Set<string>()
         for (const b of books) {
@@ -147,6 +111,10 @@ export default function AuthorsPage() {
           totalReads += b.total_reads || 0
           totalComments += commentsPerBook.get(b.id) || 0
           totalUnlocks += unlocksPerBook.get(b.id) || 0
+          if (b.total_reviews > 0 && b.average_rating) {
+            ratedBooks++
+            ratingSum += Number(b.average_rating)
+          }
           if (b.genre) genres.add(b.genre)
           const macro = getMacroAreaByGenre(b.genre)
           if (macro) booksByMacro[macro.value] = (booksByMacro[macro.value] || 0) + 1
@@ -168,6 +136,7 @@ export default function AuthorsPage() {
           totalFollowers: followersCount.get(a.id) || 0,
           engagementScore,
           totalTipped: tippedByAuthor.get(a.id) || 0,
+          avgRating: ratedBooks > 0 ? ratingSum / ratedBooks : null,
           genres: Array.from(genres),
           booksByMacro,
           certifiedIn,
@@ -176,7 +145,6 @@ export default function AuthorsPage() {
       setAuthors(enriched)
     } else { setAuthors([]) }
 
-    // Generi letti dall'utente negli ultimi 30 giorni (per "Consigliati per te")
     if (user) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
       const [followsRes, recentReadsRes] = await Promise.all([
@@ -213,7 +181,6 @@ export default function AuthorsPage() {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: authorId })
       setFollowedIds(prev => [...prev, authorId])
       setAuthors(prev => prev.map(a => a.id === authorId ? { ...a, totalFollowers: a.totalFollowers + 1 } : a))
-      // +5 XP per follow (max 3/giorno — cap DB)
       awardXp(supabase, user.id, XP_VALUES.FOLLOW_AUTHOR, 'follow_author', true)
     }
   }
@@ -226,20 +193,14 @@ export default function AuthorsPage() {
     return authors
   }, [authors, viewTab, followedIds, now])
 
-  // "Consigliati per te": priorità generi letti ultimi 30gg → preferred_genres →
-  // fallback: autori con libri pubblicati ordinati per engagement (così la sezione
-  // compare sempre anche per utenti nuovi/ospiti).
   const recommended = useMemo(() => {
     let targetGenres: Set<string> | null = null
-    if (userReadGenres.size > 0) {
-      targetGenres = userReadGenres
-    } else {
+    if (userReadGenres.size > 0) targetGenres = userReadGenres
+    else {
       const prefs = profile?.preferred_genres || []
       if (prefs.length) targetGenres = new Set(prefs)
     }
-
     const excludeSelf = (a: AuthorEntry) => !(user && a.id === user.id)
-
     if (targetGenres) {
       const targetMacros = new Set(
         Array.from(targetGenres).map(g => getMacroAreaByGenre(g)?.value).filter(Boolean) as string[]
@@ -257,20 +218,16 @@ export default function AuthorsPage() {
         return [...matched].sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
       }
     }
-
-    // Fallback: top autori per engagement con almeno 1 libro pubblicato
     return [...baseAuthors]
       .filter(a => excludeSelf(a) && a.totalBooks >= 1)
       .sort((a, b) => b.engagementScore - a.engagementScore)
       .slice(0, 20)
   }, [baseAuthors, profile?.preferred_genres, userReadGenres, user])
 
-  // "I Più Votati" → ora basato su engagement score (like + commenti + letture + sblocchi)
   const topVotati = useMemo(() =>
     [...baseAuthors].filter(a => a.engagementScore > 0).sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
   , [baseAuthors])
 
-  // "I Più Supportati" → autori che hanno ricevuto più mance (≥5 token) e boost
   const topSupportati = useMemo(() =>
     [...baseAuthors].filter(a => a.totalTipped > 0).sort((a, b) => b.totalTipped - a.totalTipped).slice(0, 20)
   , [baseAuthors])
@@ -279,6 +236,22 @@ export default function AuthorsPage() {
     baseAuthors.filter(a => now - new Date(a.created_at).getTime() <= NEW_AUTHOR_WINDOW_MS && a.totalBooks >= 1)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 20)
   , [baseAuthors, now])
+
+  // Dedup: ogni autore appare nella prima sezione dove è idoneo
+  const shown = new Set<string>()
+  const dedup = (list: AuthorEntry[]) => {
+    const out: AuthorEntry[] = []
+    for (const a of list) {
+      if (shown.has(a.id)) continue
+      shown.add(a.id)
+      out.push(a)
+    }
+    return out
+  }
+  const recommendedD = dedup(recommended)
+  const topVotatiD = dedup(topVotati)
+  const topSupportatiD = dedup(topSupportati)
+  const nuovePromesseD = dedup(nuovePromesse)
 
   const isDiscoveryMode = viewTab === 'scopri' && !search
 
@@ -290,9 +263,8 @@ export default function AuthorsPage() {
         className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 pb-2.5 border-b border-sage-100/50 dark:border-sage-800/40"
         style={{ backgroundColor: 'color-mix(in srgb, var(--background) 88%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
       >
-        {/* Search */}
         <div className="flex items-center gap-2 mb-3">
-          <div className="relative flex-1 sm:max-w-xs">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300 dark:text-sage-500" />
             <input
               type="text"
@@ -308,8 +280,8 @@ export default function AuthorsPage() {
             )}
           </div>
         </div>
-        {/* Tabs */}
-        <div className="flex items-center gap-1" style={{ scrollbarWidth: 'none' }}>
+        {/* Tabs scrollabili orizzontalmente su mobile */}
+        <div className="flex items-center gap-1 overflow-x-auto -mx-1 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {([
             { key: 'scopri' as ViewTab, label: '✨ Scopri' },
             { key: 'seguiti' as ViewTab, label: `Seguiti${followedIds.length > 0 ? ` (${followedIds.length})` : ''}` },
@@ -322,15 +294,14 @@ export default function AuthorsPage() {
         </div>
       </div>
 
-      {/* ── Loading skeleton ── */}
       {loading ? (
         <div className="mt-5 space-y-6">
           {[1, 2, 3].map(i => (
             <div key={i}>
               <div className="h-5 w-48 bg-sage-100 dark:bg-sage-800 rounded mb-3 animate-pulse" />
-              <div className="flex gap-3 overflow-hidden">
-                {[1, 2, 3, 4, 5].map(j => (
-                  <div key={j} className="flex-shrink-0 bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" style={{ width: '140px', aspectRatio: '2/3' }} />
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {[1, 2, 3, 4].map(j => (
+                  <div key={j} className="h-48 bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" />
                 ))}
               </div>
             </div>
@@ -338,87 +309,45 @@ export default function AuthorsPage() {
         </div>
 
       ) : isDiscoveryMode ? (
-        /* ── Discovery mode: 3 sezioni a carosello ── */
         <div className="mt-5 space-y-8">
+          <Section
+            icon={<Sparkles className="w-4 h-4 text-amber-500" />}
+            title="Consigliati per te"
+            subtitle="In base ai tuoi generi preferiti"
+            authors={recommendedD}
+            user={user}
+            followedIds={followedIds}
+            onToggleFollow={toggleFollow}
+          />
+          <Section
+            icon={<TrendingUp className="w-4 h-4 text-rose-500" />}
+            title="I Più Votati"
+            subtitle="Gli autori con più like, commenti, letture e sblocchi"
+            authors={topVotatiD}
+            user={user}
+            followedIds={followedIds}
+            onToggleFollow={toggleFollow}
+          />
+          <Section
+            icon={<Gift className="w-4 h-4 text-amber-500" />}
+            title="I Più Supportati"
+            subtitle="Autori che hanno ricevuto più mance e boost"
+            authors={topSupportatiD}
+            user={user}
+            followedIds={followedIds}
+            onToggleFollow={toggleFollow}
+          />
+          <Section
+            icon={<Star className="w-4 h-4 text-emerald-500" />}
+            title="Nuove Promesse"
+            subtitle="Iscritti negli ultimi 30 giorni con almeno un libro"
+            authors={nuovePromesseD}
+            user={user}
+            followedIds={followedIds}
+            onToggleFollow={toggleFollow}
+          />
 
-          {/* ✨ Consigliati per te */}
-          {recommended.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500" /> Consigliati per te
-                  </h2>
-                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">In base ai tuoi generi preferiti</p>
-                </div>
-              </div>
-              <HorizontalCarousel>
-                {recommended.map(a => (
-                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
-
-          {/* 🏆 I Più Votati */}
-          {topVotati.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-rose-500" /> I Più Votati
-                  </h2>
-                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Gli autori con più like, commenti, letture e sblocchi</p>
-                </div>
-              </div>
-              <HorizontalCarousel>
-                {topVotati.map(a => (
-                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
-
-          {/* 🎁 I Più Supportati */}
-          {topSupportati.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
-                    <Gift className="w-4 h-4 text-amber-500" /> I Più Supportati
-                  </h2>
-                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Autori che hanno ricevuto più mance (≥5 token) e boost dai lettori</p>
-                </div>
-              </div>
-              <HorizontalCarousel>
-                {topSupportati.map(a => (
-                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
-
-          {/* 🌟 Nuove Promesse */}
-          {nuovePromesse.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
-                    <Star className="w-4 h-4 text-emerald-500" /> Nuove Promesse
-                  </h2>
-                  <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">Iscritti negli ultimi 30 giorni con almeno un libro pubblicato</p>
-                </div>
-              </div>
-              <HorizontalCarousel>
-                {nuovePromesse.map(a => (
-                  <div key={a.id} className="flex-shrink-0"><AuthorCard author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} /></div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
-
-          {/* Fallback se non ci sono sezioni */}
-          {recommended.length === 0 && topVotati.length === 0 && topSupportati.length === 0 && nuovePromesse.length === 0 && (
+          {recommendedD.length === 0 && topVotatiD.length === 0 && topSupportatiD.length === 0 && nuovePromesseD.length === 0 && (
             <div className="text-center py-20">
               <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
               <p className="text-bark-500 dark:text-sage-400 text-lg">Nessun autore trovato</p>
@@ -427,7 +356,6 @@ export default function AuthorsPage() {
         </div>
 
       ) : (
-        /* ── Grid mode: ricerca attiva o tab Seguiti/Nuovi ── */
         <div className="mt-6">
           {baseAuthors.length === 0 ? (
             <div className="text-center py-20">
@@ -442,7 +370,7 @@ export default function AuthorsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
               {[...baseAuthors]
                 .sort((a, b) => b.total_xp - a.total_xp)
                 .map(a => (
@@ -457,131 +385,175 @@ export default function AuthorsPage() {
 }
 
 // ============================================
-// COMPONENT: AuthorCard
+// Section: titolo + grid uniforme
 // ============================================
+function Section({
+  icon, title, subtitle, authors, user, followedIds, onToggleFollow,
+}: {
+  icon: React.ReactNode
+  title: string
+  subtitle: string
+  authors: AuthorEntry[]
+  user: any
+  followedIds: string[]
+  onToggleFollow: (id: string) => void
+}) {
+  if (authors.length === 0) return null
+  return (
+    <section>
+      <div className="mb-3">
+        <h2 className="text-base sm:text-lg font-bold text-sage-900 dark:text-sage-100 flex items-center gap-2">
+          {icon} {title}
+        </h2>
+        <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">{subtitle}</p>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
+        {authors.map(a => (
+          <AuthorCard
+            key={a.id}
+            author={a}
+            user={user}
+            isFollowing={followedIds.includes(a.id)}
+            onToggleFollow={onToggleFollow}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ============================================
-// COMPONENT: AuthorCard - formato 2:3, full-bleed con overlay
+// AuthorCard: bianca, piatta, moderna
 // ============================================
 function AuthorCard({
-  author, highlightedMacro, user, isFollowing, onToggleFollow,
+  author, user, isFollowing, onToggleFollow,
 }: {
   author: AuthorEntry
-  highlightedMacro?: MacroArea
   user: any
   isFollowing: boolean
   onToggleFollow: (id: string) => void
 }) {
+  const router = useRouter()
   const displayName = author.author_pseudonym || author.name
   const initial = (displayName || '?').charAt(0).toUpperCase()
   const profileHref = `/profile/${author.username || author.id}`
 
-  const certMacroValue = highlightedMacro && author.certifiedIn.includes(highlightedMacro.value)
-    ? highlightedMacro.value
-    : author.certifiedIn[0]
-  const certMacro = certMacroValue
-    ? MACRO_AREAS.find(m => m.value === certMacroValue)
+  const isCertified = author.certifiedIn.length > 0
+  const certMacro = isCertified
+    ? MACRO_AREAS.find(m => m.value === author.certifiedIn[0])
     : undefined
-  const isCertified = !!certMacro
   const isTopAuthor = author.total_xp >= TOP_XP_THRESHOLD
-  const goldGlow = isTopAuthor
-    ? 'shadow-[0_14px_36px_rgba(251,191,36,0.38)]' : ''
+
+  const isSelf = user && user.id === author.id
+
+  const go = (e: React.MouseEvent) => {
+    // Ignora click se arrivano dal bottone o link figli
+    const target = e.target as HTMLElement
+    if (target.closest('button') || target.closest('a')) return
+    router.push(profileHref)
+  }
+
+  const avgLabel = author.avgRating ? author.avgRating.toFixed(1) : '—'
 
   return (
     <div
-      className={`group snap-start flex-shrink-0 relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-[5px] ${goldGlow}`}
-      style={{ width: '140px', aspectRatio: '2/3' }}
+      onClick={go}
+      className="group relative flex flex-col items-center bg-white dark:bg-[#1e221c] border border-sage-100 dark:border-sage-800 rounded-2xl p-2 sm:p-4 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 cursor-pointer h-full"
     >
-      {/* Background: banner o gradiente */}
-      <Link href={profileHref} className="absolute inset-0 block">
-        {author.author_banner_url ? (
-          <img src={author.author_banner_url} alt="" className="w-full h-full object-cover" />
-        ) : author.avatar_url ? (
-          <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div
-            className="w-full h-full"
-            style={{ background: 'linear-gradient(160deg, #4A6F62 0%, #7a9e6e 45%, #D8E3D8 100%)' }}
-          />
-        )}
-        {/* Dark overlay dal basso */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-      </Link>
-
-      {/* Badges angolo in alto a destra */}
-      <div className="absolute top-2 right-2 flex flex-col items-end gap-1 z-10">
-        {isCertified && certMacro && (
-          <span
-            title={`Autore Certificato in ${certMacro.label}`}
-            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-[0_0_8px_rgba(251,191,36,0.6)]"
-          >
-            <Award className="w-3.5 h-3.5 text-amber-900" strokeWidth={2.5} />
-          </span>
-        )}
-        {!isCertified && isTopAuthor && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-400/90 text-amber-900 text-[9px] font-black tracking-wide uppercase">
-            TOP
-          </span>
-        )}
-      </div>
-
-      {/* Avatar centrato */}
-      <Link href={profileHref} className="absolute left-1/2 -translate-x-1/2 top-[18%] z-10 block">
-        <div className="w-16 h-16 rounded-full border-[3px] border-white/80 overflow-hidden bg-sage-200 dark:bg-sage-700 flex items-center justify-center shadow-lg">
-          {author.avatar_url ? (
-            <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-xl font-bold text-sage-600">{initial}</span>
+      {/* Badges angolo top-right */}
+      {(isCertified || isTopAuthor) && (
+        <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+          {isCertified && certMacro && (
+            <span
+              title={`Autore Certificato in ${certMacro.label}`}
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-sm"
+            >
+              <Award className="w-3 h-3 text-amber-900" strokeWidth={2.5} />
+            </span>
           )}
-        </div>
-      </Link>
-
-      {/* Info overlay in basso */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 px-2.5 pb-2.5 pt-6">
-        <Link href={profileHref}>
-          <h3 className="font-bold text-white text-xs text-center truncate leading-tight group-hover:text-amber-200 transition-colors">
-            {displayName}
-          </h3>
-        </Link>
-        {author.username && (
-          <p className="text-[9px] text-white/60 text-center truncate mt-0.5">@{author.username}</p>
-        )}
-        <div className="flex items-center justify-center gap-2 mt-1.5 text-[9px] text-white/70">
-          <span className="flex items-center gap-0.5" title="Libri pubblicati">
-            <BookOpen className="w-2.5 h-2.5" /> {author.totalBooks}
-          </span>
-          <span className="flex items-center gap-0.5 text-rose-300" title="Like totali">
-            <Heart className="w-2.5 h-2.5" /> {author.totalLikes}
-          </span>
-          <span className="flex items-center gap-0.5 text-sky-300" title="Commenti totali">
-            <MessageCircle className="w-2.5 h-2.5" /> {author.totalComments}
-          </span>
-          {author.total_xp > 0 && (
-            <span className="flex items-center gap-0.5 text-emerald-300" title="Punti XP">
-              <Sparkles className="w-2.5 h-2.5" /> {author.total_xp >= 1000 ? `${(author.total_xp / 1000).toFixed(1)}k` : author.total_xp}
+          {!isCertified && isTopAuthor && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-400/90 text-amber-900 text-[9px] font-black tracking-wide uppercase">
+              TOP
             </span>
           )}
         </div>
-        <div className="mt-2">
-          {user && user.id === author.id ? (
-            <Link
-              href="/dashboard/profilo-autore"
-              className="flex items-center justify-center gap-1 w-full px-2 py-1 rounded-full text-[10px] font-semibold text-white/80 hover:text-white border border-white/30 hover:border-white/60 transition-colors bg-white/10"
-            >
-              <Pencil className="w-2.5 h-2.5" /> Modifica
-            </Link>
-          ) : user ? (
-            <button
-              onClick={(e) => { e.preventDefault(); onToggleFollow(author.id) }}
-              className={`w-full px-2 py-1 rounded-full text-[10px] font-semibold transition-colors ${isFollowing ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-white text-sage-800 hover:bg-amber-100'}`}
-            >
-              {isFollowing ? 'Seguito' : 'Segui'}
-            </button>
+      )}
+
+      {/* Avatar con bordo colorato */}
+      <Link href={profileHref} className="block">
+        <div
+          className={`rounded-full overflow-hidden flex items-center justify-center bg-sage-100 dark:bg-sage-700 w-14 h-14 sm:w-20 sm:h-20 border-2 ${
+            isFollowing
+              ? 'border-sage-500'
+              : 'border-sage-200 dark:border-sage-700'
+          } transition-colors`}
+        >
+          {author.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
           ) : (
-            <Link href={profileHref} className="block text-center w-full px-2 py-1 rounded-full text-[10px] font-semibold bg-white/20 text-white hover:bg-white/30 transition-colors">
-              Vedi profilo
-            </Link>
+            <span className="text-lg sm:text-2xl font-bold text-sage-600 dark:text-sage-300">{initial}</span>
           )}
         </div>
+      </Link>
+
+      {/* Nome + username */}
+      <Link href={profileHref} className="mt-2 w-full text-center">
+        <h3 className="font-bold text-sage-900 dark:text-sage-100 text-sm sm:text-base truncate leading-tight">
+          {displayName || 'Anonimo'}
+        </h3>
+        {author.username && (
+          <p className="text-[11px] sm:text-xs text-bark-400 dark:text-sage-500 truncate mt-0.5">
+            @{author.username}
+          </p>
+        )}
+      </Link>
+
+      {/* Stat row */}
+      <div className="flex items-center justify-center gap-2 sm:gap-3 mt-2 text-[11px] sm:text-xs text-bark-500 dark:text-sage-400 w-full">
+        <span className="inline-flex items-center gap-0.5" title="Libri pubblicati">
+          <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <span className="font-semibold">{author.totalBooks}</span>
+        </span>
+        <span className="inline-flex items-center gap-0.5" title="Follower">
+          <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <span className="font-semibold">{author.totalFollowers}</span>
+        </span>
+        <span className="inline-flex items-center gap-0.5" title="Voto medio">
+          <Star className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${author.avgRating ? 'text-amber-400 fill-amber-400' : ''}`} />
+          <span className="font-semibold">{avgLabel}</span>
+        </span>
+      </div>
+
+      {/* CTA */}
+      <div className="mt-auto pt-3 w-full">
+        {isSelf ? (
+          <Link
+            href="/dashboard/profilo-autore"
+            className="flex items-center justify-center gap-1 w-full rounded-full text-[11px] sm:text-xs font-semibold text-sage-700 dark:text-sage-300 border border-sage-200 dark:border-sage-700 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors h-8 sm:h-10"
+          >
+            <Pencil className="w-3 h-3" /> Modifica
+          </Link>
+        ) : user ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggleFollow(author.id) }}
+            className={`w-full rounded-full text-[11px] sm:text-xs font-semibold transition-colors h-8 sm:h-10 flex items-center justify-center gap-1 ${
+              isFollowing
+                ? 'bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-200 hover:bg-sage-200 dark:hover:bg-sage-700'
+                : 'bg-sage-500 text-white hover:bg-sage-600'
+            }`}
+          >
+            {isFollowing && <Check className="w-3 h-3" />}
+            {isFollowing ? 'Seguito' : 'Segui'}
+          </button>
+        ) : (
+          <Link
+            href={profileHref}
+            className="flex items-center justify-center w-full rounded-full text-[11px] sm:text-xs font-semibold bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-300 hover:bg-sage-200 dark:hover:bg-sage-700 transition-colors h-8 sm:h-10"
+          >
+            Vedi profilo
+          </Link>
+        )}
       </div>
     </div>
   )
