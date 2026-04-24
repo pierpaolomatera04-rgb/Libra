@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useNotifications } from '@/hooks/useNotifications'
+import { getXpLevel } from '@/lib/badges'
 import { toast } from 'sonner'
 
 export default function Navbar() {
@@ -23,6 +24,10 @@ export default function Navbar() {
   const [authTimeout, setAuthTimeout] = useState(false)
   const pathname = usePathname()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.id)
+
+  // XP livello per il widget in navbar
+  const totalXp = profile?.total_xp || 0
+  const xpLevel = profile ? getXpLevel(totalXp) : null
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -146,6 +151,33 @@ export default function Navbar() {
                 </div>
               ) : user ? (
                 <>
+                  {/* XP livello — mobile compact */}
+                  {xpLevel && (
+                    <Link
+                      href="/cammino-lettore"
+                      className="flex items-center gap-1 px-1 py-0.5 mr-0.5 rounded-full hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+                      title={`Livello ${xpLevel.level} • ${totalXp.toLocaleString()} XP`}
+                    >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                        xpLevel.level >= 50
+                          ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-yellow-900'
+                          : 'bg-sage-500 text-white'
+                      }`}>
+                        {xpLevel.level}
+                      </div>
+                      <div className="h-1 w-6 bg-sage-200 dark:bg-sage-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            xpLevel.level >= 50
+                              ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
+                              : 'bg-sage-500'
+                          }`}
+                          style={{ width: `${Math.min(100, xpLevel.progress * 100)}%` }}
+                        />
+                      </div>
+                    </Link>
+                  )}
+
                   {/* Wallet */}
                   <Link
                     href="/wallet"
@@ -236,6 +268,66 @@ export default function Navbar() {
 
             {/* === DESKTOP: azioni (md+) === */}
             <div className="hidden md:flex items-center gap-1.5">
+              {/* XP widget — livello + barra progresso */}
+              {user && xpLevel && (
+                <Link
+                  href="/cammino-lettore"
+                  className="group hidden lg:flex items-center gap-2 pl-1 pr-3 py-1 mr-1 rounded-full bg-sage-50 dark:bg-sage-800/60 hover:bg-sage-100 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-700/50 transition-all"
+                  title={`Livello ${xpLevel.level} • ${xpLevel.title} • ${totalXp.toLocaleString()} XP`}
+                >
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${
+                    xpLevel.level >= 50
+                      ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-yellow-900'
+                      : 'bg-sage-500 text-white'
+                  }`}>
+                    {xpLevel.level}
+                  </div>
+                  <div className="flex flex-col min-w-[72px]">
+                    <div className="flex items-center justify-between gap-2 leading-none">
+                      <span className="text-[10px] font-bold text-sage-700 dark:text-sage-200 truncate">{xpLevel.title}</span>
+                      <span className="text-[9px] text-sage-500 dark:text-sage-400 font-medium">{totalXp.toLocaleString()}</span>
+                    </div>
+                    <div className="mt-1 h-1 w-full bg-sage-200 dark:bg-sage-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          xpLevel.level >= 50
+                            ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
+                            : 'bg-sage-500'
+                        }`}
+                        style={{ width: `${Math.min(100, xpLevel.progress * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </Link>
+              )}
+
+              {/* XP compact — solo md (quando non c'è spazio per la barra) */}
+              {user && xpLevel && (
+                <Link
+                  href="/cammino-lettore"
+                  className="flex lg:hidden items-center gap-1.5 px-1.5 py-1 mr-0.5 rounded-full bg-sage-50 dark:bg-sage-800/60 hover:bg-sage-100 dark:hover:bg-sage-800 border border-sage-100 dark:border-sage-700/50 transition-all"
+                  title={`Livello ${xpLevel.level} • ${xpLevel.title} • ${totalXp.toLocaleString()} XP`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                    xpLevel.level >= 50
+                      ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-yellow-900'
+                      : 'bg-sage-500 text-white'
+                  }`}>
+                    {xpLevel.level}
+                  </div>
+                  <div className="h-1 w-10 bg-sage-200 dark:bg-sage-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        xpLevel.level >= 50
+                          ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
+                          : 'bg-sage-500'
+                      }`}
+                      style={{ width: `${Math.min(100, xpLevel.progress * 100)}%` }}
+                    />
+                  </div>
+                </Link>
+              )}
+
               {/* Filtri */}
               <button
                 onClick={toggleBlueLightFilter}
