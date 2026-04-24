@@ -6,18 +6,24 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  Search, BookOpen, Users, X, Pencil, Award, Gift,
+  Search, BookOpen, Users, X, Pencil, Award,
   Sparkles, TrendingUp, Star, Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { MACRO_AREAS, getMacroAreaByGenre, type MacroArea } from '@/lib/genres'
+import { MACRO_AREAS, getMacroAreaByGenre } from '@/lib/genres'
 import { awardXp } from '@/lib/xp'
 import { XP_VALUES } from '@/lib/badges'
+import AuthorCardEditor from '@/components/authors/AuthorCardEditor'
+import {
+  CardColorPreset,
+  getPreset,
+  presetFromMacros,
+} from '@/components/authors/authorCardBg'
+import { getRank } from '@/components/authors/authorRank'
 
 const CERT_MIN_BOOKS = 3
 const CERT_MIN_XP = 2400
 const CERT_MIN_LIKES = 50
-const TOP_XP_THRESHOLD = 900
 const NEW_AUTHOR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 type ViewTab = 'scopri' | 'seguiti' | 'nuovi'
@@ -27,8 +33,10 @@ interface AuthorEntry {
   name: string | null
   username: string | null
   author_pseudonym: string | null
+  author_bio: string | null
   avatar_url: string | null
   author_banner_url: string | null
+  profile_card_color: CardColorPreset | null
   created_at: string
   total_xp: number
   totalBooks: number
@@ -38,7 +46,6 @@ interface AuthorEntry {
   totalReads: number
   totalFollowers: number
   engagementScore: number
-  totalTipped: number
   avgRating: number | null
   genres: string[]
   booksByMacro: Record<string, number>
@@ -52,6 +59,7 @@ export default function AuthorsPage() {
   const [followedIds, setFollowedIds] = useState<string[]>([])
   const [viewTab, setViewTab] = useState<ViewTab>('scopri')
   const [userReadGenres, setUserReadGenres] = useState<Set<string>>(new Set())
+  const [editorOpen, setEditorOpen] = useState(false)
   const { user, profile } = useAuth()
   const supabase = createClient()
 
@@ -59,23 +67,21 @@ export default function AuthorsPage() {
     setLoading(true)
     let query = supabase
       .from('profiles')
-      .select('id, name, username, author_pseudonym, author_bio, avatar_url, author_banner_url, created_at, total_xp')
+      .select('id, name, username, author_pseudonym, author_bio, avatar_url, author_banner_url, profile_card_color, created_at, total_xp')
       .eq('is_author', true)
     if (search) query = query.or(`author_pseudonym.ilike.%${search}%,name.ilike.%${search}%`)
     const { data } = await query
     if (data && data.length > 0) {
       const authorIds = data.map((a: any) => a.id)
-      const [allBooksRes, followersRes, donationsRes] = await Promise.all([
+      const [allBooksRes, followersRes] = await Promise.all([
         supabase.from('books')
           .select('id, author_id, total_likes, total_reads, genre, status, average_rating, total_reviews')
           .in('author_id', authorIds)
           .in('status', ['published', 'ongoing', 'completed']),
         supabase.from('follows').select('following_id').in('following_id', authorIds),
-        supabase.from('donations').select('author_id, amount').in('author_id', authorIds).gte('amount', 5),
       ])
       const allBooks = allBooksRes.data || []
       const allFollows = followersRes.data || []
-      const allDonations = donationsRes.data || []
 
       const bookIds = allBooks.map((b: any) => b.id)
       const commentsPerBook = new Map<string, number>()
@@ -85,20 +91,14 @@ export default function AuthorsPage() {
           supabase.from('comments').select('book_id').in('book_id', bookIds),
           supabase.from('block_unlocks').select('book_id').in('book_id', bookIds),
         ])
-        for (const c of commentsRes.data || []) {
-          commentsPerBook.set(c.book_id, (commentsPerBook.get(c.book_id) || 0) + 1)
-        }
-        for (const u of unlocksRes.data || []) {
-          unlocksPerBook.set(u.book_id, (unlocksPerBook.get(u.book_id) || 0) + 1)
-        }
+        for (const c of commentsRes.data || []) commentsPerBook.set(c.book_id, (commentsPerBook.get(c.book_id) || 0) + 1)
+        for (const u of unlocksRes.data || []) unlocksPerBook.set(u.book_id, (unlocksPerBook.get(u.book_id) || 0) + 1)
       }
 
       const booksByAuthor = new Map<string, any[]>()
       for (const b of allBooks) { const list = booksByAuthor.get(b.author_id) || []; list.push(b); booksByAuthor.set(b.author_id, list) }
       const followersCount = new Map<string, number>()
-      for (const f of allFollows) { followersCount.set(f.following_id, (followersCount.get(f.following_id) || 0) + 1) }
-      const tippedByAuthor = new Map<string, number>()
-      for (const d of allDonations) { tippedByAuthor.set(d.author_id, (tippedByAuthor.get(d.author_id) || 0) + (d.amount || 0)) }
+      for (const f of allFollows) followersCount.set(f.following_id, (followersCount.get(f.following_id) || 0) + 1)
 
       const enriched: AuthorEntry[] = data.map((a: any) => {
         const books = booksByAuthor.get(a.id) || []
@@ -135,7 +135,6 @@ export default function AuthorsPage() {
           totalReads,
           totalFollowers: followersCount.get(a.id) || 0,
           engagementScore,
-          totalTipped: tippedByAuthor.get(a.id) || 0,
           avgRating: ratedBooks > 0 ? ratingSum / ratedBooks : null,
           genres: Array.from(genres),
           booksByMacro,
@@ -208,28 +207,17 @@ export default function AuthorsPage() {
       const matched = baseAuthors.filter(a => {
         if (!excludeSelf(a)) return false
         const directMatch = a.genres.some(g => targetGenres!.has(g))
-        const macroMatch = a.genres.some(g => {
-          const m = getMacroAreaByGenre(g)
-          return m ? targetMacros.has(m.value) : false
-        })
+        const macroMatch = a.genres.some(g => { const m = getMacroAreaByGenre(g); return m ? targetMacros.has(m.value) : false })
         return directMatch || macroMatch
       })
-      if (matched.length > 0) {
-        return [...matched].sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
-      }
+      if (matched.length > 0) return [...matched].sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
     }
-    return [...baseAuthors]
-      .filter(a => excludeSelf(a) && a.totalBooks >= 1)
-      .sort((a, b) => b.engagementScore - a.engagementScore)
-      .slice(0, 20)
+    return [...baseAuthors].filter(a => excludeSelf(a) && a.totalBooks >= 1)
+      .sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
   }, [baseAuthors, profile?.preferred_genres, userReadGenres, user])
 
   const topVotati = useMemo(() =>
     [...baseAuthors].filter(a => a.engagementScore > 0).sort((a, b) => b.engagementScore - a.engagementScore).slice(0, 20)
-  , [baseAuthors])
-
-  const topSupportati = useMemo(() =>
-    [...baseAuthors].filter(a => a.totalTipped > 0).sort((a, b) => b.totalTipped - a.totalTipped).slice(0, 20)
   , [baseAuthors])
 
   const nuovePromesse = useMemo(() =>
@@ -237,28 +225,26 @@ export default function AuthorsPage() {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 20)
   , [baseAuthors, now])
 
-  // Dedup: ogni autore appare nella prima sezione dove è idoneo
+  // Dedup
   const shown = new Set<string>()
   const dedup = (list: AuthorEntry[]) => {
     const out: AuthorEntry[] = []
     for (const a of list) {
       if (shown.has(a.id)) continue
-      shown.add(a.id)
-      out.push(a)
+      shown.add(a.id); out.push(a)
     }
     return out
   }
   const recommendedD = dedup(recommended)
   const topVotatiD = dedup(topVotati)
-  const topSupportatiD = dedup(topSupportati)
   const nuovePromesseD = dedup(nuovePromesse)
 
   const isDiscoveryMode = viewTab === 'scopri' && !search
+  const myEntry = user ? authors.find(a => a.id === user.id) : undefined
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-      {/* ── Sticky filter bar ── */}
       <div
         className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 pb-2.5 border-b border-sage-100/50 dark:border-sage-800/40"
         style={{ backgroundColor: 'color-mix(in srgb, var(--background) 88%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
@@ -280,7 +266,6 @@ export default function AuthorsPage() {
             )}
           </div>
         </div>
-        {/* Tabs scrollabili orizzontalmente su mobile */}
         <div className="flex items-center gap-1 overflow-x-auto -mx-1 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {([
             { key: 'scopri' as ViewTab, label: '✨ Scopri' },
@@ -301,7 +286,7 @@ export default function AuthorsPage() {
               <div className="h-5 w-48 bg-sage-100 dark:bg-sage-800 rounded mb-3 animate-pulse" />
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {[1, 2, 3, 4].map(j => (
-                  <div key={j} className="h-48 bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" />
+                  <div key={j} className="h-[280px] bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" />
                 ))}
               </div>
             </div>
@@ -318,36 +303,30 @@ export default function AuthorsPage() {
             user={user}
             followedIds={followedIds}
             onToggleFollow={toggleFollow}
+            onEditSelf={() => setEditorOpen(true)}
           />
           <Section
             icon={<TrendingUp className="w-4 h-4 text-rose-500" />}
-            title="I Più Votati"
-            subtitle="Gli autori con più like, commenti, letture e sblocchi"
+            title="I più votati"
+            subtitle="Gli autori con più like, commenti e letture"
             authors={topVotatiD}
             user={user}
             followedIds={followedIds}
             onToggleFollow={toggleFollow}
-          />
-          <Section
-            icon={<Gift className="w-4 h-4 text-amber-500" />}
-            title="I Più Supportati"
-            subtitle="Autori che hanno ricevuto più mance e boost"
-            authors={topSupportatiD}
-            user={user}
-            followedIds={followedIds}
-            onToggleFollow={toggleFollow}
+            onEditSelf={() => setEditorOpen(true)}
           />
           <Section
             icon={<Star className="w-4 h-4 text-emerald-500" />}
-            title="Nuove Promesse"
-            subtitle="Iscritti negli ultimi 30 giorni con almeno un libro"
+            title="Nuove promesse"
+            subtitle="Scopri chi ha iniziato a pubblicare di recente"
             authors={nuovePromesseD}
             user={user}
             followedIds={followedIds}
             onToggleFollow={toggleFollow}
+            onEditSelf={() => setEditorOpen(true)}
           />
 
-          {recommendedD.length === 0 && topVotatiD.length === 0 && topSupportatiD.length === 0 && nuovePromesseD.length === 0 && (
+          {recommendedD.length === 0 && topVotatiD.length === 0 && nuovePromesseD.length === 0 && (
             <div className="text-center py-20">
               <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
               <p className="text-bark-500 dark:text-sage-400 text-lg">Nessun autore trovato</p>
@@ -370,25 +349,54 @@ export default function AuthorsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {[...baseAuthors]
                 .sort((a, b) => b.total_xp - a.total_xp)
                 .map(a => (
-                  <AuthorCard key={a.id} author={a} user={user} isFollowing={followedIds.includes(a.id)} onToggleFollow={toggleFollow} />
+                  <AuthorCard
+                    key={a.id}
+                    author={a}
+                    user={user}
+                    isFollowing={followedIds.includes(a.id)}
+                    onToggleFollow={toggleFollow}
+                    onEditSelf={() => setEditorOpen(true)}
+                  />
                 ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Editor proprietario */}
+      {user && myEntry && (
+        <AuthorCardEditor
+          open={editorOpen}
+          onClose={() => setEditorOpen(false)}
+          defaults={{
+            name: myEntry.name,
+            username: myEntry.username,
+            author_pseudonym: myEntry.author_pseudonym,
+            author_bio: myEntry.author_bio,
+            avatar_url: myEntry.avatar_url,
+            profile_card_color: myEntry.profile_card_color,
+            total_xp: myEntry.total_xp,
+            booksByMacro: myEntry.booksByMacro,
+            totalBooks: myEntry.totalBooks,
+            totalFollowers: myEntry.totalFollowers,
+            avgRating: myEntry.avgRating,
+          }}
+          onSaved={fetchAuthors}
+        />
       )}
     </div>
   )
 }
 
 // ============================================
-// Section: titolo + grid uniforme
+// Section
 // ============================================
 function Section({
-  icon, title, subtitle, authors, user, followedIds, onToggleFollow,
+  icon, title, subtitle, authors, user, followedIds, onToggleFollow, onEditSelf,
 }: {
   icon: React.ReactNode
   title: string
@@ -397,6 +405,7 @@ function Section({
   user: any
   followedIds: string[]
   onToggleFollow: (id: string) => void
+  onEditSelf: () => void
 }) {
   if (authors.length === 0) return null
   return (
@@ -407,7 +416,7 @@ function Section({
         </h2>
         <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">{subtitle}</p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {authors.map(a => (
           <AuthorCard
             key={a.id}
@@ -415,6 +424,7 @@ function Section({
             user={user}
             isFollowing={followedIds.includes(a.id)}
             onToggleFollow={onToggleFollow}
+            onEditSelf={onEditSelf}
           />
         ))}
       </div>
@@ -423,94 +433,113 @@ function Section({
 }
 
 // ============================================
-// AuthorCard: bianca, piatta, moderna
+// AuthorCard — verticale 2:3, altezza fissa, slot fissi
 // ============================================
 function AuthorCard({
-  author, user, isFollowing, onToggleFollow,
+  author, user, isFollowing, onToggleFollow, onEditSelf,
 }: {
   author: AuthorEntry
   user: any
   isFollowing: boolean
   onToggleFollow: (id: string) => void
+  onEditSelf: () => void
 }) {
   const router = useRouter()
-  const displayName = author.author_pseudonym || author.name
+  const displayName = author.author_pseudonym || author.name || 'Anonimo'
   const initial = (displayName || '?').charAt(0).toUpperCase()
   const profileHref = `/profile/${author.username || author.id}`
-
-  const isCertified = author.certifiedIn.length > 0
-  const certMacro = isCertified
-    ? MACRO_AREAS.find(m => m.value === author.certifiedIn[0])
-    : undefined
-  const isTopAuthor = author.total_xp >= TOP_XP_THRESHOLD
-
   const isSelf = user && user.id === author.id
 
+  const preset = getPreset(author.profile_card_color || presetFromMacros(author.booksByMacro))
+  const rank = getRank(author.total_xp)
+  const isCertified = author.certifiedIn.length > 0
+  const certMacro = isCertified ? MACRO_AREAS.find(m => m.value === author.certifiedIn[0]) : undefined
+
   const go = (e: React.MouseEvent) => {
-    // Ignora click se arrivano dal bottone o link figli
     const target = e.target as HTMLElement
     if (target.closest('button') || target.closest('a')) return
     router.push(profileHref)
   }
 
-  const avgLabel = author.avgRating ? author.avgRating.toFixed(1) : '—'
-
   return (
     <div
       onClick={go}
-      className="group relative flex flex-col items-center bg-white dark:bg-[#1e221c] border border-sage-100 dark:border-sage-800 rounded-2xl p-2 sm:p-4 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 cursor-pointer h-full"
+      className="group relative rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer h-[280px] sm:h-[340px] flex flex-col items-center px-2 sm:px-4 pt-4 sm:pt-5 pb-2 sm:pb-3 text-white"
+      style={{ background: preset.gradient }}
     >
-      {/* Badges angolo top-right */}
-      {(isCertified || isTopAuthor) && (
-        <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
-          {isCertified && certMacro && (
-            <span
-              title={`Autore Certificato in ${certMacro.label}`}
-              className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-sm"
-            >
-              <Award className="w-3 h-3 text-amber-900" strokeWidth={2.5} />
-            </span>
-          )}
-          {!isCertified && isTopAuthor && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-400/90 text-amber-900 text-[9px] font-black tracking-wide uppercase">
-              TOP
-            </span>
-          )}
-        </div>
-      )}
+      {/* Overlay leggibilità */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent pointer-events-none" />
 
-      {/* Avatar con bordo colorato */}
-      <Link href={profileHref} className="block">
+      {/* Top-right badges + pencil */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+        {isCertified && certMacro && (
+          <span
+            title={`Autore Certificato in ${certMacro.label}`}
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-sm"
+          >
+            <Award className="w-3 h-3 text-amber-900" strokeWidth={2.5} />
+          </span>
+        )}
+        {isSelf && (
+          <button
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEditSelf() }}
+            title="Personalizza profilo"
+            className="w-6 h-6 rounded-full bg-white/25 hover:bg-white/45 backdrop-blur flex items-center justify-center transition-colors"
+          >
+            <Pencil className="w-3 h-3 text-white" />
+          </button>
+        )}
+      </div>
+
+      {/* Avatar */}
+      <Link href={profileHref} onClick={(e) => e.stopPropagation()} className="relative z-10 block">
         <div
-          className={`rounded-full overflow-hidden flex items-center justify-center bg-sage-100 dark:bg-sage-700 w-14 h-14 sm:w-20 sm:h-20 border-2 ${
-            isFollowing
-              ? 'border-sage-500'
-              : 'border-sage-200 dark:border-sage-700'
-          } transition-colors`}
+          className={`rounded-full overflow-hidden flex items-center justify-center bg-white/20 w-14 h-14 sm:w-20 sm:h-20 border-2 ${
+            isFollowing ? 'border-emerald-300' : 'border-white/70'
+          }`}
         >
           {author.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
           ) : (
-            <span className="text-lg sm:text-2xl font-bold text-sage-600 dark:text-sage-300">{initial}</span>
+            <span className="text-lg sm:text-2xl font-bold text-white">{initial}</span>
           )}
         </div>
       </Link>
 
-      {/* Nome + username */}
-      <Link href={profileHref} className="mt-2 w-full text-center">
-        <h3 className="font-bold text-sage-900 dark:text-sage-100 text-sm sm:text-base truncate leading-tight">
-          {displayName || 'Anonimo'}
-        </h3>
-        {author.username && (
-          <p className="text-[11px] sm:text-xs text-bark-400 dark:text-sage-500 truncate mt-0.5">
-            @{author.username}
-          </p>
-        )}
-      </Link>
+      {/* Nome */}
+      <h3
+        className="relative z-10 font-bold text-sm sm:text-base mt-2 text-center leading-tight px-1 w-full line-clamp-1"
+        style={{ minHeight: 18 }}
+      >
+        {displayName}
+      </h3>
 
-      {/* Stat row */}
-      <div className="flex items-center justify-center gap-2 sm:gap-3 mt-2 text-[11px] sm:text-xs text-bark-500 dark:text-sage-400 w-full">
+      {/* @username (sempre spazio) */}
+      <p
+        className="relative z-10 text-[11px] sm:text-xs text-white/70 text-center truncate w-full"
+        style={{ minHeight: 16 }}
+      >
+        {author.username ? `@${author.username}` : '\u00A0'}
+      </p>
+
+      {/* Bio (sempre spazio) */}
+      <p
+        className="relative z-10 text-[10px] sm:text-xs text-white/85 text-center line-clamp-2 w-full px-1 mt-1"
+        style={{ minHeight: 28 }}
+      >
+        {author.author_bio ? author.author_bio.slice(0, 60) : '\u00A0'}
+      </p>
+
+      {/* Rank */}
+      <span
+        className={`relative z-10 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold mt-1.5 ${rank.chip}`}
+      >
+        {rank.label}
+      </span>
+
+      {/* Stats */}
+      <div className="relative z-10 flex items-center justify-center gap-2 sm:gap-3 mt-1.5 text-[11px] sm:text-xs text-white/95">
         <span className="inline-flex items-center gap-0.5" title="Libri pubblicati">
           <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           <span className="font-semibold">{author.totalBooks}</span>
@@ -520,27 +549,28 @@ function AuthorCard({
           <span className="font-semibold">{author.totalFollowers}</span>
         </span>
         <span className="inline-flex items-center gap-0.5" title="Voto medio">
-          <Star className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${author.avgRating ? 'text-amber-400 fill-amber-400' : ''}`} />
-          <span className="font-semibold">{avgLabel}</span>
+          <Star className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${author.avgRating ? 'text-amber-300 fill-amber-300' : ''}`} />
+          <span className="font-semibold">{author.avgRating ? author.avgRating.toFixed(1) : '—'}</span>
         </span>
       </div>
 
-      {/* CTA */}
-      <div className="mt-auto pt-3 w-full">
+      {/* CTA — fondo allineato */}
+      <div className="relative z-10 mt-auto w-full pt-2">
         {isSelf ? (
           <Link
             href="/dashboard/profilo-autore"
-            className="flex items-center justify-center gap-1 w-full rounded-full text-[11px] sm:text-xs font-semibold text-sage-700 dark:text-sage-300 border border-sage-200 dark:border-sage-700 hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors h-8 sm:h-10"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-center gap-1 w-full rounded-full text-[11px] sm:text-xs font-semibold text-white border border-white/50 hover:bg-white/15 transition-colors h-8 sm:h-10"
           >
             <Pencil className="w-3 h-3" /> Modifica
           </Link>
         ) : user ? (
           <button
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggleFollow(author.id) }}
-            className={`w-full rounded-full text-[11px] sm:text-xs font-semibold transition-colors h-8 sm:h-10 flex items-center justify-center gap-1 ${
+            className={`w-full rounded-full text-[11px] sm:text-xs font-bold transition-colors h-8 sm:h-10 flex items-center justify-center gap-1 ${
               isFollowing
-                ? 'bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-200 hover:bg-sage-200 dark:hover:bg-sage-700'
-                : 'bg-sage-500 text-white hover:bg-sage-600'
+                ? 'bg-white/25 text-white hover:bg-white/35 backdrop-blur'
+                : 'bg-white text-sage-800 hover:bg-amber-100'
             }`}
           >
             {isFollowing && <Check className="w-3 h-3" />}
@@ -549,7 +579,8 @@ function AuthorCard({
         ) : (
           <Link
             href={profileHref}
-            className="flex items-center justify-center w-full rounded-full text-[11px] sm:text-xs font-semibold bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-300 hover:bg-sage-200 dark:hover:bg-sage-700 transition-colors h-8 sm:h-10"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-center w-full rounded-full text-[11px] sm:text-xs font-semibold bg-white/25 text-white hover:bg-white/35 transition-colors h-8 sm:h-10"
           >
             Vedi profilo
           </Link>
