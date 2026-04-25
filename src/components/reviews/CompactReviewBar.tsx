@@ -211,21 +211,46 @@ export default function CompactReviewBar({
                 <div className="space-y-2">
                   {latest.map((r) => (
                     <div key={r.id} className="flex items-start gap-2 p-2 rounded-lg bg-sage-50 dark:bg-sage-900/40">
-                      {r.user?.avatar_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={r.user.avatar_url}
-                          alt=""
-                          className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-                        />
+                      {r.user?.username ? (
+                        <Link href={`/profile/${r.user.username}`} onClick={(e) => e.stopPropagation()}>
+                          {r.user?.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={r.user.avatar_url}
+                              alt=""
+                              className="w-7 h-7 rounded-full object-cover flex-shrink-0 hover:ring-2 hover:ring-sage-400 transition-all"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-sage-300 dark:bg-sage-700 flex-shrink-0 hover:ring-2 hover:ring-sage-400 transition-all" />
+                          )}
+                        </Link>
                       ) : (
-                        <div className="w-7 h-7 rounded-full bg-sage-300 dark:bg-sage-700 flex-shrink-0" />
+                        r.user?.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={r.user.avatar_url}
+                            alt=""
+                            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-sage-300 dark:bg-sage-700 flex-shrink-0" />
+                        )
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-semibold text-sage-900 dark:text-sage-100 truncate">
-                            {r.user?.name || r.user?.username || 'Anonimo'}
-                          </span>
+                          {r.user?.username ? (
+                            <Link
+                              href={`/profile/${r.user.username}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs font-semibold text-sage-900 dark:text-sage-100 truncate hover:underline"
+                            >
+                              {r.user?.name || r.user?.username}
+                            </Link>
+                          ) : (
+                            <span className="text-xs font-semibold text-sage-900 dark:text-sage-100 truncate">
+                              {r.user?.name || 'Anonimo'}
+                            </span>
+                          )}
                           <span className="inline-flex items-center gap-0.5 text-xs text-amber-500">
                             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                             {r.stars}
