@@ -7,7 +7,7 @@ import {
   Trophy, Loader2, Crown, BookOpen,
   Users, TrendingUp, Heart, Eye, Sparkles,
   Layers, UserPlus, Zap, Coins, MessageCircle, PenTool, Star,
-  ArrowUpRight, ArrowDownRight, ArrowRight, Clock,
+  ArrowUpRight, ArrowDownRight, ArrowRight, Clock, Calendar, Edit3,
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel, getRankTier, type RankTier } from '@/lib/badges'
@@ -59,6 +59,24 @@ function rankStyle(index: number) {
   if (index === 1) return 'bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 border-gray-200 dark:border-gray-700'
   if (index === 2) return 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800'
   return 'bg-white dark:bg-[#1e221c] border-sage-100 dark:border-sage-800'
+}
+
+// "Iscritto oggi" / "Iscritto N giorni fa" / "N settimane fa" / "N mesi fa"
+function relativeJoined(iso: string | null | undefined): string {
+  if (!iso) return 'Iscritto da poco'
+  const target = new Date(iso)
+  const now = new Date()
+  const diffMs = now.getTime() - target.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays <= 0) return 'Iscritto oggi'
+  if (diffDays === 1) return 'Iscritto 1 giorno fa'
+  if (diffDays < 7) return `Iscritto ${diffDays} giorni fa`
+  if (diffDays < 30) {
+    const w = Math.round(diffDays / 7)
+    return `Iscritto ${w} ${w === 1 ? 'settimana' : 'settimane'} fa`
+  }
+  const m = Math.round(diffDays / 30)
+  return `Iscritto ${m} ${m === 1 ? 'mese' : 'mesi'} fa`
 }
 
 // Data relativa in italiano: "Oggi" / "Domani" / "Tra N giorni" / "In attesa"
@@ -327,14 +345,56 @@ export default function ClassificaPage() {
             </span>
           </div>
         </div>
-        {/* Metrica principale tab Autori: follower */}
+        {/* Metrica principale contestuale per filtro */}
         <div className="flex-shrink-0">
-          <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
-            <Users className="w-3.5 h-3.5 text-sage-500" />
-            <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(a.follower_count || 0)}</span>
-          </div>
+          {renderAuthorMetric(a)}
         </div>
       </Link>
+    )
+  }
+
+  // Metrica destra dinamica per tab Autori
+  const renderAuthorMetric = (a: any) => {
+    const baseCls = 'flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold'
+
+    if (authorFilter === 'reads') {
+      return (
+        <div className={`${baseCls} bg-sage-50 dark:bg-sage-800 border-sage-100 dark:border-sage-700`}>
+          <BookOpen className="w-3.5 h-3.5 text-sage-500" />
+          <span className="text-sage-700 dark:text-sage-300">{fmt(a.total_reads || 0)}</span>
+          <span className="text-[10px] font-medium text-bark-400 dark:text-sage-500">pag.</span>
+        </div>
+      )
+    }
+
+    if (authorFilter === 'active') {
+      const n = Number(a.blocks_30d || 0)
+      return (
+        <div className={`${baseCls} bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800`}>
+          <Edit3 className="w-3.5 h-3.5 text-violet-500" />
+          <span className="text-violet-700 dark:text-violet-300">{n}</span>
+          <span className="text-[10px] font-medium text-violet-600/70 dark:text-violet-400/70">
+            {n === 1 ? 'blocco' : 'blocchi'}
+          </span>
+        </div>
+      )
+    }
+
+    if (authorFilter === 'new') {
+      return (
+        <div className={`${baseCls} bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800`}>
+          <Calendar className="w-3.5 h-3.5 text-sky-500" />
+          <span className="text-sky-700 dark:text-sky-300 text-[11px]">{relativeJoined(a.created_at)}</span>
+        </div>
+      )
+    }
+
+    // default: 'followers'
+    return (
+      <div className={`${baseCls} bg-sage-50 dark:bg-sage-800 border-sage-100 dark:border-sage-700`}>
+        <Users className="w-3.5 h-3.5 text-sage-500" />
+        <span className="text-sage-700 dark:text-sage-300">{fmt(a.follower_count || 0)}</span>
+      </div>
     )
   }
 
