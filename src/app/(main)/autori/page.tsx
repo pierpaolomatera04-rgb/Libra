@@ -262,20 +262,23 @@ export default function AuthorsPage() {
       .slice(0, 20)
   , [baseAuthors])
 
-  // Dedup
-  const shown = new Set<string>()
-  const dedup = (list: AuthorEntry[]) => {
-    const out: AuthorEntry[] = []
-    for (const a of list) {
-      if (shown.has(a.id)) continue
-      shown.add(a.id); out.push(a)
-    }
-    return out
+  // Niente dedup tra sezioni — come in Sfoglia, ogni sezione è indipendente
+  const recommendedD = recommended
+  const topVotatiD = topVotati
+  const nuovePromesseD = nuovePromesse
+  const piuSupportatiD = piuSupportati
+
+  // DEBUG: log per ogni sezione
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[AutoriSezioni]', {
+      recommended: recommendedD.length,
+      topVotati: topVotatiD.length,
+      nuovePromesse: nuovePromesseD.length,
+      piuSupportati: piuSupportatiD.length,
+      totalAuthors: authors.length,
+    })
   }
-  const recommendedD = dedup(recommended)
-  const topVotatiD = dedup(topVotati)
-  const nuovePromesseD = dedup(nuovePromesse)
-  const piuSupportatiD = dedup(piuSupportati)
 
   const isDiscoveryMode = viewTab === 'scopri' && !search
   const myEntry = user ? authors.find(a => a.id === user.id) : undefined
@@ -456,7 +459,6 @@ function Section({
   onToggleFollow: (id: string) => void
   onEditSelf: () => void
 }) {
-  if (authors.length === 0) return null
   return (
     <section>
       <div className="mb-3">
@@ -465,19 +467,25 @@ function Section({
         </h2>
         <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">{subtitle}</p>
       </div>
-      <HorizontalCarousel>
-        {authors.map(a => (
-          <div key={a.id} className="flex-shrink-0 w-[140px] sm:w-[160px] lg:w-[175px]">
-            <AuthorCard
-              author={a}
-              user={user}
-              isFollowing={followedIds.includes(a.id)}
-              onToggleFollow={onToggleFollow}
-              onEditSelf={onEditSelf}
-            />
-          </div>
-        ))}
-      </HorizontalCarousel>
+      {authors.length === 0 ? (
+        <div className="py-6 px-4 rounded-xl border border-dashed border-sage-200 dark:border-sage-700 text-center">
+          <p className="text-xs text-bark-400 dark:text-sage-500">Nessun autore in questa categoria al momento.</p>
+        </div>
+      ) : (
+        <HorizontalCarousel>
+          {authors.map(a => (
+            <div key={a.id} className="flex-shrink-0 w-[140px] sm:w-[160px] lg:w-[175px]">
+              <AuthorCard
+                author={a}
+                user={user}
+                isFollowing={followedIds.includes(a.id)}
+                onToggleFollow={onToggleFollow}
+                onEditSelf={onEditSelf}
+              />
+            </div>
+          ))}
+        </HorizontalCarousel>
+      )}
     </section>
   )
 }
