@@ -298,9 +298,18 @@ export default function UnifiedProfilePage() {
       setIsFollowing(true)
       setProfileData(prev => prev ? { ...prev, followers_count: prev.followers_count + 1 } : null)
 
-      // +5 XP per follow di un autore (max 3/giorno — cap DB)
+      // +5 XP solo la PRIMA volta che si segue questo specifico autore
       if (profileData.is_author) {
-        awardXp(supabase, user.id, XP_VALUES.FOLLOW_AUTHOR, 'follow_author', true)
+        const targetReason = `follow_author:${profileData.id}`
+        const { data: prevAward } = await supabase
+          .from('xp_event_log')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('reason', targetReason)
+          .limit(1)
+        if (!prevAward || prevAward.length === 0) {
+          awardXp(supabase, user.id, XP_VALUES.FOLLOW_AUTHOR, targetReason, true)
+        }
       }
 
       const actorName = myProfile?.author_pseudonym || myProfile?.name || 'Un utente'

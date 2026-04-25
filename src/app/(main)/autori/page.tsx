@@ -194,7 +194,17 @@ export default function AuthorsPage() {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: authorId })
       setFollowedIds(prev => [...prev, authorId])
       setAuthors(prev => prev.map(a => a.id === authorId ? { ...a, totalFollowers: a.totalFollowers + 1 } : a))
-      awardXp(supabase, user.id, XP_VALUES.FOLLOW_AUTHOR, 'follow_author', true)
+      // XP solo la PRIMA volta che si segue questo specifico autore
+      const targetReason = `follow_author:${authorId}`
+      const { data: prev } = await supabase
+        .from('xp_event_log')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('reason', targetReason)
+        .limit(1)
+      if (!prev || prev.length === 0) {
+        awardXp(supabase, user.id, XP_VALUES.FOLLOW_AUTHOR, targetReason, true)
+      }
     }
   }
 
@@ -236,15 +246,19 @@ export default function AuthorsPage() {
 
   const nuovePromesse = useMemo(() =>
     baseAuthors
-      .filter(a => now - new Date(a.created_at).getTime() <= NEW_AUTHOR_WINDOW_MS && a.totalBooks >= 1 && a.followersLast30 > 0)
-      .sort((a, b) => b.followersLast30 - a.followersLast30 || b.engagementScore - a.engagementScore)
+      .filter(a => now - new Date(a.created_at).getTime() <= NEW_AUTHOR_WINDOW_MS && a.totalBooks >= 1)
+      .sort((a, b) =>
+        b.followersLast30 - a.followersLast30 ||
+        b.engagementScore - a.engagementScore ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
       .slice(0, 20)
   , [baseAuthors, now])
 
   const piuSupportati = useMemo(() =>
     baseAuthors
-      .filter(a => a.tipsLast30 > 0)
-      .sort((a, b) => b.tipsLast30 - a.tipsLast30)
+      .filter(a => a.totalBooks >= 1)
+      .sort((a, b) => b.tipsLast30 - a.tipsLast30 || b.engagementScore - a.engagementScore)
       .slice(0, 20)
   , [baseAuthors])
 
