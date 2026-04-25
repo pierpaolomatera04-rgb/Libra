@@ -1541,7 +1541,7 @@ export default function ReaderPage() {
                       )}
 
                       <Link
-                        href="/cammino-lettore"
+                        href="/wallet"
                         className="inline-block text-xs font-medium text-bark-500 dark:text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 underline underline-offset-2"
                       >
                         Scopri tutti i piani
