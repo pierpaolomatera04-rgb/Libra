@@ -95,8 +95,8 @@ function relativeDay(iso: string | null | undefined): string {
   return `Tra ${Math.round(diffDays / 30)} mesi`
 }
 
-// Bordo podio per card libri: oro / argento / bronzo più pronunciati
-function bookPodiumBorder(index: number): string {
+// Bordo podio: oro / argento / bronzo più pronunciati (usato in tutte le tab)
+function podiumBorder(index: number): string {
   if (index === 0) return 'border-2 border-amber-400 dark:border-amber-500'
   if (index === 1) return 'border-2 border-gray-400 dark:border-gray-400'
   if (index === 2) return 'border-2 border-orange-600 dark:border-orange-500'
@@ -193,7 +193,7 @@ export default function ClassificaPage() {
         href={`/libro/${b.id}`}
         className={`flex items-center gap-3 rounded-xl transition-shadow hover:shadow-md ${
           isPodium ? 'p-3' : 'p-2.5'
-        } ${bookPodiumBorder(i)} ${rankStyle(i)}`}
+        } ${podiumBorder(i)} ${rankStyle(i)}`}
       >
         <RankNumber index={i} />
 
@@ -313,17 +313,21 @@ export default function ClassificaPage() {
 
   const renderAuthorCard = (a: any, i: number) => {
     const displayName = a.author_pseudonym || a.name || a.username || 'Autore'
+    const isPodium = i < 3
+    const avatarSize = isPodium ? 'w-14 h-14' : 'w-12 h-12'
     return (
       <Link
         key={a.id}
         href={`/profile/${a.username || a.id}`}
-        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
+        className={`flex items-center gap-3 rounded-xl transition-shadow hover:shadow-md ${
+          isPodium ? 'p-3' : 'p-2.5'
+        } ${podiumBorder(i)} ${rankStyle(i)}`}
       >
         <RankNumber index={i} />
         {a.avatar_url ? (
-          <img src={a.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
+          <img src={a.avatar_url} alt="" className={`${avatarSize} rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm`} />
         ) : (
-          <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm">
+          <div className={`${avatarSize} rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm`}>
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
@@ -411,17 +415,21 @@ export default function ClassificaPage() {
     const tier = getRankTier(level)
     const tierStyle = RANK_TIER_STYLES[tier]
     const displayName = u.name || u.username || 'Utente'
+    const isPodium = i < 3
+    const avatarSize = isPodium ? 'w-14 h-14' : 'w-12 h-12'
     return (
       <Link
         key={u.id}
         href={`/profile/${u.username || u.id}`}
-        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
+        className={`flex items-center gap-3 rounded-xl transition-shadow hover:shadow-md ${
+          isPodium ? 'p-3' : 'p-2.5'
+        } ${podiumBorder(i)} ${rankStyle(i)}`}
       >
         <RankNumber index={i} />
         {u.avatar_url ? (
-          <img src={u.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
+          <img src={u.avatar_url} alt="" className={`${avatarSize} rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm`} />
         ) : (
-          <div className="w-12 h-12 rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm">
+          <div className={`${avatarSize} rounded-full bg-sage-200 dark:bg-sage-700 flex items-center justify-center text-base font-bold text-sage-600 dark:text-sage-300 flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm`}>
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
