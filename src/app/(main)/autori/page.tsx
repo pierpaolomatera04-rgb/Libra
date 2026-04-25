@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   Search, BookOpen, Users, X, Pencil, Award,
-  Sparkles, TrendingUp, Star, Check,
+  Sparkles, TrendingUp, Star, Check, Heart,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { MACRO_AREAS, getMacroAreaByGenre } from '@/lib/genres'
@@ -46,6 +46,8 @@ interface AuthorEntry {
   totalUnlocks: number
   totalReads: number
   totalFollowers: number
+  followersLast30: number
+  tipsLast30: number
   engagementScore: number
   avgRating: number | null
   genres: string[]
@@ -74,15 +76,20 @@ export default function AuthorsPage() {
     const { data } = await query
     if (data && data.length > 0) {
       const authorIds = data.map((a: any) => a.id)
-      const [allBooksRes, followersRes] = await Promise.all([
+      const thirtyAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const [allBooksRes, followersRes, recentFollowsRes, donationsRes] = await Promise.all([
         supabase.from('books')
           .select('id, author_id, total_likes, total_reads, genre, status, average_rating, total_reviews')
           .in('author_id', authorIds)
           .in('status', ['published', 'ongoing', 'completed']),
         supabase.from('follows').select('following_id').in('following_id', authorIds),
+        supabase.from('follows').select('following_id').in('following_id', authorIds).gte('created_at', thirtyAgoIso),
+        supabase.from('donations').select('author_id, amount').in('author_id', authorIds).gte('created_at', thirtyAgoIso),
       ])
       const allBooks = allBooksRes.data || []
       const allFollows = followersRes.data || []
+      const recentFollows = recentFollowsRes.data || []
+      const donations = donationsRes.data || []
 
       const bookIds = allBooks.map((b: any) => b.id)
       const commentsPerBook = new Map<string, number>()
@@ -100,6 +107,10 @@ export default function AuthorsPage() {
       for (const b of allBooks) { const list = booksByAuthor.get(b.author_id) || []; list.push(b); booksByAuthor.set(b.author_id, list) }
       const followersCount = new Map<string, number>()
       for (const f of allFollows) followersCount.set(f.following_id, (followersCount.get(f.following_id) || 0) + 1)
+      const recentFollowersCount = new Map<string, number>()
+      for (const f of recentFollows) recentFollowersCount.set(f.following_id, (recentFollowersCount.get(f.following_id) || 0) + 1)
+      const tipsByAuthor = new Map<string, number>()
+      for (const d of donations) tipsByAuthor.set(d.author_id, (tipsByAuthor.get(d.author_id) || 0) + (d.amount || 0))
 
       const enriched: AuthorEntry[] = data.map((a: any) => {
         const books = booksByAuthor.get(a.id) || []
@@ -135,6 +146,8 @@ export default function AuthorsPage() {
           totalUnlocks,
           totalReads,
           totalFollowers: followersCount.get(a.id) || 0,
+          followersLast30: recentFollowersCount.get(a.id) || 0,
+          tipsLast30: tipsByAuthor.get(a.id) || 0,
           engagementScore,
           avgRating: ratedBooks > 0 ? ratingSum / ratedBooks : null,
           genres: Array.from(genres),
@@ -222,9 +235,18 @@ export default function AuthorsPage() {
   , [baseAuthors])
 
   const nuovePromesse = useMemo(() =>
-    baseAuthors.filter(a => now - new Date(a.created_at).getTime() <= NEW_AUTHOR_WINDOW_MS && a.totalBooks >= 1)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 20)
+    baseAuthors
+      .filter(a => now - new Date(a.created_at).getTime() <= NEW_AUTHOR_WINDOW_MS && a.totalBooks >= 1 && a.followersLast30 > 0)
+      .sort((a, b) => b.followersLast30 - a.followersLast30 || b.engagementScore - a.engagementScore)
+      .slice(0, 20)
   , [baseAuthors, now])
+
+  const piuSupportati = useMemo(() =>
+    baseAuthors
+      .filter(a => a.tipsLast30 > 0)
+      .sort((a, b) => b.tipsLast30 - a.tipsLast30)
+      .slice(0, 20)
+  , [baseAuthors])
 
   // Dedup
   const shown = new Set<string>()
@@ -239,6 +261,7 @@ export default function AuthorsPage() {
   const recommendedD = dedup(recommended)
   const topVotatiD = dedup(topVotati)
   const nuovePromesseD = dedup(nuovePromesse)
+  const piuSupportatiD = dedup(piuSupportati)
 
   const isDiscoveryMode = viewTab === 'scopri' && !search
   const myEntry = user ? authors.find(a => a.id === user.id) : undefined
@@ -287,7 +310,7 @@ export default function AuthorsPage() {
               <div className="h-5 w-48 bg-sage-100 dark:bg-sage-800 rounded mb-3 animate-pulse" />
               <div className="flex gap-3 overflow-hidden">
                 {[1, 2, 3, 4, 5].map(j => (
-                  <div key={j} className="flex-shrink-0 w-[120px] sm:w-[140px] lg:w-[150px] h-[180px] sm:h-[200px] lg:h-[210px] bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" />
+                  <div key={j} className="flex-shrink-0 w-[140px] sm:w-[160px] lg:w-[175px] h-[200px] sm:h-[225px] lg:h-[245px] bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" />
                 ))}
               </div>
             </div>
@@ -319,15 +342,25 @@ export default function AuthorsPage() {
           <Section
             icon={<Star className="w-4 h-4 text-emerald-500" />}
             title="Nuove promesse"
-            subtitle="Scopri chi ha iniziato a pubblicare di recente"
+            subtitle="Autori con meno di 30 giorni e già in crescita"
             authors={nuovePromesseD}
             user={user}
             followedIds={followedIds}
             onToggleFollow={toggleFollow}
             onEditSelf={() => setEditorOpen(true)}
           />
+          <Section
+            icon={<Heart className="w-4 h-4 text-pink-500" />}
+            title="I più supportati"
+            subtitle="Gli autori che ricevono più mance dalla community"
+            authors={piuSupportatiD}
+            user={user}
+            followedIds={followedIds}
+            onToggleFollow={toggleFollow}
+            onEditSelf={() => setEditorOpen(true)}
+          />
 
-          {recommendedD.length === 0 && topVotatiD.length === 0 && nuovePromesseD.length === 0 && (
+          {recommendedD.length === 0 && topVotatiD.length === 0 && nuovePromesseD.length === 0 && piuSupportatiD.length === 0 && (
             <div className="text-center py-20">
               <Users className="w-16 h-16 text-sage-200 dark:text-sage-700 mx-auto mb-4" />
               <p className="text-bark-500 dark:text-sage-400 text-lg">Nessun autore trovato</p>
@@ -354,7 +387,7 @@ export default function AuthorsPage() {
               {[...baseAuthors]
                 .sort((a, b) => b.total_xp - a.total_xp)
                 .map(a => (
-                  <div key={a.id} className="flex-shrink-0 w-[120px] sm:w-[140px] lg:w-[150px]">
+                  <div key={a.id} className="flex-shrink-0 w-[140px] sm:w-[160px] lg:w-[175px]">
                     <AuthorCard
                       author={a}
                       user={user}
@@ -420,7 +453,7 @@ function Section({
       </div>
       <HorizontalCarousel>
         {authors.map(a => (
-          <div key={a.id} className="flex-shrink-0 w-[120px] sm:w-[140px] lg:w-[150px]">
+          <div key={a.id} className="flex-shrink-0 w-[140px] sm:w-[160px] lg:w-[175px]">
             <AuthorCard
               author={a}
               user={user}
@@ -467,7 +500,7 @@ function AuthorCard({
   return (
     <div
       onClick={go}
-      className="group relative rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer h-[180px] sm:h-[200px] lg:h-[210px] w-full flex flex-col items-center px-1.5 pt-2 pb-1.5 text-white"
+      className="group relative rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer h-[200px] sm:h-[225px] lg:h-[245px] w-full flex flex-col items-center px-1.5 pt-2 pb-1.5 text-white"
       style={{ background: preset.gradient }}
     >
       {/* Overlay leggibilità */}
@@ -494,11 +527,11 @@ function AuthorCard({
         )}
       </div>
 
-      {/* Zona avatar — alta 50px */}
-      <div className="relative z-10 flex items-center justify-center" style={{ height: 50 }}>
+      {/* Zona avatar */}
+      <div className="relative z-10 flex items-center justify-center" style={{ height: 56 }}>
         <Link href={profileHref} onClick={(e) => e.stopPropagation()} className="block">
           <div
-            className={`rounded-full overflow-hidden flex items-center justify-center bg-white/20 w-10 h-10 border-2 ${
+            className={`rounded-full overflow-hidden flex items-center justify-center bg-white/20 w-12 h-12 border-2 ${
               isFollowing ? 'border-emerald-300' : 'border-white/70'
             }`}
           >
@@ -506,87 +539,87 @@ function AuthorCard({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-sm font-bold text-white">{initial}</span>
+              <span className="text-base font-bold text-white">{initial}</span>
             )}
           </div>
         </Link>
       </div>
 
-      {/* Zona nome — 1 riga */}
+      {/* Zona nome */}
       <h3
-        className="relative z-10 font-bold text-[11px] text-center leading-tight px-0.5 w-full truncate"
-        style={{ height: 14 }}
+        className="relative z-10 font-bold text-[12px] text-center leading-tight px-0.5 w-full truncate"
+        style={{ height: 15 }}
         title={displayName}
       >
         {displayName}
       </h3>
 
-      {/* Zona @username — 1 riga */}
+      {/* Zona @username */}
       <p
-        className="relative z-10 text-[10px] text-white/70 text-center truncate w-full"
-        style={{ height: 13 }}
+        className="relative z-10 text-[11px] text-white/70 text-center truncate w-full"
+        style={{ height: 14 }}
       >
         {author.username ? `@${author.username}` : '\u00A0'}
       </p>
 
       {/* Zona bio — 2 righe */}
       <p
-        className="relative z-10 text-[10px] text-white/85 text-center line-clamp-2 w-full px-0.5 mt-0.5 leading-tight"
-        style={{ height: 24 }}
+        className="relative z-10 text-[11px] text-white/85 text-center line-clamp-2 w-full px-0.5 mt-0.5 leading-tight"
+        style={{ height: 28 }}
       >
         {author.author_bio ? author.author_bio.slice(0, 60) : '\u00A0'}
       </p>
 
       {/* Zona badge rank */}
-      <div className="relative z-10 flex items-center justify-center mt-1" style={{ height: 16 }}>
-        <span className={`inline-flex items-center px-1.5 rounded-full text-[9px] font-bold leading-tight ${rank.chip}`} style={{ paddingTop: 1, paddingBottom: 1 }}>
+      <div className="relative z-10 flex items-center justify-center mt-1" style={{ height: 18 }}>
+        <span className={`inline-flex items-center px-2 rounded-full text-[10px] font-bold leading-tight ${rank.chip}`} style={{ paddingTop: 2, paddingBottom: 2 }}>
           {rank.label}
         </span>
       </div>
 
       {/* Zona statistiche */}
-      <div className="relative z-10 flex items-center justify-center gap-1.5 text-[10px] text-white/95 mt-0.5" style={{ height: 14 }}>
+      <div className="relative z-10 flex items-center justify-center gap-2 text-[11px] text-white/95 mt-0.5" style={{ height: 16 }}>
         <span className="inline-flex items-center gap-0.5" title="Libri pubblicati">
-          <BookOpen className="w-2.5 h-2.5" />
+          <BookOpen className="w-3 h-3" />
           <span className="font-semibold">{author.totalBooks}</span>
         </span>
         <span className="inline-flex items-center gap-0.5" title="Follower">
-          <Users className="w-2.5 h-2.5" />
+          <Users className="w-3 h-3" />
           <span className="font-semibold">{author.totalFollowers}</span>
         </span>
         <span className="inline-flex items-center gap-0.5" title="Voto medio">
-          <Star className={`w-2.5 h-2.5 ${author.avgRating ? 'text-amber-300 fill-amber-300' : ''}`} />
+          <Star className={`w-3 h-3 ${author.avgRating ? 'text-amber-300 fill-amber-300' : ''}`} />
           <span className="font-semibold">{author.avgRating ? author.avgRating.toFixed(1) : '—'}</span>
         </span>
       </div>
 
       {/* Zona bottone */}
-      <div className="relative z-10 mt-auto w-full pt-1">
+      <div className="relative z-10 mt-auto w-full pt-1.5">
         {isSelf ? (
           <Link
             href="/dashboard/profilo-autore"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center gap-0.5 w-full rounded-full text-[10px] font-semibold text-white border border-white/50 hover:bg-white/15 transition-colors h-6"
+            className="flex items-center justify-center gap-0.5 w-full rounded-full text-[11px] font-semibold text-white border border-white/50 hover:bg-white/15 transition-colors h-7"
           >
-            <Pencil className="w-2.5 h-2.5" /> Modifica
+            <Pencil className="w-3 h-3" /> Modifica
           </Link>
         ) : user ? (
           <button
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggleFollow(author.id) }}
-            className={`w-full rounded-full text-[10px] font-bold transition-colors h-6 flex items-center justify-center gap-0.5 ${
+            className={`w-full rounded-full text-[11px] font-bold transition-colors h-7 flex items-center justify-center gap-0.5 ${
               isFollowing
                 ? 'bg-white/25 text-white hover:bg-white/35 backdrop-blur'
                 : 'bg-white text-sage-800 hover:bg-amber-100'
             }`}
           >
-            {isFollowing && <Check className="w-2.5 h-2.5" />}
+            {isFollowing && <Check className="w-3 h-3" />}
             {isFollowing ? 'Seguito' : 'Segui'}
           </button>
         ) : (
           <Link
             href={profileHref}
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center w-full rounded-full text-[10px] font-semibold bg-white/25 text-white hover:bg-white/35 transition-colors h-6"
+            className="flex items-center justify-center w-full rounded-full text-[11px] font-semibold bg-white/25 text-white hover:bg-white/35 transition-colors h-7"
           >
             Profilo
           </Link>
