@@ -7,6 +7,7 @@ import {
   Trophy, Loader2, Crown, BookOpen,
   Users, TrendingUp, Heart, Eye, Sparkles,
   Layers, UserPlus, Zap, Coins, MessageCircle, PenTool, Star,
+  ArrowUpRight, ArrowDownRight, ArrowRight, Clock,
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel, getRankTier, type RankTier } from '@/lib/badges'
@@ -48,6 +49,22 @@ function rankStyle(index: number) {
   if (index === 1) return 'bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 border-gray-200 dark:border-gray-700'
   if (index === 2) return 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800'
   return 'bg-white dark:bg-[#1e221c] border-sage-100 dark:border-sage-800'
+}
+
+// Data relativa in italiano: "Oggi" / "Domani" / "Tra N giorni" / "In attesa"
+function relativeDay(iso: string | null | undefined): string {
+  if (!iso) return 'In attesa'
+  const target = new Date(iso)
+  const now = new Date()
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate())
+  const diffDays = Math.round((startTarget.getTime() - startToday.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays < 0) return 'In attesa'
+  if (diffDays === 0) return 'Oggi'
+  if (diffDays === 1) return 'Domani'
+  if (diffDays < 7) return `Tra ${diffDays} giorni`
+  if (diffDays < 30) return `Tra ${Math.round(diffDays / 7)} sett.`
+  return `Tra ${Math.round(diffDays / 30)} mesi`
 }
 
 // Bordo podio per card libri: oro / argento / bronzo più pronunciati
@@ -194,15 +211,75 @@ export default function ClassificaPage() {
           </div>
         </div>
 
-        {/* Metrica principale: pagine lette — dato per il pagamento autore */}
+        {/* Metrica principale contestuale per filtro */}
         <div className="flex-shrink-0">
-          <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
-            <BookOpen className="w-3.5 h-3.5 text-sage-500" />
-            <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(b.total_reads || 0)}</span>
-            <span className="text-[10px] text-bark-400 dark:text-sage-500">pag.</span>
-          </div>
+          {renderBookMetric(b)}
         </div>
       </Link>
+    )
+  }
+
+  // Metrica destra dinamica in base al filtro attivo
+  const renderBookMetric = (b: any) => {
+    const baseCls = 'flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold'
+
+    if (bookFilter === 'likes') {
+      return (
+        <div className={`${baseCls} bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800`}>
+          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+          <span className="text-amber-700 dark:text-amber-300">{fmt(b.total_reviews || 0)}</span>
+          <span className="text-[10px] font-medium text-amber-600/70 dark:text-amber-400/70">voti</span>
+        </div>
+      )
+    }
+
+    if (bookFilter === 'trending') {
+      const today = Number(b.trending_score_7d || 0)
+      const yesterday = Number(b.score_yesterday || 0)
+      let pct = 0
+      if (yesterday > 0) {
+        pct = Math.round(((today - yesterday) / yesterday) * 100)
+      } else if (today > 0) {
+        pct = 100 // tutto nuovo
+      }
+      const absPct = Math.abs(pct)
+      const isFlat = absPct < 5
+      const isUp = !isFlat && pct > 0
+      const Icon = isFlat ? ArrowRight : isUp ? ArrowUpRight : ArrowDownRight
+      const cls = isFlat
+        ? 'bg-sage-50 dark:bg-sage-800 border-sage-200 dark:border-sage-700 text-bark-500 dark:text-sage-400'
+        : isUp
+          ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+          : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+      return (
+        <div className={`${baseCls} ${cls}`}>
+          <Icon className="w-3.5 h-3.5" />
+          <span>{isFlat ? '~' : `${isUp ? '+' : ''}${pct}%`}</span>
+        </div>
+      )
+    }
+
+    if (bookFilter === 'serializing') {
+      const label = relativeDay(b.next_block_at)
+      const isWaiting = label === 'In attesa'
+      const cls = isWaiting
+        ? 'bg-sage-50 dark:bg-sage-800 border-sage-200 dark:border-sage-700 text-bark-400 dark:text-sage-500'
+        : 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300'
+      return (
+        <div className={`${baseCls} ${cls}`}>
+          <Clock className="w-3.5 h-3.5" />
+          <span>{label}</span>
+        </div>
+      )
+    }
+
+    // default: 'reads' e 'new' → pagine lette
+    return (
+      <div className={`${baseCls} bg-sage-50 dark:bg-sage-800 border-sage-100 dark:border-sage-700`}>
+        <BookOpen className="w-3.5 h-3.5 text-sage-500" />
+        <span className="text-sage-700 dark:text-sage-300">{fmt(b.total_reads || 0)}</span>
+        <span className="text-[10px] font-medium text-bark-400 dark:text-sage-500">pag.</span>
+      </div>
     )
   }
 
