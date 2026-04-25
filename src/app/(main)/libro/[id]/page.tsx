@@ -394,28 +394,22 @@ export default function BookDetailPage() {
             </div>
           </Link>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
-              <Layers className="w-4 h-4 text-sage-500 mx-auto mb-1" />
-              <p className="text-lg font-bold text-sage-800">{book.total_blocks}</p>
-              <p className="text-[11px] text-bark-400">Blocchi totali</p>
-            </div>
-            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
-              <Clock className="w-4 h-4 text-blue-500 mx-auto mb-1" />
-              <p className="text-lg font-bold text-sage-800">~{readingTimeMin} min</p>
-              <p className="text-[11px] text-bark-400">Tempo lettura</p>
-            </div>
-            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
-              <Eye className="w-4 h-4 text-purple-500 mx-auto mb-1" />
-              <p className="text-lg font-bold text-sage-800">{book.total_reads || 0}</p>
-              <p className="text-[11px] text-bark-400">Letture</p>
-            </div>
-            <div className="bg-white dark:bg-[#1e221c] rounded-xl border border-sage-100 dark:border-sage-800 p-3 text-center">
-              <Heart className="w-4 h-4 text-red-500 mx-auto mb-1" />
-              <p className="text-lg font-bold text-sage-800">{likeCount}</p>
-              <p className="text-[11px] text-bark-400">Like</p>
-            </div>
+          {/* Stats compatte: una riga sola, niente like (sono nel bottone azione) */}
+          <div className="flex items-center gap-2 mb-6 text-xs text-bark-400 dark:text-sage-500 flex-wrap">
+            <span className="flex items-center gap-1">
+              <Layers className="w-3 h-3" />
+              {book.total_blocks} {book.total_blocks === 1 ? 'blocco' : 'blocchi'}
+            </span>
+            <span className="text-bark-300 dark:text-sage-600">·</span>
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              ~{readingTimeMin} min
+            </span>
+            <span className="text-bark-300 dark:text-sage-600">·</span>
+            <span className="flex items-center gap-1">
+              <Eye className="w-3 h-3" />
+              {book.total_reads || 0} {(book.total_reads || 0) === 1 ? 'lettura' : 'letture'}
+            </span>
           </div>
 
           {/* Progress bar lettura */}
