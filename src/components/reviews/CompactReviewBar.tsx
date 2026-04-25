@@ -86,17 +86,42 @@ export default function CompactReviewBar({
     let active = true
     setLoadingList(true)
     ;(async () => {
-      const { data } = await supabase
+      // Step 1: carica le recensioni (reviews.user_id → auth.users, non profiles)
+      const { data: reviewsData, error: reviewsError } = await supabase
         .from('reviews')
-        .select(`
-          id, stars, text, created_at,
-          user:profiles!reviews_user_id_fkey(id, name, username, avatar_url)
-        `)
+        .select('id, stars, text, created_at, user_id')
         .eq('book_id', bookId)
         .order('created_at', { ascending: false })
         .limit(3)
+
       if (!active) return
-      setLatest((data as any) || [])
+      if (reviewsError || !reviewsData || reviewsData.length === 0) {
+        setLatest([])
+        setLoadingList(false)
+        return
+      }
+
+      // Step 2: carica i profili per quegli user_id
+      const userIds = reviewsData.map((r: any) => r.user_id)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, name, username, avatar_url')
+        .in('id', userIds)
+
+      if (!active) return
+
+      const profileMap: Record<string, any> = {}
+      ;(profilesData || []).forEach((p: any) => { profileMap[p.id] = p })
+
+      const merged: Review[] = reviewsData.map((r: any) => ({
+        id: r.id,
+        stars: r.stars,
+        text: r.text,
+        created_at: r.created_at,
+        user: profileMap[r.user_id] ?? null,
+      }))
+
+      setLatest(merged)
       setLoadingList(false)
     })()
     return () => { active = false }
