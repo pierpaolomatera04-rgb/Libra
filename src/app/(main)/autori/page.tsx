@@ -14,6 +14,7 @@ import { MACRO_AREAS, getMacroAreaByGenre } from '@/lib/genres'
 import { awardXp } from '@/lib/xp'
 import { XP_VALUES } from '@/lib/badges'
 import AuthorCardEditor from '@/components/authors/AuthorCardEditor'
+import HorizontalCarousel from '@/components/ui/HorizontalCarousel'
 import {
   CardColorPreset,
   getPreset,
@@ -284,9 +285,9 @@ export default function AuthorsPage() {
           {[1, 2, 3].map(i => (
             <div key={i}>
               <div className="h-5 w-48 bg-sage-100 dark:bg-sage-800 rounded mb-3 animate-pulse" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[1, 2, 3, 4].map(j => (
-                  <div key={j} className="h-[280px] bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" />
+              <div className="flex gap-3 overflow-hidden">
+                {[1, 2, 3, 4, 5].map(j => (
+                  <div key={j} className="flex-shrink-0 w-[120px] sm:w-[140px] lg:w-[150px] h-[180px] sm:h-[200px] lg:h-[210px] bg-sage-50 dark:bg-sage-800/40 rounded-2xl animate-pulse" />
                 ))}
               </div>
             </div>
@@ -349,20 +350,21 @@ export default function AuthorsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <HorizontalCarousel>
               {[...baseAuthors]
                 .sort((a, b) => b.total_xp - a.total_xp)
                 .map(a => (
-                  <AuthorCard
-                    key={a.id}
-                    author={a}
-                    user={user}
-                    isFollowing={followedIds.includes(a.id)}
-                    onToggleFollow={toggleFollow}
-                    onEditSelf={() => setEditorOpen(true)}
-                  />
+                  <div key={a.id} className="flex-shrink-0 w-[120px] sm:w-[140px] lg:w-[150px]">
+                    <AuthorCard
+                      author={a}
+                      user={user}
+                      isFollowing={followedIds.includes(a.id)}
+                      onToggleFollow={toggleFollow}
+                      onEditSelf={() => setEditorOpen(true)}
+                    />
+                  </div>
                 ))}
-            </div>
+            </HorizontalCarousel>
           )}
         </div>
       )}
@@ -416,18 +418,19 @@ function Section({
         </h2>
         <p className="text-xs text-bark-400 dark:text-sage-500 mt-0.5">{subtitle}</p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <HorizontalCarousel>
         {authors.map(a => (
-          <AuthorCard
-            key={a.id}
-            author={a}
-            user={user}
-            isFollowing={followedIds.includes(a.id)}
-            onToggleFollow={onToggleFollow}
-            onEditSelf={onEditSelf}
-          />
+          <div key={a.id} className="flex-shrink-0 w-[120px] sm:w-[140px] lg:w-[150px]">
+            <AuthorCard
+              author={a}
+              user={user}
+              isFollowing={followedIds.includes(a.id)}
+              onToggleFollow={onToggleFollow}
+              onEditSelf={onEditSelf}
+            />
+          </div>
         ))}
-      </div>
+      </HorizontalCarousel>
     </section>
   )
 }
@@ -464,125 +467,128 @@ function AuthorCard({
   return (
     <div
       onClick={go}
-      className="group relative rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer h-[220px] sm:h-[240px] lg:h-[260px] flex flex-col items-center px-2 sm:px-3 pt-3 sm:pt-4 pb-2 text-white"
+      className="group relative rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer h-[180px] sm:h-[200px] lg:h-[210px] w-full flex flex-col items-center px-1.5 pt-2 pb-1.5 text-white"
       style={{ background: preset.gradient }}
     >
       {/* Overlay leggibilità */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent pointer-events-none" />
 
       {/* Top-right badges + pencil */}
-      <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+      <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
         {isCertified && certMacro && (
           <span
             title={`Autore Certificato in ${certMacro.label}`}
-            className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-sm"
+            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-sm"
           >
-            <Award className="w-3 h-3 text-amber-900" strokeWidth={2.5} />
+            <Award className="w-2.5 h-2.5 text-amber-900" strokeWidth={2.5} />
           </span>
         )}
         {isSelf && (
           <button
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEditSelf() }}
             title="Personalizza profilo"
-            className="w-6 h-6 rounded-full bg-white/25 hover:bg-white/45 backdrop-blur flex items-center justify-center transition-colors"
+            className="w-5 h-5 rounded-full bg-white/25 hover:bg-white/45 backdrop-blur flex items-center justify-center transition-colors"
           >
-            <Pencil className="w-3 h-3 text-white" />
+            <Pencil className="w-2.5 h-2.5 text-white" />
           </button>
         )}
       </div>
 
-      {/* Avatar */}
-      <Link href={profileHref} onClick={(e) => e.stopPropagation()} className="relative z-10 block">
-        <div
-          className={`rounded-full overflow-hidden flex items-center justify-center bg-white/20 w-12 h-12 sm:w-14 sm:h-14 border-2 ${
-            isFollowing ? 'border-emerald-300' : 'border-white/70'
-          }`}
-        >
-          {author.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-base sm:text-lg font-bold text-white">{initial}</span>
-          )}
-        </div>
-      </Link>
+      {/* Zona avatar — alta 50px */}
+      <div className="relative z-10 flex items-center justify-center" style={{ height: 50 }}>
+        <Link href={profileHref} onClick={(e) => e.stopPropagation()} className="block">
+          <div
+            className={`rounded-full overflow-hidden flex items-center justify-center bg-white/20 w-10 h-10 border-2 ${
+              isFollowing ? 'border-emerald-300' : 'border-white/70'
+            }`}
+          >
+            {author.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-sm font-bold text-white">{initial}</span>
+            )}
+          </div>
+        </Link>
+      </div>
 
-      {/* Nome */}
+      {/* Zona nome — 1 riga */}
       <h3
-        className="relative z-10 font-bold text-[13px] sm:text-sm mt-1.5 text-center leading-tight px-1 w-full line-clamp-1"
-        style={{ minHeight: 16 }}
+        className="relative z-10 font-bold text-[11px] text-center leading-tight px-0.5 w-full truncate"
+        style={{ height: 14 }}
+        title={displayName}
       >
         {displayName}
       </h3>
 
-      {/* @username (sempre spazio) */}
+      {/* Zona @username — 1 riga */}
       <p
-        className="relative z-10 text-[11px] sm:text-xs text-white/70 text-center truncate w-full"
-        style={{ minHeight: 14 }}
+        className="relative z-10 text-[10px] text-white/70 text-center truncate w-full"
+        style={{ height: 13 }}
       >
         {author.username ? `@${author.username}` : '\u00A0'}
       </p>
 
-      {/* Bio (sempre spazio) */}
+      {/* Zona bio — 2 righe */}
       <p
-        className="relative z-10 text-[11px] sm:text-xs text-white/85 text-center line-clamp-2 w-full px-1 mt-0.5"
-        style={{ minHeight: 26 }}
+        className="relative z-10 text-[10px] text-white/85 text-center line-clamp-2 w-full px-0.5 mt-0.5 leading-tight"
+        style={{ height: 24 }}
       >
         {author.author_bio ? author.author_bio.slice(0, 60) : '\u00A0'}
       </p>
 
-      {/* Rank */}
-      <span
-        className={`relative z-10 inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-bold mt-1 ${rank.chip}`}
-      >
-        {rank.label}
-      </span>
+      {/* Zona badge rank */}
+      <div className="relative z-10 flex items-center justify-center mt-1" style={{ height: 16 }}>
+        <span className={`inline-flex items-center px-1.5 rounded-full text-[9px] font-bold leading-tight ${rank.chip}`} style={{ paddingTop: 1, paddingBottom: 1 }}>
+          {rank.label}
+        </span>
+      </div>
 
-      {/* Stats */}
-      <div className="relative z-10 flex items-center justify-center gap-2 mt-1 text-[11px] text-white/95">
+      {/* Zona statistiche */}
+      <div className="relative z-10 flex items-center justify-center gap-1.5 text-[10px] text-white/95 mt-0.5" style={{ height: 14 }}>
         <span className="inline-flex items-center gap-0.5" title="Libri pubblicati">
-          <BookOpen className="w-3 h-3" />
+          <BookOpen className="w-2.5 h-2.5" />
           <span className="font-semibold">{author.totalBooks}</span>
         </span>
         <span className="inline-flex items-center gap-0.5" title="Follower">
-          <Users className="w-3 h-3" />
+          <Users className="w-2.5 h-2.5" />
           <span className="font-semibold">{author.totalFollowers}</span>
         </span>
         <span className="inline-flex items-center gap-0.5" title="Voto medio">
-          <Star className={`w-3 h-3 ${author.avgRating ? 'text-amber-300 fill-amber-300' : ''}`} />
+          <Star className={`w-2.5 h-2.5 ${author.avgRating ? 'text-amber-300 fill-amber-300' : ''}`} />
           <span className="font-semibold">{author.avgRating ? author.avgRating.toFixed(1) : '—'}</span>
         </span>
       </div>
 
-      {/* CTA — fondo allineato */}
-      <div className="relative z-10 mt-auto w-full pt-2">
+      {/* Zona bottone */}
+      <div className="relative z-10 mt-auto w-full pt-1">
         {isSelf ? (
           <Link
             href="/dashboard/profilo-autore"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center gap-1 w-full rounded-full text-xs font-semibold text-white border border-white/50 hover:bg-white/15 transition-colors h-7"
+            className="flex items-center justify-center gap-0.5 w-full rounded-full text-[10px] font-semibold text-white border border-white/50 hover:bg-white/15 transition-colors h-6"
           >
-            <Pencil className="w-3 h-3" /> Modifica
+            <Pencil className="w-2.5 h-2.5" /> Modifica
           </Link>
         ) : user ? (
           <button
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggleFollow(author.id) }}
-            className={`w-full rounded-full text-xs font-bold transition-colors h-7 flex items-center justify-center gap-1 ${
+            className={`w-full rounded-full text-[10px] font-bold transition-colors h-6 flex items-center justify-center gap-0.5 ${
               isFollowing
                 ? 'bg-white/25 text-white hover:bg-white/35 backdrop-blur'
                 : 'bg-white text-sage-800 hover:bg-amber-100'
             }`}
           >
-            {isFollowing && <Check className="w-3 h-3" />}
+            {isFollowing && <Check className="w-2.5 h-2.5" />}
             {isFollowing ? 'Seguito' : 'Segui'}
           </button>
         ) : (
           <Link
             href={profileHref}
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center w-full rounded-full text-xs font-semibold bg-white/25 text-white hover:bg-white/35 transition-colors h-7"
+            className="flex items-center justify-center w-full rounded-full text-[10px] font-semibold bg-white/25 text-white hover:bg-white/35 transition-colors h-6"
           >
-            Vedi profilo
+            Profilo
           </Link>
         )}
       </div>
