@@ -17,26 +17,36 @@ type BookFilter = 'reads' | 'likes' | 'trending' | 'new' | 'serializing'
 type AuthorFilter = 'followers' | 'reads' | 'active' | 'new'
 type CommunityFilter = 'xp' | 'active' | 'donors'
 
-// Colori podio: oro / argento / bronzo
-const PODIUM_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'] as const
-
 // Formattatori
 const fmt = (n: number) =>
   n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n ?? 0}`
 
-// Rank number compatto (proporzionato all'altezza card)
-function RankColumn({ index }: { index: number }) {
-  const isPodium = index < 3
+/**
+ * RankNumber — gerarchia visiva decrescente per la posizione in classifica.
+ * Stesso stile in tutte le tab (Libri / Autori / Community).
+ *  1°  → 32px · 800 · oro (#C8A951)
+ *  2°  → 24px · 700 · argento (#9E9E9E)
+ *  3°  → 20px · 700 · bronzo (#CD7F32)
+ *  4°+ → 16px · 400 · grigio (#AAAAAA)
+ * Larghezza fissa per evitare di alterare l'altezza delle card.
+ */
+function RankNumber({ index }: { index: number }) {
+  const styles: { fontSize: number; fontWeight: number; color: string } =
+    index === 0 ? { fontSize: 32, fontWeight: 800, color: '#C8A951' } :
+    index === 1 ? { fontSize: 24, fontWeight: 700, color: '#9E9E9E' } :
+    index === 2 ? { fontSize: 20, fontWeight: 700, color: '#CD7F32' } :
+                  { fontSize: 16, fontWeight: 400, color: '#AAAAAA' }
+
   return (
-    <div className="flex-shrink-0 w-10 flex items-center justify-center">
+    <div className="flex-shrink-0 w-10 flex items-center justify-center self-center">
       <span
-        className={`font-extrabold leading-none select-none ${
-          isPodium ? 'text-xl sm:text-2xl' : 'text-base text-bark-300 dark:text-sage-600'
-        }`}
-        style={isPodium ? {
-          color: PODIUM_COLORS[index],
-          textShadow: '0 1px 2px rgba(0,0,0,0.08)',
-        } : undefined}
+        className="leading-none select-none tabular-nums"
+        style={{
+          fontSize: styles.fontSize,
+          fontWeight: styles.fontWeight,
+          color: styles.color,
+          textShadow: index < 3 ? '0 1px 2px rgba(0,0,0,0.08)' : undefined,
+        }}
       >
         {index + 1}
       </span>
@@ -167,7 +177,7 @@ export default function ClassificaPage() {
           isPodium ? 'p-3' : 'p-2.5'
         } ${bookPodiumBorder(i)} ${rankStyle(i)}`}
       >
-        <RankColumn index={i} />
+        <RankNumber index={i} />
 
         {/* Copertina: più grande per top 3 */}
         <div
@@ -291,7 +301,7 @@ export default function ClassificaPage() {
         href={`/profile/${a.username || a.id}`}
         className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
       >
-        <RankColumn index={i} />
+        <RankNumber index={i} />
         {a.avatar_url ? (
           <img src={a.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
         ) : (
@@ -347,7 +357,7 @@ export default function ClassificaPage() {
         href={`/profile/${u.username || u.id}`}
         className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
       >
-        <RankColumn index={i} />
+        <RankNumber index={i} />
         {u.avatar_url ? (
           <img src={u.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-white dark:border-sage-700 shadow-sm" />
         ) : (
