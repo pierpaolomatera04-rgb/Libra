@@ -7,7 +7,7 @@ import {
   Trophy, Loader2, Crown, BookOpen,
   Users, TrendingUp, Heart, Eye, Sparkles,
   Layers, UserPlus, Zap, Coins, MessageCircle, PenTool, Star,
-  ArrowUpRight, ArrowDownRight, ArrowRight, Clock, Calendar, Edit3,
+  ArrowUpRight, ArrowDownRight, ArrowRight, Clock, Calendar, Edit3, Flame,
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel, getRankTier, type RankTier } from '@/lib/badges'
@@ -455,14 +455,50 @@ export default function ClassificaPage() {
             </span>
           </div>
         </div>
-        {/* Metrica principale tab Community: XP */}
+        {/* Metrica principale contestuale per filtro */}
         <div className="flex-shrink-0">
-          <div className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-sage-50 to-emerald-50 dark:from-sage-800 dark:to-emerald-900/20 rounded-full border border-sage-100 dark:border-sage-700">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-xs font-bold text-sage-700 dark:text-sage-200">{fmt(u.total_xp || 0)} XP</span>
-          </div>
+          {renderCommunityMetric(u)}
         </div>
       </Link>
+    )
+  }
+
+  // Metrica destra dinamica per tab Community
+  const renderCommunityMetric = (u: any) => {
+    const baseCls = 'flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold'
+
+    if (communityFilter === 'active') {
+      const n = Number(u.activity_total || 0)
+      return (
+        <div className={`${baseCls} bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800`}>
+          <Flame className="w-3.5 h-3.5 text-orange-500" />
+          <span className="text-orange-700 dark:text-orange-300">{fmt(n)}</span>
+          <span className="text-[10px] font-medium text-orange-600/70 dark:text-orange-400/70">
+            {n === 1 ? 'azione' : 'azioni'}
+          </span>
+        </div>
+      )
+    }
+
+    if (communityFilter === 'donors') {
+      const n = Number(u.tokens_donated || 0)
+      return (
+        <div className={`${baseCls} bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800`}>
+          <Crown className="w-3.5 h-3.5 text-amber-500" />
+          <span className="text-amber-700 dark:text-amber-300">{fmt(n)}</span>
+          <span className="text-[10px] font-medium text-amber-600/70 dark:text-amber-400/70">
+            {n === 1 ? 'token' : 'token'}
+          </span>
+        </div>
+      )
+    }
+
+    // default: 'xp'
+    return (
+      <div className={`${baseCls} bg-gradient-to-r from-sage-50 to-emerald-50 dark:from-sage-800 dark:to-emerald-900/20 border-sage-100 dark:border-sage-700`}>
+        <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+        <span className="text-sage-700 dark:text-sage-200">{fmt(u.total_xp || 0)} XP</span>
+      </div>
     )
   }
 
@@ -531,8 +567,8 @@ export default function ClassificaPage() {
         ))}
         {mainTab === 'community' && ([
           { key: 'xp' as CommunityFilter, label: 'Top XP', icon: Sparkles },
-          { key: 'active' as CommunityFilter, label: 'Più attivi', icon: Zap },
-          { key: 'donors' as CommunityFilter, label: 'Top donatori', icon: Coins },
+          { key: 'active' as CommunityFilter, label: 'Più attivi', icon: Flame },
+          { key: 'donors' as CommunityFilter, label: 'Top donatori', icon: Crown },
         ]).map(({ key, label, icon }) => (
           <Pill key={key} active={communityFilter === key} onClick={() => setCommunityFilter(key)} icon={icon} label={label} />
         ))}
@@ -548,7 +584,9 @@ export default function ClassificaPage() {
           ? emptyState(BookOpen, 'Nessun libro qui', 'Cambia filtro o torna più tardi.')
           : mainTab === 'autori'
             ? emptyState(Sparkles, 'Nessun autore qui', 'Cambia filtro o torna più tardi.')
-            : emptyState(Users, 'Nessun dato ancora', 'Guadagna XP, commenta e supporta gli autori per apparire in classifica.')
+            : communityFilter === 'donors'
+              ? emptyState(Crown, 'Nessun donatore ancora', 'Sii il primo a supportare un autore con una mancia in token!')
+              : emptyState(Users, 'Nessun dato ancora', 'Guadagna XP, commenta e supporta gli autori per apparire in classifica.')
       ) : (
         <div className="space-y-2">
           {mainTab === 'libri' && items.map((b, i) => renderBookCard(b, i))}
