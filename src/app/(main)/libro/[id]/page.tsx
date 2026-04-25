@@ -10,7 +10,7 @@ import { createNotification } from '@/lib/notifications'
 import {
   BookOpen, Heart, Clock, Layers, ArrowLeft, Play,
   Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark,
-  Lock, LockOpen, Zap, Sparkles
+  Lock, LockOpen, Zap, Sparkles, MessageCircle, Star
 } from 'lucide-react'
 import { getGenreTagColor } from '@/lib/genres'
 import { awardXp } from '@/lib/xp'
@@ -34,6 +34,7 @@ export default function BookDetailPage() {
   const [saved, setSaved] = useState(false)
   const [readBlocks, setReadBlocks] = useState<Set<string>>(new Set())
   const [unlockedBlocks, setUnlockedBlocks] = useState<Set<string>>(new Set())
+  const [blockStats, setBlockStats] = useState<Record<string, { readers: number; comments: number; avgRating: number }>>({})
   const [boosting, setBoosting] = useState(false)
   const [canBoost, setCanBoost] = useState(true)
   const [hoursUntilBoost, setHoursUntilBoost] = useState<number | null>(null)
@@ -70,6 +71,42 @@ export default function BookDetailPage() {
         .order('block_number')
 
       setBlocks(blocksData || [])
+
+      // Statistiche per blocco (lettori unici · commenti · voto medio)
+      const blockIds = (blocksData || []).map((b: any) => b.id)
+      if (blockIds.length > 0) {
+        const [readsRes, commentsRes, ratingsRes] = await Promise.all([
+          supabase.from('block_reads').select('block_id, user_id').in('block_id', blockIds),
+          supabase.from('comments').select('block_id').in('block_id', blockIds),
+          supabase.from('block_ratings').select('block_id, stars').in('block_id', blockIds),
+        ])
+
+        const stats: Record<string, { readers: number; comments: number; avgRating: number }> = {}
+        const uniqReaders: Record<string, Set<string>> = {}
+        ;(readsRes.data || []).forEach((r: any) => {
+          if (!uniqReaders[r.block_id]) uniqReaders[r.block_id] = new Set()
+          uniqReaders[r.block_id].add(r.user_id)
+        })
+        const commentCounts: Record<string, number> = {}
+        ;(commentsRes.data || []).forEach((c: any) => {
+          commentCounts[c.block_id] = (commentCounts[c.block_id] || 0) + 1
+        })
+        const ratingsAgg: Record<string, { sum: number; n: number }> = {}
+        ;(ratingsRes.data || []).forEach((r: any) => {
+          if (!ratingsAgg[r.block_id]) ratingsAgg[r.block_id] = { sum: 0, n: 0 }
+          ratingsAgg[r.block_id].sum += Number(r.stars)
+          ratingsAgg[r.block_id].n += 1
+        })
+        blockIds.forEach((id: string) => {
+          const agg = ratingsAgg[id]
+          stats[id] = {
+            readers: uniqReaders[id]?.size || 0,
+            comments: commentCounts[id] || 0,
+            avgRating: agg && agg.n > 0 ? agg.sum / agg.n : 0,
+          }
+        })
+        setBlockStats(stats)
+      }
 
       // Check if user liked
       if (user) {
@@ -442,30 +479,28 @@ export default function BookDetailPage() {
             </span>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-3">
+          {/* Action buttons — compatti 40px h, 14px font, px-3 */}
+          <div className="flex items-center gap-2">
             {user ? (
               <Link
                 href={`/reader/${book.id}/1`}
-                className="flex items-center gap-2 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+                className="flex items-center gap-2 h-10 px-3 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
               >
                 <Play className="w-4 h-4" />
-                {book.first_block_free ? 'Inizia a leggere gratis' : 'Inizia a leggere'}
+                Inizia a leggere
               </Link>
             ) : (
-              // Guest Block: utente non registrato → invito alla registrazione con
-              // redirect di ritorno al libro. La lettura è riservata agli iscritti.
               <Link
                 href={`/signup?redirect=${encodeURIComponent(`/reader/${book.id}/1`)}`}
-                className="flex items-center gap-2 px-6 py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+                className="flex items-center gap-2 h-10 px-3 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
               >
                 <Play className="w-4 h-4" />
-                Registrati per leggere gratuitamente
+                Registrati per leggere
               </Link>
             )}
             <button
               onClick={handleLike}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors border ${
+              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border ${
                 liked
                   ? 'bg-red-50 border-red-200 text-red-600'
                   : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
@@ -476,7 +511,7 @@ export default function BookDetailPage() {
             </button>
             <button
               onClick={handleSave}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors border ${
+              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border ${
                 saved
                   ? 'bg-sage-50 border-sage-300 text-sage-700'
                   : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
@@ -489,7 +524,7 @@ export default function BookDetailPage() {
               onClick={handleBoost}
               disabled={!canBoost || boosting}
               title={canBoost ? 'Spendi 10 token per dare visibilita al libro' : `Hai gia boostato. Riprova tra ${hoursUntilBoost ?? 24}h`}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors border whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border whitespace-nowrap shrink-0 ${
                 canBoost && !boosting
                   ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
                   : 'bg-bark-50 border-bark-200 text-bark-400 cursor-not-allowed'
@@ -605,6 +640,28 @@ export default function BookDetailPage() {
                         )}
                       </p>
                     )}
+
+                    {/* Stats per blocco — visibili sempre, anche su blocchi bloccati */}
+                    {(() => {
+                      const s = blockStats[block.id]
+                      if (!s) return null
+                      return (
+                        <div className="flex items-center gap-2 mt-1 text-[12px] text-bark-400 dark:text-sage-500">
+                          <span className="flex items-center gap-0.5">
+                            <Eye className="w-3 h-3" /> {s.readers}
+                          </span>
+                          <span className="text-bark-300 dark:text-sage-600">·</span>
+                          <span className="flex items-center gap-0.5">
+                            <MessageCircle className="w-3 h-3" /> {s.comments}
+                          </span>
+                          <span className="text-bark-300 dark:text-sage-600">·</span>
+                          <span className="flex items-center gap-0.5">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            {s.avgRating > 0 ? s.avgRating.toFixed(1) : '—'}
+                          </span>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
                 <div>
