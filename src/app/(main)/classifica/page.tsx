@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import {
   Trophy, Loader2, Crown, BookOpen,
   Users, TrendingUp, Heart, Eye, Sparkles,
-  Layers, UserPlus, Zap, Coins, MessageCircle, PenTool,
+  Layers, UserPlus, Zap, Coins, MessageCircle, PenTool, Star,
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel, getRankTier, type RankTier } from '@/lib/badges'
@@ -48,6 +48,14 @@ function rankStyle(index: number) {
   if (index === 1) return 'bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 border-gray-200 dark:border-gray-700'
   if (index === 2) return 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800'
   return 'bg-white dark:bg-[#1e221c] border-sage-100 dark:border-sage-800'
+}
+
+// Bordo podio per card libri: oro / argento / bronzo più pronunciati
+function bookPodiumBorder(index: number): string {
+  if (index === 0) return 'border-2 border-amber-400 dark:border-amber-500'
+  if (index === 1) return 'border-2 border-gray-400 dark:border-gray-400'
+  if (index === 2) return 'border-2 border-orange-600 dark:border-orange-500'
+  return 'border'
 }
 
 // Pill riutilizzabile (stile coerente con /browse)
@@ -128,19 +136,32 @@ export default function ClassificaPage() {
   // RENDER HELPERS
   // ============================================
 
-  // ── Libro: riga in lista verticale (stesso layout di Autori/Community) ──
+  // ── Libro: riga in lista verticale ──
   const renderBookCard = (b: any, i: number) => {
     const authorName = b.author?.author_pseudonym || b.author?.name || b.author?.username || 'Autore'
+    const isPodium = i < 3
+    const avgRating = b.average_rating ? Number(b.average_rating) : 0
+
     return (
       <Link
         key={b.id}
         href={`/libro/${b.id}`}
-        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-shadow hover:shadow-md ${rankStyle(i)}`}
+        className={`flex items-center gap-3 rounded-xl transition-shadow hover:shadow-md ${
+          isPodium ? 'p-3' : 'p-2.5'
+        } ${bookPodiumBorder(i)} ${rankStyle(i)}`}
       >
         <RankColumn index={i} />
-        {/* Copertina: stesso "slot" di un avatar, ma rettangolare 2/3 */}
-        <div className="w-12 h-16 rounded-md overflow-hidden flex-shrink-0 bg-sage-100 dark:bg-sage-800 border border-sage-200 dark:border-sage-700 shadow-sm">
+
+        {/* Copertina: più grande per top 3 */}
+        <div
+          className={`rounded-md overflow-hidden flex-shrink-0 bg-sage-100 dark:bg-sage-800 shadow-sm ${
+            isPodium
+              ? 'w-[60px] h-[84px]'
+              : 'w-12 h-16 border border-sage-200 dark:border-sage-700'
+          }`}
+        >
           {b.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={b.cover_image_url} alt="" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -148,15 +169,19 @@ export default function ClassificaPage() {
             </div>
           )}
         </div>
+
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-sage-900 dark:text-sage-100 truncate">{b.title}</p>
           <p className="text-xs text-bark-400 dark:text-sage-500 truncate">di {authorName}</p>
+
+          {/* Statistiche uniformate con Sfoglia: ⭐ voto · 👥 lettori · 💬 commenti */}
           <div className="flex items-center gap-2.5 mt-1 flex-wrap">
             <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-              <Layers className="w-2.5 h-2.5" /> {b.total_blocks || 0}
+              <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+              {avgRating > 0 ? avgRating.toFixed(1) : '—'}
             </span>
             <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
-              <Heart className="w-2.5 h-2.5" /> {fmt(b.total_likes || 0)}
+              <Users className="w-2.5 h-2.5" /> {fmt(b.unique_readers || 0)}
             </span>
             <span className="flex items-center gap-0.5 text-[10px] text-bark-400 dark:text-sage-500">
               <MessageCircle className="w-2.5 h-2.5" /> {fmt(b.total_comments || 0)}
@@ -168,11 +193,13 @@ export default function ClassificaPage() {
             ) : null}
           </div>
         </div>
-        {/* Metrica principale tab Libri: lettori totali */}
+
+        {/* Metrica principale: pagine lette — dato per il pagamento autore */}
         <div className="flex-shrink-0">
           <div className="flex items-center gap-1 px-2.5 py-1 bg-sage-50 dark:bg-sage-800 rounded-full border border-sage-100 dark:border-sage-700">
-            <Eye className="w-3.5 h-3.5 text-sage-500" />
+            <BookOpen className="w-3.5 h-3.5 text-sage-500" />
             <span className="text-xs font-bold text-sage-700 dark:text-sage-300">{fmt(b.total_reads || 0)}</span>
+            <span className="text-[10px] text-bark-400 dark:text-sage-500">pag.</span>
           </div>
         </div>
       </Link>
