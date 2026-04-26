@@ -259,7 +259,7 @@ body {
 
 /* ============================================
    Lista blocchi pagina libro — testi in dark mode
-   Override esplicito che batte le regole globali bg-*/text-*
+   Override esplicito che batte le regole globali (bg- e text- utilities)
    ============================================ */
 .dark .block-title         { color: #F0F0F0 !important; }
 .dark .block-title-locked  { color: #AAAAAA !important; }
