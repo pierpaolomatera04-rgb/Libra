@@ -1059,11 +1059,10 @@ export default function ReaderPage() {
       setNewComment('')
       setReplyingTo(null)
 
-      // +1 XP per commento
-      const commentXp = await awardXp(supabase, user.id, XP_VALUES.COMMENT, 'comment', true)
-      if (commentXp?.level_up) setTimeout(() => setLevelUpResult(commentXp), 1500)
-
-      // Se l'utente ha scelto una firma premium, spendi 1 token e attaccala al proprio commento
+      // Se l'utente ha scelto una firma premium, prova prima a spendere il token.
+      // L'XP viene assegnato DOPO l'esito (5 base, 7 se firma premium applicata).
+      // Cap server: max 5 commenti/giorno, indipendentemente dal tipo.
+      let premiumApplied = false
       if (selectedPremiumReaction) {
         const chosen = selectedPremiumReaction
         setSelectedPremiumReaction(null)
@@ -1074,10 +1073,13 @@ export default function ReaderPage() {
             p_reaction_type: chosen,
           })
           if (rxErr || !rxData?.success) {
+            const reason = rxErr?.message || rxData?.error || 'Token insufficienti?'
+            console.warn('[firma premium] non applicata:', { rxErr, rxData, chosen, commentId: comment.id })
             toast.warning('Commento pubblicato, ma firma premium non applicata', {
-              description: rxErr?.message || rxData?.error || 'Token insufficienti?',
+              description: reason,
             })
           } else {
+            premiumApplied = true
             setOwnerReactions(prev => ({ ...prev, [comment.id]: chosen }))
             setCommentReactions(prev => ({
               ...prev,
@@ -1085,7 +1087,6 @@ export default function ReaderPage() {
             }))
             toast.success('Commento con firma premium pubblicato')
             refreshProfile?.()
-            // Nessun XP addizionale per firma premium (fuori spec).
           }
         } catch (e: any) {
           toast.warning('Firma premium non applicata', { description: e?.message || 'Riprova' })
@@ -1093,6 +1094,13 @@ export default function ReaderPage() {
       } else {
         toast.success('Commento pubblicato')
       }
+
+      // XP per commento (cap 5/giorno applicato lato server in award_xp)
+      // - Commento normale: 5 XP
+      // - Commento con firma premium animata applicata con successo: 7 XP
+      const xpAmount = premiumApplied ? XP_VALUES.COMMENT_PREMIUM : XP_VALUES.COMMENT
+      const commentXp = await awardXp(supabase, user.id, xpAmount, 'comment', true)
+      if (commentXp?.level_up) setTimeout(() => setLevelUpResult(commentXp), 1500)
 
       // Notifica all'autore del libro
       if (book?.author_id && book.author_id !== user.id) {
@@ -1887,12 +1895,17 @@ export default function ReaderPage() {
                           {comment.is_author_reply && (
                             <span className="text-xs bg-sage-100 dark:bg-sage-800 text-sage-600 dark:text-sage-400 px-1.5 py-0.5 rounded">Autore</span>
                           )}
-                          {ownerReactions[comment.id] && (
+                          {ownerReactions[comment.id] && REACTION_EMOJIS[ownerReactions[comment.id]] && (
                             <span
                               title="Firma premium animata dell'autore del commento"
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-300 via-amber-300 to-yellow-400 border border-amber-400 shadow-sm animate-pulse-slow"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-400 shadow-sm animate-pulse-slow"
+                              style={{
+                                backgroundImage: 'linear-gradient(90deg, #fde68a 0%, #fcd34d 25%, #fbbf24 50%, #fcd34d 75%, #fde68a 100%)',
+                                backgroundSize: '200% 100%',
+                                animation: 'premium-shimmer 3s linear infinite, pulse-slow 2.4s ease-in-out infinite',
+                              }}
                             >
-                              <span className="text-sm leading-none">
+                              <span className="text-base leading-none drop-shadow-sm">
                                 {REACTION_EMOJIS[ownerReactions[comment.id]]}
                               </span>
                             </span>
@@ -1966,12 +1979,17 @@ export default function ReaderPage() {
                                   {reply.is_author_reply && (
                                     <span className="text-[10px] bg-sage-100 dark:bg-sage-800 text-sage-600 px-1 py-0.5 rounded">Autore</span>
                                   )}
-                                  {ownerReactions[reply.id] && (
+                                  {ownerReactions[reply.id] && REACTION_EMOJIS[ownerReactions[reply.id]] && (
                                     <span
                                       title="Firma premium animata dell'autore del commento"
-                                      className="inline-flex items-center px-1 py-0.5 rounded-full bg-gradient-to-r from-yellow-300 via-amber-300 to-yellow-400 border border-amber-400 shadow-sm animate-pulse-slow"
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded-full border border-amber-400 shadow-sm animate-pulse-slow"
+                                      style={{
+                                        backgroundImage: 'linear-gradient(90deg, #fde68a 0%, #fcd34d 25%, #fbbf24 50%, #fcd34d 75%, #fde68a 100%)',
+                                        backgroundSize: '200% 100%',
+                                        animation: 'premium-shimmer 3s linear infinite, pulse-slow 2.4s ease-in-out infinite',
+                                      }}
                                     >
-                                      <span className="text-xs leading-none">
+                                      <span className="text-sm leading-none drop-shadow-sm">
                                         {REACTION_EMOJIS[ownerReactions[reply.id]]}
                                       </span>
                                     </span>

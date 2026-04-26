@@ -150,9 +150,9 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
               transform: 'rotateY(-3deg)',
             }}
           >
-            {/* Cover container */}
+            {/* Cover container — responsive: 110px mobile, 140px tablet, 130px desktop */}
             <div
-              className="relative w-[130px] rounded-r-md rounded-l-[2px] overflow-hidden"
+              className="relative w-[110px] sm:w-[140px] lg:w-[130px] rounded-r-md rounded-l-[2px] overflow-hidden"
               style={{
                 aspectRatio: '2/3',
                 boxShadow: '2px 3px 12px rgba(0,0,0,0.18), 0 0 1px rgba(0,0,0,0.1)',
@@ -255,38 +255,38 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
           )}
 
           <h3
-            className="font-semibold text-sage-900 dark:text-sage-100 text-sm group-hover:text-sage-600 dark:group-hover:text-sage-300 transition-colors"
+            className="font-semibold text-sage-900 dark:text-sage-100 text-[11px] sm:text-sm group-hover:text-sage-600 dark:group-hover:text-sage-300 transition-colors"
             style={{
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
-              minHeight: '2.5rem',
+              minHeight: '2.2rem',
             }}
           >
             {book.title}
           </h3>
           <span
-            className="text-xs text-bark-400 dark:text-sage-500 mt-1 block hover:text-sage-600 dark:hover:text-sage-300 transition-colors cursor-pointer truncate"
+            className="text-[10px] sm:text-xs text-bark-400 dark:text-sage-500 mt-1 block hover:text-sage-600 dark:hover:text-sage-300 transition-colors cursor-pointer truncate"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); const u = book.author?.username || book.author?.id; if (u) router.push(`/profile/${u}`) }}
           >
             {authorName}
           </span>
 
           {/* Stats: rating, lettori, commenti */}
-          <div className="flex items-center gap-3 mt-auto pt-2 text-[11px] text-bark-400 dark:text-sage-500">
+          <div className="flex items-center gap-2 sm:gap-3 mt-auto pt-2 text-[10px] sm:text-[11px] text-bark-400 dark:text-sage-500">
             <span className="flex items-center gap-0.5 font-medium" title={hasReviews ? `${avg.toFixed(1)} su 5` : 'Nessun voto'}>
-              <Star className={`w-3.5 h-3.5 ${hasReviews ? 'text-amber-400 fill-amber-400' : 'text-sage-300 dark:text-sage-600'}`} />
+              <Star className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${hasReviews ? 'text-amber-400 fill-amber-400' : 'text-sage-300 dark:text-sage-600'}`} />
               <span className={hasReviews ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}>
                 {hasReviews ? avg.toFixed(1) : '—'}
               </span>
             </span>
-            <span className="flex items-center gap-1" title={`${readers} lettori`}>
-              <Users className="w-3.5 h-3.5" />
+            <span className="flex items-center gap-0.5 sm:gap-1" title={`${readers} lettori`}>
+              <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               {formatCompact(readers)}
             </span>
-            <span className="flex items-center gap-1" title={`${comments} commenti`}>
-              <MessageCircle className="w-3.5 h-3.5" />
+            <span className="flex items-center gap-0.5 sm:gap-1" title={`${comments} commenti`}>
+              <MessageCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               {formatCompact(comments)}
             </span>
           </div>

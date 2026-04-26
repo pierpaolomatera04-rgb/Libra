@@ -55,7 +55,7 @@ export default function HorizontalCarousel({ children }: { children: React.React
       )}
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-2"
+        className="flex gap-2 sm:gap-3 overflow-x-auto pb-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
       >
         {children}

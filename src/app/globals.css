@@ -256,3 +256,18 @@ body {
   line-height: 1.8;
   letter-spacing: 0.01em;
 }
+
+/* ============================================
+   Lista blocchi pagina libro — testi in dark mode
+   Override esplicito che batte le regole globali bg-*/text-*
+   ============================================ */
+.dark .block-title         { color: #F0F0F0 !important; }
+.dark .block-title-locked  { color: #AAAAAA !important; }
+.dark .block-meta          { color: #AAAAAA !important; }
+.dark .block-stats         { color: #999999 !important; }
+.dark .block-stats-sep     { color: #555555 !important; }
+.dark .block-action-read   { color: #AAAAAA !important; }
+.dark .block-action-read:hover { color: #c2d4b0 !important; text-decoration: underline; }
+.dark .block-action-leggi  { color: #6dbe6d !important; }
+.dark .block-action-leggi:hover { color: #8fd48f !important; }
+.dark .block-scheduled     { color: #AAAAAA !important; }

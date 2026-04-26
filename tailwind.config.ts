@@ -50,6 +50,28 @@ const config: Config = {
         mono: ['var(--font-geist-mono)', 'monospace'],
         serif: ['Georgia', 'Cambria', 'serif'],
       },
+      keyframes: {
+        'pulse-slow': {
+          '0%, 100%': {
+            opacity: '1',
+            transform: 'scale(1)',
+            boxShadow: '0 0 0 0 rgba(251, 191, 36, 0.7)',
+          },
+          '50%': {
+            opacity: '0.92',
+            transform: 'scale(1.08)',
+            boxShadow: '0 0 12px 4px rgba(251, 191, 36, 0.45)',
+          },
+        },
+        'premium-shimmer': {
+          '0%': { backgroundPosition: '-200% 50%' },
+          '100%': { backgroundPosition: '200% 50%' },
+        },
+      },
+      animation: {
+        'pulse-slow': 'pulse-slow 2.4s ease-in-out infinite',
+        'premium-shimmer': 'premium-shimmer 3s linear infinite',
+      },
     },
   },
   plugins: [],

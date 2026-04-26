@@ -65,7 +65,7 @@ function HorizontalCarousel({ children }: { children: React.ReactNode }) {
       )}
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-2"
+        className="flex gap-2 sm:gap-3 overflow-x-auto pb-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {children}
@@ -98,10 +98,18 @@ export default function BrowsePage() {
   const [showFilters, setShowFilters] = useState(false)
 
   // Discovery sections state
-  const [continueReading, setContinueReading] = useState<any[]>([])
-  const [trendingBooks, setTrendingBooks] = useState<any[]>([])
-  const [recommended, setRecommended] = useState<any[]>([])
-  const [mostCommented, setMostCommented] = useState<any[]>([])
+  const [continueReading, setContinueReading] = useState<any[]>([]) // 0. Continua a leggere (sopra le 8)
+  const [recommended, setRecommended] = useState<any[]>([])         // 1. Consigliati per te
+  const [trendingBooks, setTrendingBooks] = useState<any[]>([])     // 2. In tendenza
+  const [communityPicks, setCommunityPicks] = useState<any[]>([])   // 3. Scelti dalla community
+  const [topRated, setTopRated] = useState<any[]>([])               // 4. I più votati
+  const [followedAuthors, setFollowedAuthors] = useState<any[]>([]) // 5. Dagli autori che segui
+  const [quickReads, setQuickReads] = useState<any[]>([])           // 6. Lettura veloce
+  const [readByFriends, setReadByFriends] = useState<any[]>([])     // 7. Leggi anche tu
+  const [mostCommented, setMostCommented] = useState<any[]>([])     // 8. I più commentati
+
+  // Soglia minima di libri per mostrare una sezione (regola globale)
+  const MIN_SECTION_BOOKS = 3
 
   // ── Hide-on-scroll-down / show-on-scroll-up per la barra filtri ──
   // La navbar principale resta fissa; solo questa barra si nasconde.
@@ -210,7 +218,7 @@ export default function BrowsePage() {
     setLoading(false)
   }, [supabase, search, genre, activeMacro, sort, statusFilter, readingTime])
 
-  /* ── Fetch discovery sections ── */
+  /* ── Fetch discovery sections (8 sezioni nell'ordine definitivo) ── */
   const fetchDiscoverySections = useCallback(async () => {
     // Helper: applica filtro macro/genre a una query sui books
     const applyCategoryFilter = (q: any) => {
@@ -222,14 +230,19 @@ export default function BrowsePage() {
       return q
     }
 
-    // Determina generi ammessi per filtrare in-memory i risultati di "Continua a leggere"
     const allowedGenres: string[] | null = genre
       ? [genre]
       : activeMacro
         ? activeMacro.subGenres.map(sg => sg.value)
         : null
 
-    // 1. Continua a leggere (solo utenti loggati)
+    // Select base riutilizzato per tutte le query books
+    const BOOK_SELECT = `
+      *,
+      author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
+    `
+
+    // ── 0. CONTINUA A LEGGERE — solo utenti loggati, sopra alle 8 sezioni ──
     if (user) {
       const { data: libraryData } = await supabase
         .from('user_library')
@@ -276,101 +289,278 @@ export default function BrowsePage() {
             })
         )
         setContinueReading(booksWithProgress)
+      } else {
+        setContinueReading([])
       }
     } else {
       setContinueReading([])
     }
 
-    // 2. In tendenza — legge dalla cache velocity per performance
-    const { data: cacheData } = await supabase
-      .from('trending_cache')
-      .select('book_id, score, position')
-      .order('position', { ascending: true })
-      .limit(30)
-
-    if (cacheData && cacheData.length > 0) {
-      const bookIds = cacheData.map((c: any) => c.book_id)
-      let trendQ = supabase
-        .from('books')
-        .select(`
-          *,
-          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
-        `)
-        .in('id', bookIds)
+    // ── 1. CONSIGLIATI PER TE ──
+    // Generi dei libri letti/salvati. Se utente nuovo o non loggato → più letti in assoluto.
+    let recommendedGenres: string[] | null = null
+    if (user) {
+      const { data: histData } = await supabase
+        .from('user_library')
+        .select('book:books!user_library_book_id_fkey(genre)')
+        .eq('user_id', user.id)
+        .in('status', ['reading', 'completed', 'saved'])
+        .limit(50)
+      if (histData && histData.length > 0) {
+        const genres = histData
+          .map((r: any) => r.book?.genre)
+          .filter(Boolean)
+        if (genres.length > 0) recommendedGenres = Array.from(new Set(genres))
+      }
+    }
+    {
+      let q = supabase.from('books').select(BOOK_SELECT)
         .in('status', ['published', 'ongoing', 'completed'])
-      trendQ = applyCategoryFilter(trendQ)
-      const { data: trendData } = await trendQ
+      if (allowedGenres) {
+        q = q.in('genre', allowedGenres)
+      } else if (recommendedGenres) {
+        q = q.in('genre', recommendedGenres)
+      }
+      const { data } = await q.order('total_reads', { ascending: false }).limit(12)
+      setRecommended(data || [])
+    }
 
-      if (trendData) {
-        const posMap = new Map<string, number>(cacheData.map((c: any) => [c.book_id, Number(c.position)]))
-        const sorted = [...trendData]
-          .map(b => ({ ...b, _trendingPosition: posMap.get(b.id) || 99 }))
-          .sort((a, b) => a._trendingPosition - b._trendingPosition)
+    // ── 2. IN TENDENZA — visibility_score ultimi 7 giorni ──
+    {
+      let q = supabase.from('books').select(BOOK_SELECT)
+        .in('status', ['published', 'ongoing', 'completed'])
+        .gt('visibility_score', 0)
+      q = applyCategoryFilter(q)
+      const { data } = await q.order('visibility_score', { ascending: false }).limit(12)
+      setTrendingBooks(data || [])
+    }
+
+    // ── 3. SCELTI DALLA COMMUNITY — per salvataggi ultima settimana ──
+    {
+      const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+      const { data: savesData } = await supabase
+        .from('user_library')
+        .select('book_id')
+        .gte('created_at', since)
+        .limit(2000)
+      if (savesData && savesData.length > 0) {
+        const counts = new Map<string, number>()
+        for (const r of savesData) {
+          counts.set(r.book_id, (counts.get(r.book_id) || 0) + 1)
+        }
+        const topIds = Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 30)
+          .map(([id]) => id)
+        if (topIds.length > 0) {
+          let q = supabase.from('books').select(BOOK_SELECT)
+            .in('id', topIds)
+            .in('status', ['published', 'ongoing', 'completed'])
+          q = applyCategoryFilter(q)
+          const { data } = await q
+          if (data) {
+            const sorted = [...data]
+              .map(b => ({ ...b, _saves7d: counts.get(b.id) || 0 }))
+              .sort((a, b) => b._saves7d - a._saves7d)
+              .slice(0, 12)
+            setCommunityPicks(sorted)
+          } else {
+            setCommunityPicks([])
+          }
+        } else {
+          setCommunityPicks([])
+        }
+      } else {
+        setCommunityPicks([])
+      }
+    }
+
+    // ── 4. I PIÙ VOTATI — 70% recensioni + 30% voti blocchi ──
+    {
+      let q = supabase.from('books').select(BOOK_SELECT)
+        .in('status', ['published', 'ongoing', 'completed'])
+        .gt('total_reviews', 0)
+      q = applyCategoryFilter(q)
+      const { data: candidates } = await q.limit(60)
+      if (candidates && candidates.length > 0) {
+        // Voti medi blocchi per ciascun libro candidato
+        const ids = candidates.map((b: any) => b.id)
+        const { data: blockRatings } = await supabase
+          .from('block_ratings')
+          .select('block_id, stars, block:blocks!inner(book_id)')
+          .in('block.book_id', ids)
+        const bookBlockAvg = new Map<string, { sum: number; count: number }>()
+        for (const r of (blockRatings as any[]) || []) {
+          const bid = r.block?.book_id
+          if (!bid) continue
+          const cur = bookBlockAvg.get(bid) || { sum: 0, count: 0 }
+          cur.sum += r.stars || 0
+          cur.count += 1
+          bookBlockAvg.set(bid, cur)
+        }
+        const scored = candidates.map((b: any) => {
+          const blk = bookBlockAvg.get(b.id)
+          const blockAvg = blk && blk.count > 0 ? blk.sum / blk.count : 0
+          const reviewAvg = b.average_rating || 0
+          const weighted = blockAvg > 0
+            ? reviewAvg * 0.7 + blockAvg * 0.3
+            : reviewAvg
+          return { ...b, _weightedRating: weighted }
+        })
+        scored.sort((a: any, b: any) => b._weightedRating - a._weightedRating)
+        setTopRated(scored.slice(0, 12))
+      } else {
+        setTopRated([])
+      }
+    }
+
+    // ── 5. DAGLI AUTORI CHE SEGUI — nascosta se non segui nessun autore ──
+    if (user) {
+      const { data: follows } = await supabase
+        .from('follows')
+        .select('following_id, following:profiles!follows_following_id_fkey(is_author)')
+        .eq('follower_id', user.id)
+        .limit(200)
+      const authorIds = (follows || [])
+        .filter((f: any) => f.following?.is_author)
+        .map((f: any) => f.following_id)
+      if (authorIds.length > 0) {
+        // Libri di quegli autori con almeno un blocco rilasciato di recente (30 giorni)
+        const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
+        const { data: recentBlocks } = await supabase
+          .from('blocks')
+          .select('book_id, released_at')
+          .eq('is_released', true)
+          .gte('released_at', since)
+          .limit(500)
+        const bookIdsSet = new Set<string>((recentBlocks || []).map((b: any) => b.book_id))
+        let q = supabase.from('books').select(BOOK_SELECT)
+          .in('author_id', authorIds)
+          .in('status', ['published', 'ongoing', 'completed'])
+        q = applyCategoryFilter(q)
+        const { data } = await q.limit(40)
+        const filtered = (data || [])
+          .filter((b: any) => bookIdsSet.size === 0 || bookIdsSet.has(b.id))
           .slice(0, 12)
-        setTrendingBooks(sorted)
+        setFollowedAuthors(filtered)
+      } else {
+        setFollowedAuthors([])
       }
     } else {
-      let trendQ = supabase
-        .from('books')
-        .select(`
-          *,
-          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
-        `)
-        .in('status', ['published', 'ongoing', 'completed'])
-      trendQ = applyCategoryFilter(trendQ)
-      const { data: trendData } = await trendQ
-        .order('trending_score', { ascending: false })
-        .limit(12)
-
-      if (trendData) setTrendingBooks(trendData)
+      setFollowedAuthors([])
     }
 
-    // 3. Consigliati per te
-    // Se la categoria è già selezionata, usiamo quella; altrimenti i preferiti del profilo.
-    if (!genre && !activeMacro && profile?.preferred_genres && profile.preferred_genres.length > 0) {
-      const { data: recData } = await supabase
-        .from('books')
-        .select(`
-          *,
-          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
-        `)
-        .in('genre', profile.preferred_genres)
+    // ── 6. LETTURA VELOCE — tempo medio per blocco < 10 minuti (~2250 parole) ──
+    {
+      let q = supabase.from('books').select(BOOK_SELECT)
         .in('status', ['published', 'ongoing', 'completed'])
-        .order('trending_score', { ascending: false })
-        .limit(12)
+        .gt('total_blocks', 0)
+      q = applyCategoryFilter(q)
+      const { data: cands } = await q.order('total_reads', { ascending: false }).limit(60)
+      if (cands && cands.length > 0) {
+        const ids = cands.map((b: any) => b.id)
+        const { data: blocks } = await supabase
+          .from('blocks')
+          .select('book_id, word_count')
+          .in('book_id', ids)
+          .eq('is_released', true)
+        const wordsAgg = new Map<string, { sum: number; count: number }>()
+        for (const b of (blocks as any[]) || []) {
+          const cur = wordsAgg.get(b.book_id) || { sum: 0, count: 0 }
+          cur.sum += b.word_count || 0
+          cur.count += 1
+          wordsAgg.set(b.book_id, cur)
+        }
+        const fast = cands
+          .filter((b: any) => {
+            const a = wordsAgg.get(b.id)
+            if (!a || a.count === 0) return false
+            const avgWords = a.sum / a.count
+            return avgWords > 0 && avgWords < 2250 // < 10 min @ 225 wpm
+          })
+          .slice(0, 12)
+        setQuickReads(fast)
+      } else {
+        setQuickReads([])
+      }
+    }
 
-      if (recData) setRecommended(recData)
+    // ── 7. LEGGI ANCHE TU — libri letti dagli utenti che segui — nascosta se 0 follow ──
+    if (user) {
+      const { data: follows } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user.id)
+        .limit(200)
+      const followedIds = (follows || []).map((f: any) => f.following_id)
+      if (followedIds.length > 0) {
+        const { data: theirReading } = await supabase
+          .from('user_library')
+          .select('book_id, user_id')
+          .in('user_id', followedIds)
+          .eq('status', 'reading')
+          .order('updated_at', { ascending: false })
+          .limit(200)
+        if (theirReading && theirReading.length > 0) {
+          const counts = new Map<string, number>()
+          for (const r of theirReading) {
+            counts.set(r.book_id, (counts.get(r.book_id) || 0) + 1)
+          }
+          const topIds = Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 30)
+            .map(([id]) => id)
+          if (topIds.length > 0) {
+            let q = supabase.from('books').select(BOOK_SELECT)
+              .in('id', topIds)
+              .in('status', ['published', 'ongoing', 'completed'])
+            q = applyCategoryFilter(q)
+            const { data } = await q
+            const sorted = (data || [])
+              .map((b: any) => ({ ...b, _friendsReading: counts.get(b.id) || 0 }))
+              .sort((a: any, b: any) => b._friendsReading - a._friendsReading)
+              .slice(0, 12)
+            setReadByFriends(sorted)
+          } else {
+            setReadByFriends([])
+          }
+        } else {
+          setReadByFriends([])
+        }
+      } else {
+        setReadByFriends([])
+      }
     } else {
-      let recQ = supabase
-        .from('books')
-        .select(`
-          *,
-          author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
-        `)
-        .in('status', ['published', 'ongoing', 'completed'])
-      recQ = applyCategoryFilter(recQ)
-      const { data: recData } = await recQ
-        .order('total_likes', { ascending: false })
-        .limit(12)
-
-      if (recData) setRecommended(recData)
+      setReadByFriends([])
     }
 
-    // 4. I più commentati
-    let commQ = supabase
-      .from('books')
-      .select(`
-        *,
-        author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
-      `)
-      .in('status', ['published', 'ongoing', 'completed'])
-    commQ = applyCategoryFilter(commQ)
-    const { data: commData } = await commQ
-      .order('total_comments', { ascending: false })
-      .limit(12)
-
-    if (commData) setMostCommented(commData)
+    // ── 8. I PIÙ COMMENTATI ──
+    {
+      let q = supabase.from('books').select(BOOK_SELECT)
+        .in('status', ['published', 'ongoing', 'completed'])
+        .gt('total_comments', 0)
+      q = applyCategoryFilter(q)
+      const { data } = await q.order('total_comments', { ascending: false }).limit(12)
+      setMostCommented(data || [])
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, user, profile, activeMacro, genre])
+
+  // Debug temporaneo: stampa in console quante voci ha ogni sezione (rimovibile)
+  useEffect(() => {
+    console.log('[browse sections]', {
+      continueReading: continueReading.length,
+      recommended: recommended.length,
+      trending: trendingBooks.length,
+      community: communityPicks.length,
+      topRated: topRated.length,
+      followedAuthors: followedAuthors.length,
+      quickReads: quickReads.length,
+      readByFriends: readByFriends.length,
+      mostCommented: mostCommented.length,
+      MIN_REQUIRED: MIN_SECTION_BOOKS,
+    })
+  }, [continueReading, recommended, trendingBooks, communityPicks, topRated, followedAuthors, quickReads, readByFriends, mostCommented])
 
   useEffect(() => {
     fetchBooks()
@@ -597,133 +787,160 @@ export default function BrowsePage() {
         </div>
       )}
 
-      {/* ═══════ DISCOVERY MODE ═══════ */}
-      {isDiscoveryMode && (
-        <div className="mt-5 space-y-6">
-          {/* 1. Continua a leggere */}
-          {continueReading.length > 0 && (
+      {/* ═══════ DISCOVERY MODE — 8 sezioni nell'ordine definitivo ═══════ */}
+      {isDiscoveryMode && (() => {
+        // Helper rendering sezione: si autonasconde se < MIN_SECTION_BOOKS
+        const Section = ({
+          title,
+          books,
+          actionHref,
+          actionLabel,
+          actionOnClick,
+          showTrending,
+        }: {
+          title: string
+          books: any[]
+          actionHref?: string
+          actionLabel?: string
+          actionOnClick?: () => void
+          showTrending?: boolean
+        }) => {
+          if (books.length < MIN_SECTION_BOOKS) return null
+          return (
             <section>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-sage-900">Continua a leggere</h2>
-                <Link href="/libreria" className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5">
-                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+                <h2 className="text-base font-bold text-sage-900 dark:text-sage-100">{title}</h2>
+                {actionHref ? (
+                  <Link
+                    href={actionHref}
+                    className="text-xs text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 font-medium flex items-center gap-0.5"
+                  >
+                    {actionLabel || 'Vedi tutti'} <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                ) : actionOnClick ? (
+                  <button
+                    onClick={actionOnClick}
+                    className="text-xs text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 font-medium flex items-center gap-0.5"
+                  >
+                    {actionLabel || 'Vedi tutti'} <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : null}
               </div>
               <HorizontalCarousel>
-                {continueReading.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
-                    <Link href={`/libro/${book.id}`} className="group block">
-                      <div className="bg-white rounded-xl overflow-hidden border border-sage-100 hover:border-sage-300 hover:shadow-md transition-all duration-300">
-                        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '2/3' }}>
-                          {book.cover_image_url ? (
-                            <img
-                              src={book.cover_image_url}
-                              alt={book.title}
-                              className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-sage-200 to-sage-300">
-                              <BookOpen className="w-10 h-10 text-sage-500" />
-                            </div>
-                          )}
-                          {/* Progress overlay */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2.5 pt-6">
-                            <p className="text-white text-[11px] font-medium mb-1">
-                              Blocco {book.currentBlock} di {book.total_blocks}
-                            </p>
-                            <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-amber-400 rounded-full"
-                                style={{
-                                  width: `${book.total_blocks > 0 ? Math.round((book.currentBlock / book.total_blocks) * 100) : 0}%`,
-                                }}
+                {books.map((book: any, idx: number) => (
+                  <div key={book.id} className="flex-shrink-0 w-[130px] sm:w-[160px]">
+                    <BookCard
+                      book={book}
+                      showTrending={showTrending}
+                      trendingPosition={showTrending ? idx + 1 : undefined}
+                    />
+                  </div>
+                ))}
+              </HorizontalCarousel>
+            </section>
+          )
+        }
+        return (
+          <div className="mt-5 space-y-6">
+            {/* 0. Continua a leggere — card più piccole, sempre in cima */}
+            {continueReading.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-bold text-sage-900 dark:text-sage-100">Continua a leggere</h2>
+                  <Link
+                    href="/libreria"
+                    className="text-xs text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 font-medium flex items-center gap-0.5"
+                  >
+                    Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+                <HorizontalCarousel>
+                  {continueReading.map((book: any) => (
+                    <div key={book.id} className="flex-shrink-0 w-[110px] sm:w-[135px]">
+                      <Link href={`/libro/${book.id}`} className="group block">
+                        <div className="bg-white dark:bg-[#1e221c] rounded-lg overflow-hidden border border-sage-100 dark:border-sage-800 hover:border-sage-300 dark:hover:border-sage-600 hover:shadow-md transition-all duration-300">
+                          <div className="relative w-full overflow-hidden" style={{ aspectRatio: '2/3' }}>
+                            {book.cover_image_url ? (
+                              <img
+                                src={book.cover_image_url}
+                                alt={book.title}
+                                className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                               />
+                            ) : (
+                              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-sage-200 to-sage-300">
+                                <BookOpen className="w-8 h-8 text-sage-500" />
+                              </div>
+                            )}
+                            {/* Progress overlay */}
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 pt-4">
+                              <p className="text-white text-[10px] font-medium mb-1">
+                                {book.currentBlock}/{book.total_blocks}
+                              </p>
+                              <div className="w-full h-0.5 bg-white/30 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-amber-400 rounded-full"
+                                  style={{
+                                    width: `${book.total_blocks > 0 ? Math.round((book.currentBlock / book.total_blocks) * 100) : 0}%`,
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
+                          <div className="p-1.5">
+                            <h3 className="font-semibold text-sage-900 dark:text-sage-100 text-[11px] line-clamp-1">{book.title}</h3>
+                            <p className="text-[10px] text-bark-400 dark:text-sage-500 mt-0.5 line-clamp-1">
+                              {book.author?.author_pseudonym || book.author?.name || 'Autore'}
+                            </p>
+                          </div>
                         </div>
-                        <div className="p-2.5">
-                          <h3 className="font-semibold text-sage-900 text-xs line-clamp-1">{book.title}</h3>
-                          <p className="text-[11px] text-bark-400 mt-0.5 line-clamp-1">
-                            {book.author?.author_pseudonym || book.author?.name || 'Autore'}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
+                      </Link>
+                    </div>
+                  ))}
+                </HorizontalCarousel>
+              </section>
+            )}
 
-          {/* 2. In tendenza */}
-          {trendingBooks.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-sage-900 dark:text-sage-100">In tendenza</h2>
-                <Link
-                  href="/trending"
-                  className="text-xs text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 font-medium flex items-center gap-0.5"
-                >
-                  Classifica <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-              <HorizontalCarousel>
-                {trendingBooks.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
-                    <BookCard book={book} showTrending trendingPosition={book._trendingPosition} />
-                  </div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
-
-          {/* 3. Consigliati per te */}
-          {recommended.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-sage-900">
-                  {user ? 'Consigliati per te' : 'I pi\u00F9 amati'}
-                </h2>
-                <button
-                  onClick={() => showFullCatalog('popular')}
-                  className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5"
-                >
-                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <HorizontalCarousel>
-                {recommended.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
-                    <BookCard book={book} />
-                  </div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
-
-          {/* 4. I più commentati */}
-          {mostCommented.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-sage-900">I pi&#249; commentati</h2>
-                <button
-                  onClick={() => showFullCatalog('popular')}
-                  className="text-xs text-sage-500 hover:text-sage-700 font-medium flex items-center gap-0.5"
-                >
-                  Vedi tutti <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <HorizontalCarousel>
-                {mostCommented.map((book: any) => (
-                  <div key={book.id} className="flex-shrink-0 w-40 sm:w-44">
-                    <BookCard book={book} />
-                  </div>
-                ))}
-              </HorizontalCarousel>
-            </section>
-          )}
-        </div>
-      )}
+            <Section
+              title="Consigliati per te"
+              books={recommended}
+              actionOnClick={() => showFullCatalog('popular')}
+            />
+            <Section
+              title="In tendenza"
+              books={trendingBooks}
+              actionHref="/trending"
+              actionLabel="Classifica"
+              showTrending
+            />
+            <Section
+              title="Scelti dalla community"
+              books={communityPicks}
+            />
+            <Section
+              title="I più votati"
+              books={topRated}
+            />
+            <Section
+              title="Dagli autori che segui"
+              books={followedAuthors}
+              actionHref="/autori"
+            />
+            <Section
+              title="Lettura veloce"
+              books={quickReads}
+            />
+            <Section
+              title="Leggi anche tu"
+              books={readByFriends}
+            />
+            <Section
+              title="I più commentati"
+              books={mostCommented}
+              actionOnClick={() => showFullCatalog('popular')}
+            />
+          </div>
+        )
+      })()}
 
       {/* ═══════ GRID MODE (search/filter/sort active) ═══════ */}
       {!isDiscoveryMode && (

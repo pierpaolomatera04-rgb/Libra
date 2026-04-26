@@ -197,6 +197,7 @@ export const XP_VALUES = {
   BOOK_COMPLETE: 50,
   // Social
   COMMENT: 5,                  // max 5/giorno
+  COMMENT_PREMIUM: 7,          // commento con firma premium animata, max 5/giorno
   SHARE_SENTENCE: 10,          // max 2/giorno
   FOLLOW_AUTHOR: 5,            // max 3/giorno
   // Sostegno

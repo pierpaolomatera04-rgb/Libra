@@ -10,7 +10,7 @@ import { createNotification } from '@/lib/notifications'
 import {
   BookOpen, Heart, Clock, Layers, ArrowLeft, Play,
   Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark,
-  Lock, LockOpen, Zap, Sparkles, MessageCircle, Star
+  Lock, LockOpen, Zap, Sparkles, MessageCircle, Star, Check
 } from 'lucide-react'
 import { getGenreTagColor } from '@/lib/genres'
 import { awardXp } from '@/lib/xp'
@@ -569,7 +569,7 @@ export default function BookDetailPage() {
         <h2 className="text-lg font-bold text-sage-900 mb-3">
           Blocchi ({releasedBlocks}/{book.total_blocks} pubblicati)
         </h2>
-        <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 divide-y divide-sage-50 dark:divide-sage-800">
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-sage-100 dark:border-neutral-700 divide-y divide-sage-50 dark:divide-neutral-700">
           {blocks.map((block: any) => {
             const wordCount = block.word_count || 0
             const readMin = Math.max(1, Math.ceil(wordCount / 225))
@@ -577,14 +577,17 @@ export default function BookDetailPage() {
             const available = isBlockAvailable(block)
             const unlocked = isBlockUnlocked(block)
             return (
-              <div key={block.id} className={`flex items-center justify-between px-5 py-3.5 ${isRead ? 'bg-sage-50/50' : ''}`}>
+              <div
+                key={block.id}
+                className="flex items-center justify-between px-5 py-3.5"
+              >
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
                     isRead
                       ? 'bg-sage-500 text-white'
                       : available
-                        ? 'bg-sage-100 text-sage-700'
-                        : 'bg-bark-100 text-bark-400'
+                        ? 'bg-sage-100 dark:bg-sage-800 text-sage-700 dark:text-sage-200'
+                        : 'bg-bark-100 dark:bg-neutral-800 text-bark-400 dark:text-neutral-400'
                   }`}>
                     {isRead ? '✓' : block.block_number}
                   </div>
@@ -595,7 +598,7 @@ export default function BookDetailPage() {
                       <span
                         title="Blocco sbloccato"
                         aria-label="Blocco sbloccato"
-                        className="flex-shrink-0 text-emerald-500"
+                        className="flex-shrink-0 text-emerald-500 dark:text-emerald-400"
                       >
                         <LockOpen className="w-4 h-4" strokeWidth={2.2} />
                       </span>
@@ -603,7 +606,7 @@ export default function BookDetailPage() {
                       <span
                         title="Sblocca questo blocco per continuare la lettura"
                         aria-label="Sblocca questo blocco per continuare la lettura"
-                        className="flex-shrink-0 text-amber-500 cursor-help"
+                        className="flex-shrink-0 text-amber-500 dark:text-amber-400 cursor-help"
                       >
                         <Lock className="w-4 h-4" strokeWidth={2.2} />
                       </span>
@@ -612,7 +615,11 @@ export default function BookDetailPage() {
 
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`text-sm font-medium ${available ? 'text-sage-800 dark:text-sage-200' : 'text-bark-400'}`}>
+                      <p className={`text-sm font-medium ${
+                        available
+                          ? 'text-sage-800 block-title'
+                          : 'text-bark-400 block-title-locked'
+                      }`}>
                         {available
                           ? (block.title ? `${block.block_number}. ${block.title}` : `Blocco ${block.block_number}`)
                           : `Blocco ${block.block_number}`
@@ -627,13 +634,21 @@ export default function BookDetailPage() {
                           Extra
                         </span>
                       )}
+                      {isRead && (
+                        <span
+                          title="Hai gia letto questo blocco"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-500 text-white shadow-sm"
+                        >
+                          <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                          Letto
+                        </span>
+                      )}
                     </div>
                     {available && (
-                      <p className="text-xs text-bark-400">
+                      <p className="text-xs text-bark-400 block-meta">
                         ~{readMin} min di lettura
-                        {isRead && <span className="ml-2 text-sage-500 font-medium">Letto</span>}
                         {!isRead && !unlocked && (
-                          <span className="ml-2 text-amber-600 font-medium">
+                          <span className="ml-2 text-amber-600 dark:text-amber-400 font-medium">
                             {block.token_price || book.token_price_per_block || 5} token
                             {block.is_extra && <span className="ml-1 text-[10px]">(reali)</span>}
                           </span>
@@ -646,18 +661,18 @@ export default function BookDetailPage() {
                       const s = blockStats[block.id]
                       if (!s) return null
                       return (
-                        <div className="flex items-center gap-2 mt-1 text-[12px] text-bark-400 dark:text-sage-500">
+                        <div className="flex items-center gap-2 mt-1 text-[12px] text-bark-400 block-stats">
                           <span className="flex items-center gap-0.5">
                             <Eye className="w-3 h-3" /> {s.readers}
                           </span>
-                          <span className="text-bark-300 dark:text-sage-600">·</span>
+                          <span className="text-bark-300 block-stats-sep">·</span>
                           <span className="flex items-center gap-0.5">
                             <MessageCircle className="w-3 h-3" /> {s.comments}
                           </span>
-                          <span className="text-bark-300 dark:text-sage-600">·</span>
+                          <span className="text-bark-300 block-stats-sep">·</span>
                           <span className="flex items-center gap-0.5">
                             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                            {s.avgRating > 0 ? s.avgRating.toFixed(1) : '—'}
+                            <span>{s.avgRating > 0 ? s.avgRating.toFixed(1) : '—'}</span>
                           </span>
                         </div>
                       )
@@ -674,16 +689,18 @@ export default function BookDetailPage() {
                           ? `/reader/${bookId}/${block.block_number}`
                           : `/signup?redirect=${encodeURIComponent(`/reader/${bookId}/${block.block_number}`)}`
                       }
-                      className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                      className={
                         isRead
-                          ? 'text-bark-400 hover:text-sage-600 hover:bg-sage-50'
-                          : 'text-sage-600 hover:text-sage-700 hover:bg-sage-50 font-semibold'
-                      }`}
+                          // "Rileggi" — azione secondaria: solo testo grigio, peso normale, niente sfondo evidente
+                          ? 'text-xs px-2 py-1 rounded transition-colors text-bark-400 hover:text-sage-600 hover:underline block-action-read'
+                          // "Leggi" — azione principale: verde bold ben visibile in entrambe le mode
+                          : 'text-xs font-bold px-3 py-1.5 rounded-lg transition-colors text-sage-600 hover:text-sage-700 hover:bg-sage-50 block-action-leggi'
+                      }
                     >
                       {user ? (isRead ? 'Rileggi' : 'Leggi') : 'Registrati'}
                     </Link>
                   ) : (
-                    <span className="text-xs text-bark-400 flex items-center gap-1">
+                    <span className="text-xs text-bark-400 block-scheduled flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       {block.scheduled_date
                         ? new Date(block.scheduled_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
