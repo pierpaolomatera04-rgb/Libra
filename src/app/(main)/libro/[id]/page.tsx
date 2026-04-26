@@ -645,26 +645,39 @@ export default function BookDetailPage() {
                       )}
                     </div>
                     {available ? (
-                      <p className="text-xs text-bark-400 block-meta">
-                        ~{readMin} min di lettura
+                      <p className="text-xs text-bark-400 block-meta flex items-center gap-1.5 flex-wrap">
+                        <span>~{readMin} min di lettura</span>
+                        {block.scheduled_date && (
+                          <>
+                            <span className="text-bark-300 block-stats-sep">·</span>
+                            <span className="inline-flex items-center gap-0.5">
+                              <Calendar className="w-3 h-3" />
+                              Pubblicato {new Date(block.scheduled_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                          </>
+                        )}
                         {!isRead && !unlocked && (
-                          <span className="ml-2 text-amber-600 dark:text-amber-400 font-medium">
-                            {block.token_price || book.token_price_per_block || 5} token
-                            {block.is_extra && <span className="ml-1 text-[10px]">(reali)</span>}
-                          </span>
+                          <>
+                            <span className="text-bark-300 block-stats-sep">·</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">
+                              {block.token_price || book.token_price_per_block || 5} token
+                              {block.is_extra && <span className="ml-1 text-[10px]">(reali)</span>}
+                            </span>
+                          </>
                         )}
                       </p>
                     ) : (
-                      <p className="text-xs text-bark-400 block-meta flex items-center gap-1 block-scheduled">
-                        <Calendar className="w-3 h-3" />
+                      <p className="text-xs block-meta flex items-center gap-1 block-scheduled">
+                        <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                         {block.scheduled_date ? (
                           <>
-                            Esce il <span className="font-semibold text-amber-600 dark:text-amber-400 ml-0.5">
+                            <span className="text-bark-400">Esce il</span>
+                            <span className="font-semibold text-amber-600 dark:text-amber-400 ml-0.5">
                               {new Date(block.scheduled_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </span>
                           </>
                         ) : (
-                          'Data di uscita non ancora definita'
+                          <span className="text-bark-400">Data di uscita non ancora definita</span>
                         )}
                       </p>
                     )}
