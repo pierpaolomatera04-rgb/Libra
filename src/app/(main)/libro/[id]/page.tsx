@@ -455,13 +455,13 @@ export default function BookDetailPage() {
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-medium text-sage-700">Il tuo avanzamento</span>
                 <span className="text-xs text-bark-400">
-                  {readBlocks.size}/{releasedBlocks} blocchi letti — {releasedBlocks > 0 ? Math.round((readBlocks.size / releasedBlocks) * 100) : 0}%
+                  {readBlocks.size}/{book.total_blocks} blocchi letti — {book.total_blocks > 0 ? Math.round((readBlocks.size / book.total_blocks) * 100) : 0}%
                 </span>
               </div>
               <div className="h-2.5 bg-sage-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-sage-400 to-sage-600 rounded-full transition-all duration-500"
-                  style={{ width: `${releasedBlocks > 0 ? (readBlocks.size / releasedBlocks) * 100 : 0}%` }}
+                  style={{ width: `${book.total_blocks > 0 ? (readBlocks.size / book.total_blocks) * 100 : 0}%` }}
                 />
               </div>
               {readBlocks.size === releasedBlocks && releasedBlocks > 0 && (
