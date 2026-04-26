@@ -109,7 +109,7 @@ export default function BrowsePage() {
   const [mostCommented, setMostCommented] = useState<any[]>([])     // 8. I più commentati
 
   // Soglia minima di libri per mostrare una sezione (regola globale)
-  const MIN_SECTION_BOOKS = 3
+  const MIN_SECTION_BOOKS = 1
 
   // ── Hide-on-scroll-down / show-on-scroll-up per la barra filtri ──
   // La navbar principale resta fissa; solo questa barra si nasconde.
@@ -548,18 +548,9 @@ export default function BrowsePage() {
 
   // Debug temporaneo: stampa in console quante voci ha ogni sezione (rimovibile)
   useEffect(() => {
-    console.log('[browse sections]', {
-      continueReading: continueReading.length,
-      recommended: recommended.length,
-      trending: trendingBooks.length,
-      community: communityPicks.length,
-      topRated: topRated.length,
-      followedAuthors: followedAuthors.length,
-      quickReads: quickReads.length,
-      readByFriends: readByFriends.length,
-      mostCommented: mostCommented.length,
-      MIN_REQUIRED: MIN_SECTION_BOOKS,
-    })
+    console.log(
+      `[browse sections] continua=${continueReading.length} | consigliati=${recommended.length} | trending=${trendingBooks.length} | community=${communityPicks.length} | topRated=${topRated.length} | autori=${followedAuthors.length} | rapida=${quickReads.length} | amici=${readByFriends.length} | commentati=${mostCommented.length} | MIN=${MIN_SECTION_BOOKS}`
+    )
   }, [continueReading, recommended, trendingBooks, communityPicks, topRated, followedAuthors, quickReads, readByFriends, mostCommented])
 
   useEffect(() => {
