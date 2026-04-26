@@ -644,7 +644,7 @@ export default function BookDetailPage() {
                         </span>
                       )}
                     </div>
-                    {available && (
+                    {available ? (
                       <p className="text-xs text-bark-400 block-meta">
                         ~{readMin} min di lettura
                         {!isRead && !unlocked && (
@@ -652,6 +652,19 @@ export default function BookDetailPage() {
                             {block.token_price || book.token_price_per_block || 5} token
                             {block.is_extra && <span className="ml-1 text-[10px]">(reali)</span>}
                           </span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-bark-400 block-meta flex items-center gap-1 block-scheduled">
+                        <Calendar className="w-3 h-3" />
+                        {block.scheduled_date ? (
+                          <>
+                            Esce il <span className="font-semibold text-amber-600 dark:text-amber-400 ml-0.5">
+                              {new Date(block.scheduled_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </span>
+                          </>
+                        ) : (
+                          'Data di uscita non ancora definita'
                         )}
                       </p>
                     )}
