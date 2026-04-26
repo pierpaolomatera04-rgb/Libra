@@ -935,13 +935,15 @@ export default function BrowsePage() {
       {!isDiscoveryMode && (
         <div className="mt-6">
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl overflow-hidden border border-sage-100 animate-pulse">
-                  <div className="aspect-[2/3] bg-sage-100" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-4 bg-sage-100 rounded w-3/4" />
-                    <div className="h-3 bg-sage-50 rounded w-1/2" />
+            <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-[100px] sm:w-[150px]">
+                  <div className="bg-white dark:bg-[#1e221c] rounded-lg overflow-hidden border border-sage-100 dark:border-sage-800 animate-pulse">
+                    <div className="aspect-[2/3] bg-sage-100 dark:bg-sage-800" />
+                    <div className="p-2 space-y-1.5">
+                      <div className="h-3 bg-sage-100 dark:bg-sage-800 rounded w-3/4" />
+                      <div className="h-2 bg-sage-50 dark:bg-sage-900 rounded w-1/2" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -963,11 +965,20 @@ export default function BrowsePage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              {books.map((book) => (
-                <BookCard key={book.id} book={book} />
-              ))}
-            </div>
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-sage-900 dark:text-sage-100">
+                  Risultati <span className="text-sm font-normal text-bark-400">({books.length})</span>
+                </h2>
+              </div>
+              <HorizontalCarousel>
+                {books.map((book) => (
+                  <div key={book.id} className="flex-shrink-0 w-[100px] sm:w-[150px]">
+                    <BookCard book={book} />
+                  </div>
+                ))}
+              </HorizontalCarousel>
+            </section>
           )}
         </div>
       )}
