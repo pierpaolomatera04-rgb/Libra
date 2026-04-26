@@ -148,7 +148,7 @@ export default function LibraryPage() {
       {loading ? (
         <div className="flex gap-4 overflow-hidden">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="flex-shrink-0 w-[130px] sm:w-[160px]">
+            <div key={i} className="flex-shrink-0 w-[100px] sm:w-[150px]">
               <div className="w-full aspect-[2/3] bg-sage-100 dark:bg-sage-800 rounded animate-pulse" />
               <div className="h-3 w-24 bg-sage-100 dark:bg-sage-800 rounded animate-pulse mt-2" />
             </div>
@@ -166,7 +166,7 @@ export default function LibraryPage() {
         <HorizontalCarousel>
           {books.map((item) =>
             item.book ? (
-              <div key={item.id} className="flex-shrink-0 w-[130px] sm:w-[160px]">
+              <div key={item.id} className="flex-shrink-0 w-[100px] sm:w-[150px]">
                 <BookCard book={item.book} />
               </div>
             ) : null

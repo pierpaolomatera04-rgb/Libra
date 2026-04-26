@@ -828,7 +828,7 @@ export default function BrowsePage() {
               </div>
               <HorizontalCarousel>
                 {books.map((book: any, idx: number) => (
-                  <div key={book.id} className="flex-shrink-0 w-[130px] sm:w-[160px]">
+                  <div key={book.id} className="flex-shrink-0 w-[100px] sm:w-[150px]">
                     <BookCard
                       book={book}
                       showTrending={showTrending}
@@ -856,27 +856,28 @@ export default function BrowsePage() {
                 </div>
                 <HorizontalCarousel>
                   {continueReading.map((book: any) => (
-                    <div key={book.id} className="flex-shrink-0 w-[110px] sm:w-[135px]">
+                    <div key={book.id} className="flex-shrink-0 w-[130px] sm:w-[145px]">
                       <Link href={`/libro/${book.id}`} className="group block">
-                        <div className="bg-white dark:bg-[#1e221c] rounded-lg overflow-hidden border border-sage-100 dark:border-sage-800 hover:border-sage-300 dark:hover:border-sage-600 hover:shadow-md transition-all duration-300">
-                          <div className="relative w-full overflow-hidden" style={{ aspectRatio: '2/3' }}>
-                            {book.cover_image_url ? (
-                              <img
-                                src={book.cover_image_url}
-                                alt={book.title}
-                                className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                              />
-                            ) : (
-                              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-sage-200 to-sage-300">
-                                <BookOpen className="w-8 h-8 text-sage-500" />
-                              </div>
-                            )}
-                            {/* Progress overlay */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 pt-4">
-                              <p className="text-white text-[10px] font-medium mb-1">
-                                {book.currentBlock}/{book.total_blocks}
-                              </p>
-                              <div className="w-full h-0.5 bg-white/30 rounded-full overflow-hidden">
+                        {/* Card solo-copertina con testo sovrapposto — sezione più bassa delle altre */}
+                        <div className="relative rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300" style={{ aspectRatio: '2/3' }}>
+                          {book.cover_image_url ? (
+                            <img
+                              src={book.cover_image_url}
+                              alt={book.title}
+                              className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-sage-200 to-sage-300">
+                              <BookOpen className="w-8 h-8 text-sage-500" />
+                            </div>
+                          )}
+                          {/* Gradiente + titolo + barra progresso sovrapposti */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent px-2 pt-6 pb-2">
+                            <p className="text-white text-[10px] font-semibold line-clamp-2 leading-tight mb-1.5">
+                              {book.title}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-amber-400 rounded-full"
                                   style={{
@@ -884,13 +885,10 @@ export default function BrowsePage() {
                                   }}
                                 />
                               </div>
+                              <span className="text-white/70 text-[9px] whitespace-nowrap">
+                                {book.currentBlock}/{book.total_blocks}
+                              </span>
                             </div>
-                          </div>
-                          <div className="p-1.5">
-                            <h3 className="font-semibold text-sage-900 dark:text-sage-100 text-[11px] line-clamp-1">{book.title}</h3>
-                            <p className="text-[10px] text-bark-400 dark:text-sage-500 mt-0.5 line-clamp-1">
-                              {book.author?.author_pseudonym || book.author?.name || 'Autore'}
-                            </p>
                           </div>
                         </div>
                       </Link>

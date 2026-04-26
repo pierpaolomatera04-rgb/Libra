@@ -138,7 +138,7 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
     <Link href={`/libro/${book.id}`} className="group block h-full">
       <div className="h-full flex flex-col transition-transform duration-200 ease-out md:group-hover:-translate-y-1 md:group-hover:scale-[1.03]">
         {/* Cover 3D */}
-        <div className="relative flex justify-center py-3 px-2">
+        <div className="relative flex justify-center py-2 px-1.5">
           {/* Ombra sotto */}
           <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-[70%] h-3 bg-black/15 rounded-full blur-md transition-all duration-200 md:group-hover:w-[80%] md:group-hover:h-5 md:group-hover:bottom-[-6px] md:group-hover:blur-xl md:group-hover:bg-black/25" />
 
@@ -150,9 +150,9 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
               transform: 'rotateY(-3deg)',
             }}
           >
-            {/* Cover container — responsive: 110px mobile, 140px tablet, 130px desktop */}
+            {/* Cover container — responsive: 90px mobile, 130px tablet+desktop */}
             <div
-              className="relative w-[110px] sm:w-[140px] lg:w-[130px] rounded-r-md rounded-l-[2px] overflow-hidden"
+              className="relative w-[90px] sm:w-[130px] rounded-r-md rounded-l-[2px] overflow-hidden"
               style={{
                 aspectRatio: '2/3',
                 boxShadow: '2px 3px 12px rgba(0,0,0,0.18), 0 0 1px rgba(0,0,0,0.1)',
@@ -233,16 +233,6 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
               }}
             />
 
-            {/* Pagine bordo */}
-            <div
-              className="absolute top-[2px] bottom-[2px] right-0 w-[4px]"
-              style={{
-                background: 'linear-gradient(to right, #f5f0e8, #e8e0d4)',
-                transform: 'translateX(100%)',
-                borderRadius: '0 1px 1px 0',
-                boxShadow: 'inset 0 0 3px rgba(0,0,0,0.08)',
-              }}
-            />
           </div>
         </div>
 

@@ -863,7 +863,7 @@ export default function UnifiedProfilePage() {
 
           <HorizontalCarousel>
             {authorBooks.map((book) => (
-              <div key={book.id} className="flex-shrink-0 w-[130px] sm:w-[160px]">
+              <div key={book.id} className="flex-shrink-0 w-[100px] sm:w-[150px]">
                 <BookCard book={book} />
               </div>
             ))}
@@ -999,7 +999,7 @@ export default function UnifiedProfilePage() {
             <HorizontalCarousel>
               {libraryBooks.map(entry =>
                 entry.book ? (
-                  <div key={entry.id} className="flex-shrink-0 w-[130px] sm:w-[160px]">
+                  <div key={entry.id} className="flex-shrink-0 w-[100px] sm:w-[150px]">
                     <BookCard book={entry.book} />
                   </div>
                 ) : null
