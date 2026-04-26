@@ -644,43 +644,57 @@ export default function BookDetailPage() {
                         </span>
                       )}
                     </div>
-                    {available ? (
-                      <p className="text-xs text-bark-400 block-meta flex items-center gap-1.5 flex-wrap">
-                        <span>~{readMin} min di lettura</span>
-                        {block.scheduled_date && (
-                          <>
-                            <span className="text-bark-300 block-stats-sep">·</span>
-                            <span className="inline-flex items-center gap-0.5">
-                              <Calendar className="w-3 h-3" />
-                              Pubblicato {new Date(block.scheduled_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </span>
-                          </>
-                        )}
-                        {!isRead && !unlocked && (
-                          <>
-                            <span className="text-bark-300 block-stats-sep">·</span>
-                            <span className="text-amber-600 dark:text-amber-400 font-medium">
-                              {block.token_price || book.token_price_per_block || 5} token
-                              {block.is_extra && <span className="ml-1 text-[10px]">(reali)</span>}
-                            </span>
-                          </>
-                        )}
-                      </p>
-                    ) : (
-                      <p className="text-xs block-meta flex items-center gap-1 block-scheduled">
-                        <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                        {block.scheduled_date ? (
-                          <>
-                            <span className="text-bark-400">Esce il</span>
-                            <span className="font-semibold text-amber-600 dark:text-amber-400 ml-0.5">
-                              {new Date(block.scheduled_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-bark-400">Data di uscita non ancora definita</span>
-                        )}
-                      </p>
-                    )}
+                    {(() => {
+                      // Distingue se la data è nel passato (pubblicato) o futuro (in uscita)
+                      const schedDate = block.scheduled_date ? new Date(block.scheduled_date) : null
+                      const isFuture = schedDate ? schedDate > now : false
+                      return available ? (
+                        <p className="text-xs text-bark-400 block-meta flex items-center gap-1.5 flex-wrap">
+                          <span>~{readMin} min di lettura</span>
+                          {schedDate && !isFuture && (
+                            <>
+                              <span className="text-bark-300 block-stats-sep">·</span>
+                              <span className="inline-flex items-center gap-0.5">
+                                <Calendar className="w-3 h-3" />
+                                Pubblicato {schedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            </>
+                          )}
+                          {schedDate && isFuture && (
+                            <>
+                              <span className="text-bark-300 block-stats-sep">·</span>
+                              <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-medium">
+                                <Calendar className="w-3 h-3" />
+                                In uscita il {schedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            </>
+                          )}
+                          {!isRead && !unlocked && (
+                            <>
+                              <span className="text-bark-300 block-stats-sep">·</span>
+                              <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                {block.token_price || book.token_price_per_block || 5} token
+                                {block.is_extra && <span className="ml-1 text-[10px]">(reali)</span>}
+                              </span>
+                            </>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-xs block-meta flex items-center gap-1 block-scheduled">
+                          <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                          {schedDate ? (
+                            <>
+                              <span className="text-bark-400">In uscita il</span>
+                              <span className="font-semibold text-amber-600 dark:text-amber-400 ml-0.5">
+                                {schedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-bark-400">Data di uscita non ancora definita</span>
+                          )}
+                        </p>
+                      )
+                    })()}
 
                     {/* Stats per blocco — visibili sempre, anche su blocchi bloccati */}
                     {(() => {
