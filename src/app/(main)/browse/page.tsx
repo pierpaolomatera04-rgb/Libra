@@ -933,7 +933,7 @@ export default function BrowsePage() {
                 </div>
                 <HorizontalCarousel>
                   {continueReading.map((book: any) => (
-                    <div key={book.id} className="flex-shrink-0 w-[130px] sm:w-[145px]">
+                    <div key={book.id} className="flex-shrink-0 w-[110px] sm:w-[160px]">
                       <Link href={`/libro/${book.id}`} className="group block">
                         {/* Card solo-copertina con testo sovrapposto — sezione più bassa delle altre */}
                         <div className="relative rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300" style={{ aspectRatio: '2/3' }}>
