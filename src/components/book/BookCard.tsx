@@ -17,6 +17,8 @@ interface BookCardProps {
     cover_image_url: string | null
     genre: string | null
     total_blocks: number
+    /** Numero di blocchi già pubblicati (opzionale — se assente, la barra serializzazione mostra un'animazione generica) */
+    published_blocks?: number
     total_likes: number
     total_reads: number
     total_saves?: number
@@ -196,17 +198,31 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
                 </span>
               </div>
 
-              {/* Badge Trending (bottom-left) */}
-              {trendingPosition && trendingPosition <= 10 ? (
-                <div className="absolute bottom-1.5 left-1.5 z-10 flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-bold rounded-full shadow-sm">
-                  <Flame className="w-2.5 h-2.5" style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
-                  Top {trendingPosition}
-                </div>
-              ) : showTrending && book.trending_score > 0 ? (
-                <div className="absolute bottom-1.5 left-1.5 z-10 flex items-center gap-0.5 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full shadow-sm">
-                  <TrendingUp className="w-2.5 h-2.5" />
-                </div>
-              ) : null}
+              {/* Badge bottom-left: Trending + Status (impilati in colonna) */}
+              <div className="absolute bottom-1.5 left-1.5 z-10 flex flex-col items-start gap-0.5">
+                {trendingPosition && trendingPosition <= 10 ? (
+                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-bold rounded-full shadow-sm">
+                    <Flame className="w-2.5 h-2.5" style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    Top {trendingPosition}
+                  </div>
+                ) : showTrending && book.trending_score > 0 ? (
+                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full shadow-sm">
+                    <TrendingUp className="w-2.5 h-2.5" />
+                  </div>
+                ) : null}
+
+                {/* Badge stato serializzazione */}
+                {book.status === 'complete' && (
+                  <span className="px-1.5 py-0.5 bg-emerald-700/90 text-white text-[9px] font-bold rounded-full shadow-sm backdrop-blur-sm leading-tight">
+                    Completo
+                  </span>
+                )}
+                {book.status === 'serializing' && (
+                  <span className="px-1.5 py-0.5 bg-amber-500/90 text-white text-[9px] font-bold rounded-full shadow-sm backdrop-blur-sm leading-tight">
+                    In corso
+                  </span>
+                )}
+              </div>
 
               {/* Bookmark (bottom-right) — on cover */}
               {savedLoaded && (
@@ -235,6 +251,21 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
 
           </div>
         </div>
+
+        {/* Barra stato serializzazione — 3px, sempre visibile */}
+        {(book.status === 'complete' || book.status === 'serializing') && (() => {
+          const isComplete = book.status === 'complete'
+          const hasPct = typeof book.published_blocks === 'number' && book.total_blocks > 0
+          const pct = isComplete ? 100 : hasPct ? Math.round((book.published_blocks! / book.total_blocks) * 100) : null
+          return (
+            <div className="w-full h-[3px] bg-sage-100 dark:bg-sage-800/40 overflow-hidden flex-shrink-0">
+              <div
+                className={`h-full ${isComplete ? 'bg-emerald-500' : 'bg-amber-400'} ${pct === null ? 'animate-pulse' : ''}`}
+                style={{ width: pct !== null ? `${pct}%` : '45%' }}
+              />
+            </div>
+          )
+        })()}
 
         {/* Info */}
         <div className="px-2 pb-3 flex flex-col flex-1">
