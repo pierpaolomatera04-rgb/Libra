@@ -289,10 +289,11 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
               <p className="text-xs font-semibold text-sage-900 dark:text-sage-100 mb-2">Anteprima</p>
               <div className="flex justify-center">
                 <div
-                  className="relative rounded-xl overflow-hidden bg-white flex flex-col"
+                  className="relative rounded-xl overflow-hidden flex flex-col"
                   style={{
                     width: 175,
                     height: 255,
+                    backgroundColor: preset.bodyTintColor,
                     border: '1px solid #E8E8E8',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                   }}
@@ -308,6 +309,16 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
                       backgroundPosition: 'center',
                     }}
                   >
+                    {!bannerUrl && (
+                      <div
+                        className="absolute left-0 right-0 pointer-events-none"
+                        style={{
+                          top: '100%',
+                          height: 40,
+                          background: `linear-gradient(to bottom, ${preset.bannerColor} 0%, ${preset.bodyTintColor} 100%)`,
+                        }}
+                      />
+                    )}
                     <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/85 flex items-center justify-center">
                       <Pencil className="w-3 h-3 text-bark-600" />
                     </div>

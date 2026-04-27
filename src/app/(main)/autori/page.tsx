@@ -524,8 +524,9 @@ function AuthorCard({
   return (
     <div
       onClick={go}
-      className="group relative rounded-xl overflow-hidden bg-white dark:bg-[#1e221c] cursor-pointer h-[220px] sm:h-[240px] lg:h-[255px] w-full flex flex-col"
+      className="group relative rounded-xl overflow-hidden cursor-pointer h-[220px] sm:h-[240px] lg:h-[255px] w-full flex flex-col dark:bg-[#1e221c]"
       style={{
+        backgroundColor: preset.bodyTintColor,
         border: '1px solid #E8E8E8',
         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -554,6 +555,18 @@ function AuthorCard({
           backgroundPosition: 'center',
         }}
       >
+        {/* Sfumatura verticale sotto la fascia: dal colore pieno al tint chiaro,
+            così non c'è uno stacco netto tra fascia e corpo card */}
+        {!author.author_banner_url && (
+          <div
+            className="absolute left-0 right-0 pointer-events-none"
+            style={{
+              top: '100%',
+              height: 40,
+              background: `linear-gradient(to bottom, ${preset.bannerColor} 0%, ${preset.bodyTintColor} 100%)`,
+            }}
+          />
+        )}
         <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
           {isCertified && certMacro && (
             <span

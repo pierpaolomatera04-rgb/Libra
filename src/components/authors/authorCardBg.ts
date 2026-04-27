@@ -6,6 +6,8 @@ export interface CardColorPresetDef {
   label: string
   /** Colore solido pastello per la fascia in cima della card (60px) */
   bannerColor: string
+  /** Colore corpo card (versione tintata 30% sopra bianco) — niente bianco puro */
+  bodyTintColor: string
   /** Per UI swatch nell'editor (cerchietto preview) */
   swatch: string
   /** Mantenuto per retrocompatibilità (modale anteprima legacy) */
@@ -17,6 +19,7 @@ export const CARD_COLOR_PRESETS: CardColorPresetDef[] = [
     key: 'terracotta',
     label: 'Rosa antico',
     bannerColor: '#E8C4B8',
+    bodyTintColor: '#F8EDEA',
     swatch: '#E8C4B8',
     gradient: 'linear-gradient(160deg,#E8C4B8 0%,#D4A091 100%)',
   },
@@ -24,6 +27,7 @@ export const CARD_COLOR_PRESETS: CardColorPresetDef[] = [
     key: 'lavender',
     label: 'Lavanda',
     bannerColor: '#C8C0D8',
+    bodyTintColor: '#F0ECF4',
     swatch: '#C8C0D8',
     gradient: 'linear-gradient(160deg,#C8C0D8 0%,#A89BC2 100%)',
   },
@@ -31,6 +35,7 @@ export const CARD_COLOR_PRESETS: CardColorPresetDef[] = [
     key: 'sage',
     label: 'Verde salvia',
     bannerColor: '#C8D8C0',
+    bodyTintColor: '#F0F4EE',
     swatch: '#C8D8C0',
     gradient: 'linear-gradient(160deg,#C8D8C0 0%,#A4BC97 100%)',
   },
@@ -38,6 +43,7 @@ export const CARD_COLOR_PRESETS: CardColorPresetDef[] = [
     key: 'blu_notte',
     label: 'Pesca',
     bannerColor: '#F0D8C0',
+    bodyTintColor: '#FBF4EE',
     swatch: '#F0D8C0',
     gradient: 'linear-gradient(160deg,#F0D8C0 0%,#D9B89A 100%)',
   },
@@ -45,6 +51,7 @@ export const CARD_COLOR_PRESETS: CardColorPresetDef[] = [
     key: 'grigio_caldo',
     label: 'Beige dorato',
     bannerColor: '#E8D8B0',
+    bodyTintColor: '#F8F4E8',
     swatch: '#E8D8B0',
     gradient: 'linear-gradient(160deg,#E8D8B0 0%,#C9B584 100%)',
   },
