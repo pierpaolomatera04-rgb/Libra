@@ -17,7 +17,7 @@ import { toast } from 'sonner'
 import {
   Flame, Loader2, UserPlus, UserCheck, UserMinus, BookOpen, Trophy,
   Users, Lock, Sparkles, Shield, Share2, Coins, X, Minus, Plus,
-  Heart, Radio, Eye, Camera, Quote, MessageCircle, Repeat2, Bookmark, Trash2
+  Heart, Radio, Eye, Camera, Quote, MessageCircle, Repeat2, Bookmark, Trash2, Globe2
 } from 'lucide-react'
 
 interface ProfileData {
@@ -46,7 +46,7 @@ export default function UnifiedProfilePage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const username = params.username as string
-  const { user, profile: myProfile, refreshProfile } = useAuth()
+  const { user, profile: myProfile, refreshProfile, updateProfile } = useAuth()
   const supabase = createClient()
 
   const [profileData, setProfileData] = useState<ProfileData | null>(null)
@@ -74,6 +74,10 @@ export default function UnifiedProfilePage() {
   const [openCommentsFor, setOpenCommentsFor] = useState<Set<string>>(new Set())
   const [savedPhrases, setSavedPhrases] = useState<any[]>([])
   const [deletingPhraseId, setDeletingPhraseId] = useState<string | null>(null)
+
+  // Library visibility toggle (solo per il profilo proprio)
+  const [libraryPublic, setLibraryPublic] = useState<boolean>(true)
+  const [savingVisibility, setSavingVisibility] = useState(false)
 
   const isOwnProfile = user?.id === profileData?.id
 
@@ -163,6 +167,7 @@ export default function UnifiedProfilePage() {
         books_completed: booksCompleted,
         badges: badgesList,
       })
+      setLibraryPublic(pData.library_public !== false)
 
       // Check follow status (try both new and old tables)
       if (user && user.id !== pData.id) {
@@ -325,6 +330,21 @@ export default function UnifiedProfilePage() {
       })
     }
     setFollowLoading(false)
+  }
+
+  const toggleLibraryPublic = async () => {
+    const next = !libraryPublic
+    setLibraryPublic(next)
+    setSavingVisibility(true)
+    const { error } = await updateProfile({ library_public: next } as any)
+    setSavingVisibility(false)
+    if (error) {
+      setLibraryPublic(!next)
+      toast.error('Impossibile aggiornare la visibilità')
+    } else {
+      setProfileData(prev => prev ? { ...prev, library_public: next } : prev)
+      toast.success(next ? 'Libreria pubblica' : 'Libreria privata')
+    }
   }
 
   const handleShare = async () => {
@@ -979,10 +999,43 @@ export default function UnifiedProfilePage() {
       {/* ===== ATTIVITA LETTURA (Priorita 3) ===== */}
       {(profileData.library_public !== false || isOwnProfile) && (
         <div className="bg-white dark:bg-[#1e221c] rounded-2xl border border-sage-100 dark:border-sage-800 p-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
             <Eye className="w-5 h-5 text-sage-500" />
             <h2 className="text-lg font-bold text-sage-900 dark:text-sage-100">Libreria personale</h2>
-            {!profileData.library_public && isOwnProfile && (
+            {isOwnProfile && (
+              <button
+                onClick={toggleLibraryPublic}
+                disabled={savingVisibility}
+                className={`ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all text-xs font-bold disabled:opacity-70 ${
+                  libraryPublic
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-slate-50 dark:bg-slate-900/40 border-slate-300 dark:border-slate-600'
+                }`}
+                aria-pressed={libraryPublic}
+                title={libraryPublic ? 'I tuoi libri sono visibili sul tuo profilo' : 'I tuoi libri sono nascosti dal tuo profilo'}
+              >
+                {libraryPublic ? (
+                  <Globe2 className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Lock className="w-3.5 h-3.5 text-slate-500" />
+                )}
+                <span className={libraryPublic ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-300'}>
+                  {libraryPublic ? 'Pubblica' : 'Privata'}
+                </span>
+                <span
+                  className={`relative inline-block w-8 h-4 rounded-full transition-colors ${
+                    libraryPublic ? 'bg-emerald-500' : 'bg-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${
+                      libraryPublic ? 'translate-x-4' : ''
+                    }`}
+                  />
+                </span>
+              </button>
+            )}
+            {!isOwnProfile && !profileData.library_public && (
               <span className="flex items-center gap-1 text-xs text-bark-400 ml-auto">
                 <Lock className="w-3 h-3" /> Privata
               </span>
