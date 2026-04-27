@@ -1266,7 +1266,10 @@ export default function ReaderPage() {
   const _authorName = book?.author?.author_pseudonym || book?.author?.name || 'Autore'
 
   return (
-    <div className={`min-h-screen bg-cream-50 dark:bg-[#161a14] ${blueLightFilter ? 'blue-light-filter' : ''}`}>
+    <div
+      className={`min-h-screen bg-cream-50 dark:bg-[#161a14] w-full max-w-[100vw] overflow-x-hidden ${blueLightFilter ? 'blue-light-filter' : ''}`}
+      style={{ boxSizing: 'border-box' }}
+    >
       {/* Top bar */}
       <div className="sticky top-0 z-40 bg-cream-50/95 dark:bg-[#161a14]/90 backdrop-blur-sm border-b border-sage-100 dark:border-sage-800/50">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -1667,29 +1670,35 @@ export default function ReaderPage() {
               </div>
             )}
 
-            {/* Actions bar */}
-            <div className="flex items-center justify-center gap-4 py-6 border-t border-b border-sage-100">
+            {/* Actions bar — compatta su mobile, full su desktop */}
+            <div className="flex items-center justify-center gap-1.5 sm:gap-4 py-5 sm:py-6 border-t border-b border-sage-100 flex-wrap">
               <button
                 onClick={toggleLike}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-colors ${
+                aria-label={liked ? 'Rimuovi piace' : 'Mi piace'}
+                className={`flex items-center gap-1 sm:gap-1.5 h-[34px] sm:h-auto px-2.5 sm:px-4 py-1 sm:py-2 rounded-full text-[12px] sm:text-sm transition-colors ${
                   liked ? 'bg-red-50 text-red-500' : 'bg-sage-50 text-bark-500 hover:bg-sage-100'
                 }`}
               >
                 <Heart className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
-                {liked ? 'Piace' : 'Mi piace'}
+                <span className="hidden sm:inline">{liked ? 'Piace' : 'Mi piace'}</span>
               </button>
               <button
                 onClick={toggleSave}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-colors ${
+                aria-label={saved ? 'Salvato in libreria' : 'Salva in libreria'}
+                className={`flex items-center gap-1 sm:gap-1.5 h-[34px] sm:h-auto px-2.5 sm:px-4 py-1 sm:py-2 rounded-full text-[12px] sm:text-sm transition-colors ${
                   saved ? 'bg-sage-100 text-sage-700' : 'bg-sage-50 text-bark-500 hover:bg-sage-100'
                 }`}
               >
                 <Bookmark className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} />
-                {saved ? 'Salvato' : 'Salva'}
+                {/* Su mobile mostra solo l'icona quando salvato; testo 'Salva' resta visibile */}
+                <span className={saved ? 'hidden sm:inline' : ''}>
+                  {saved ? 'Salvato' : 'Salva'}
+                </span>
               </button>
               <button
                 onClick={() => setShowComments(!showComments)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm bg-sage-50 text-bark-500 hover:bg-sage-100 transition-colors"
+                aria-label="Mostra commenti"
+                className="flex items-center gap-1 sm:gap-1.5 h-[34px] sm:h-auto px-2.5 sm:px-4 py-1 sm:py-2 rounded-full text-[12px] sm:text-sm bg-sage-50 text-bark-500 hover:bg-sage-100 transition-colors"
               >
                 <MessageCircle className="w-4 h-4" />
                 {comments.length}
@@ -1698,7 +1707,7 @@ export default function ReaderPage() {
                 onClick={handleBoost}
                 disabled={!canBoost || boosting}
                 title={canBoost ? 'Spendi 10 token per dare visibilita al libro' : `Hai gia boostato. Riprova tra ${hoursUntilBoost ?? 24}h`}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 h-[34px] sm:h-auto px-2.5 sm:px-4 py-1 sm:py-2 rounded-full text-[12px] sm:text-sm transition-all ${
                   canBoost && !boosting
                     ? 'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 hover:from-amber-200 hover:to-yellow-200 border border-amber-300 shadow-sm'
                     : 'bg-sage-50 text-bark-400 cursor-not-allowed border border-transparent'
@@ -1709,10 +1718,12 @@ export default function ReaderPage() {
                 ) : (
                   <Zap className={`w-4 h-4 ${canBoost ? 'fill-amber-300 text-amber-600' : ''}`} />
                 )}
-                {canBoost ? 'Boost 10tk' : `${hoursUntilBoost ?? 24}h`}
+                <span className="whitespace-nowrap">
+                  {canBoost ? 'Boost 10tk' : `${hoursUntilBoost ?? 24}h`}
+                </span>
               </button>
               {!isLocked && user && (
-                <BlockRating bookId={bookId} blockId={block.id} size={18} className="ml-1" />
+                <BlockRating bookId={bookId} blockId={block.id} size={16} className="ml-0.5 sm:ml-1" />
               )}
             </div>
 
