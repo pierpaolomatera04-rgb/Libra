@@ -10,7 +10,7 @@ import { createNotification } from '@/lib/notifications'
 import {
   BookOpen, Heart, Clock, Layers, ArrowLeft, Play,
   Coins, Users, Eye, Calendar, Loader2, Shield, Bookmark,
-  Lock, LockOpen, Zap, Sparkles, MessageCircle, Star, Check
+  Lock, LockOpen, Zap, Sparkles, MessageCircle, Star, Check, ChevronRight
 } from 'lucide-react'
 import { getGenreTagColor } from '@/lib/genres'
 import { awardXp } from '@/lib/xp'
@@ -837,9 +837,17 @@ export default function BookDetailPage() {
               </div>
 
               {!hasEnoughTokensForBoost && (
-                <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                  Token insufficienti — hai {totalAvailableTokens} token disponibili.
-                </p>
+                <Link
+                  href="/wallet"
+                  className="block px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors group"
+                >
+                  <p className="text-xs font-medium text-red-700 dark:text-red-400 flex items-center justify-between gap-2">
+                    <span>Token insufficienti — hai {totalAvailableTokens} token.</span>
+                    <span className="font-bold whitespace-nowrap group-hover:underline inline-flex items-center gap-0.5">
+                      Vai al wallet <ChevronRight className="w-3 h-3" />
+                    </span>
+                  </p>
+                </Link>
               )}
             </div>
 
