@@ -212,12 +212,12 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
                 ) : null}
 
                 {/* Badge stato serializzazione */}
-                {book.status === 'complete' && (
+                {book.status === 'completed' && (
                   <span className="px-1.5 py-0.5 bg-emerald-700/90 text-white text-[9px] font-bold rounded-full shadow-sm backdrop-blur-sm leading-tight">
                     Completo
                   </span>
                 )}
-                {book.status === 'serializing' && (
+                {(book.status === 'ongoing' || book.status === 'published') && (
                   <span className="px-1.5 py-0.5 bg-amber-500/90 text-white text-[9px] font-bold rounded-full shadow-sm backdrop-blur-sm leading-tight">
                     In corso
                   </span>
@@ -253,8 +253,8 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
         </div>
 
         {/* Barra stato serializzazione — 3px, sempre visibile */}
-        {(book.status === 'complete' || book.status === 'serializing') && (() => {
-          const isComplete = book.status === 'complete'
+        {(book.status === 'completed' || book.status === 'ongoing' || book.status === 'published') && (() => {
+          const isComplete = book.status === 'completed'
           const hasPct = typeof book.published_blocks === 'number' && book.total_blocks > 0
           const pct = isComplete ? 100 : hasPct ? Math.round((book.published_blocks! / book.total_blocks) * 100) : null
           return (
