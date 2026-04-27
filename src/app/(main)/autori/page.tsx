@@ -490,8 +490,9 @@ function Section({
   )
 }
 
+
 // ============================================
-// AuthorCard — verticale 2:3, altezza fissa, slot fissi
+// AuthorCard — figurina elegante: fascia colorata + corpo bianco
 // ============================================
 function AuthorCard({
   author, user, isFollowing, onToggleFollow, onEditSelf,
@@ -512,6 +513,7 @@ function AuthorCard({
   const rank = getRank(author.total_xp)
   const isCertified = author.certifiedIn.length > 0
   const certMacro = isCertified ? MACRO_AREAS.find(m => m.value === author.certifiedIn[0]) : undefined
+  const showUsername = !!author.username && author.username.toLowerCase() !== displayName.toLowerCase()
 
   const go = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
@@ -522,130 +524,159 @@ function AuthorCard({
   return (
     <div
       onClick={go}
-      className="group relative rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer h-[200px] sm:h-[225px] lg:h-[245px] w-full flex flex-col items-center px-1.5 pt-2 pb-1.5 text-white"
-      style={{ background: preset.gradient }}
+      className="group relative rounded-xl overflow-hidden bg-white dark:bg-[#1e221c] cursor-pointer h-[220px] sm:h-[240px] lg:h-[255px] w-full flex flex-col"
+      style={{
+        border: '1px solid #E8E8E8',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      }}
+      onMouseEnter={(e) => {
+        if (window.matchMedia('(hover: hover)').matches) {
+          const el = e.currentTarget as HTMLElement
+          el.style.transform = 'scale(1.03)'
+          el.style.boxShadow = '0 6px 16px rgba(0,0,0,0.12)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLElement
+        el.style.transform = 'scale(1)'
+        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'
+      }}
     >
-      {/* Overlay leggibilità */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent pointer-events-none" />
-
-      {/* Top-right badges + pencil */}
-      <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
-        {isCertified && certMacro && (
-          <span
-            title={`Autore Certificato in ${certMacro.label}`}
-            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-sm"
-          >
-            <Award className="w-2.5 h-2.5 text-amber-900" strokeWidth={2.5} />
-          </span>
-        )}
-        {isSelf && (
-          <button
-            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEditSelf() }}
-            title="Personalizza profilo"
-            className="w-5 h-5 rounded-full bg-white/25 hover:bg-white/45 backdrop-blur flex items-center justify-center transition-colors"
-          >
-            <Pencil className="w-2.5 h-2.5 text-white" />
-          </button>
-        )}
+      {/* Fascia in cima — 60px, colorata o foto banner */}
+      <div
+        className="relative w-full"
+        style={{
+          height: 60,
+          backgroundColor: author.author_banner_url ? undefined : preset.bannerColor,
+          backgroundImage: author.author_banner_url ? `url(${author.author_banner_url})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
+          {isCertified && certMacro && (
+            <span
+              title={`Autore Certificato in ${certMacro.label}`}
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-amber-500/80 shadow-sm"
+            >
+              <Award className="w-2.5 h-2.5 text-amber-900" strokeWidth={2.5} />
+            </span>
+          )}
+          {isSelf && (
+            <button
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEditSelf() }}
+              title="Personalizza la tua card"
+              className="w-6 h-6 rounded-full bg-white/85 hover:bg-white shadow-sm flex items-center justify-center transition-colors"
+            >
+              <Pencil className="w-3 h-3 text-bark-600" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Zona avatar */}
-      <div className="relative z-10 flex items-center justify-center" style={{ height: 56 }}>
-        <Link href={profileHref} onClick={(e) => e.stopPropagation()} className="block">
+      {/* Avatar sovrapposto — metà sulla fascia, metà fuori (stile LinkedIn) */}
+      <div className="relative z-10 flex justify-center" style={{ marginTop: -28 }}>
+        <Link
+          href={profileHref}
+          onClick={(e) => e.stopPropagation()}
+          className="block"
+          style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+        >
           <div
-            className={`rounded-full overflow-hidden flex items-center justify-center bg-white/20 w-12 h-12 border-2 ${
-              isFollowing ? 'border-emerald-300' : 'border-white/70'
-            }`}
+            className="rounded-full overflow-hidden flex items-center justify-center bg-sage-100 dark:bg-sage-700"
+            style={{ width: 56, height: 56, border: '3px solid #FFFFFF' }}
           >
             {author.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-base font-bold text-white">{initial}</span>
+              <span className="text-lg font-bold text-sage-700 dark:text-sage-200">{initial}</span>
             )}
           </div>
         </Link>
       </div>
 
-      {/* Zona nome */}
-      <h3
-        className="relative z-10 font-bold text-[12px] text-center leading-tight px-0.5 w-full truncate"
-        style={{ height: 15 }}
-        title={displayName}
-      >
-        {displayName}
-      </h3>
+      {/* Corpo bianco con info */}
+      <div className="relative flex flex-col items-center px-2 pt-1 pb-2 flex-1 min-h-0">
+        <h3
+          className="font-bold text-[13px] text-center leading-tight w-full truncate dark:text-sage-100"
+          style={{ color: '#1A1A1A' }}
+          title={displayName}
+        >
+          {displayName}
+        </h3>
 
-      {/* Zona @username */}
-      <p
-        className="relative z-10 text-[11px] text-white/70 text-center truncate w-full"
-        style={{ height: 14 }}
-      >
-        {author.username ? `@${author.username}` : '\u00A0'}
-      </p>
+        <p
+          className="text-[11px] text-center truncate w-full leading-tight"
+          style={{ color: '#888888', minHeight: 13 }}
+        >
+          {showUsername ? `@${author.username}` : ''}
+        </p>
 
-      {/* Zona bio — 2 righe */}
-      <p
-        className="relative z-10 text-[11px] text-white/85 text-center line-clamp-2 w-full px-0.5 mt-0.5 leading-tight"
-        style={{ height: 28 }}
-      >
-        {author.author_bio ? author.author_bio.slice(0, 60) : '\u00A0'}
-      </p>
+        <p
+          className="text-[11px] text-center line-clamp-2 w-full px-1 mt-1 leading-tight dark:text-sage-300"
+          style={{ color: '#666666', minHeight: 28 }}
+          title={author.author_bio || undefined}
+        >
+          {author.author_bio || ''}
+        </p>
 
-      {/* Zona badge rank */}
-      <div className="relative z-10 flex items-center justify-center mt-1" style={{ height: 18 }}>
-        <span className={`inline-flex items-center px-2 rounded-full text-[10px] font-bold leading-tight ${rank.chip}`} style={{ paddingTop: 2, paddingBottom: 2 }}>
-          {rank.label}
-        </span>
-      </div>
+        <div className="flex items-center justify-center mt-1.5">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold leading-tight ${rank.chip}`}>
+            {rank.label}
+          </span>
+        </div>
 
-      {/* Zona statistiche */}
-      <div className="relative z-10 flex items-center justify-center gap-2 text-[11px] text-white/95 mt-0.5" style={{ height: 16 }}>
-        <span className="inline-flex items-center gap-0.5" title="Libri pubblicati">
-          <BookOpen className="w-3 h-3" />
-          <span className="font-semibold">{author.totalBooks}</span>
-        </span>
-        <span className="inline-flex items-center gap-0.5" title="Follower">
-          <Users className="w-3 h-3" />
-          <span className="font-semibold">{author.totalFollowers}</span>
-        </span>
-        <span className="inline-flex items-center gap-0.5" title="Voto medio">
-          <Star className={`w-3 h-3 ${author.avgRating ? 'text-amber-300 fill-amber-300' : ''}`} />
-          <span className="font-semibold">{author.avgRating ? author.avgRating.toFixed(1) : '—'}</span>
-        </span>
-      </div>
+        <div className="flex items-center justify-center gap-2 text-[11px] mt-1.5 dark:text-sage-300" style={{ color: '#666666' }}>
+          <span className="inline-flex items-center gap-0.5" title="Libri pubblicati">
+            <BookOpen className="w-3 h-3" />
+            <span className="font-semibold">{author.totalBooks}</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5" title="Follower">
+            <Users className="w-3 h-3" />
+            <span className="font-semibold">{author.totalFollowers}</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5" title="Voto medio">
+            <Star className={`w-3 h-3 ${author.avgRating ? 'text-amber-400 fill-amber-400' : ''}`} />
+            <span className="font-semibold">{author.avgRating ? author.avgRating.toFixed(1) : '—'}</span>
+          </span>
+        </div>
 
-      {/* Zona bottone */}
-      <div className="relative z-10 mt-auto w-full pt-1.5">
-        {isSelf ? (
-          <Link
-            href="/dashboard/profilo-autore"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center gap-0.5 w-full rounded-full text-[11px] font-semibold text-white border border-white/50 hover:bg-white/15 transition-colors h-7"
-          >
-            <Pencil className="w-3 h-3" /> Modifica
-          </Link>
-        ) : user ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggleFollow(author.id) }}
-            className={`w-full rounded-full text-[11px] font-bold transition-colors h-7 flex items-center justify-center gap-0.5 ${
-              isFollowing
-                ? 'bg-white/25 text-white hover:bg-white/35 backdrop-blur'
-                : 'bg-white text-sage-800 hover:bg-amber-100'
-            }`}
-          >
-            {isFollowing && <Check className="w-3 h-3" />}
-            {isFollowing ? 'Seguito' : 'Segui'}
-          </button>
-        ) : (
-          <Link
-            href={profileHref}
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center w-full rounded-full text-[11px] font-semibold bg-white/25 text-white hover:bg-white/35 transition-colors h-7"
-          >
-            Profilo
-          </Link>
-        )}
+        <div className="mt-auto w-[80%] pt-1.5">
+          {isSelf ? (
+            <Link
+              href="/dashboard/profilo-autore"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center justify-center gap-1 w-full rounded-full text-[12px] font-semibold border border-sage-500 text-sage-700 dark:text-sage-200 dark:border-sage-400 bg-white dark:bg-transparent hover:bg-sage-50 dark:hover:bg-sage-800 transition-colors"
+              style={{ height: 28 }}
+            >
+              <Pencil className="w-3 h-3" /> Modifica
+            </Link>
+          ) : user ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggleFollow(author.id) }}
+              className={`w-full rounded-full text-[12px] font-bold transition-colors flex items-center justify-center gap-1 ${
+                isFollowing
+                  ? 'bg-sage-500 text-white hover:bg-sage-600 border border-sage-500'
+                  : 'bg-white dark:bg-transparent text-sage-700 dark:text-sage-200 border border-sage-500 dark:border-sage-400 hover:bg-sage-50 dark:hover:bg-sage-800'
+              }`}
+              style={{ height: 28 }}
+            >
+              {isFollowing && <Check className="w-3 h-3" />}
+              {isFollowing ? 'Seguito' : 'Segui'}
+            </button>
+          ) : (
+            <Link
+              href={profileHref}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center justify-center w-full rounded-full text-[12px] font-semibold border border-sage-500 text-sage-700 bg-white hover:bg-sage-50 transition-colors"
+              style={{ height: 28 }}
+            >
+              Profilo
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   )

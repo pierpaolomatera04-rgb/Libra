@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { X, Check, Loader2, Camera, BookOpen, Users, Star } from 'lucide-react'
+import { X, Check, Loader2, Camera, BookOpen, Users, Star, ImageIcon, Trash2, Award, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   CARD_COLOR_PRESETS,
@@ -33,17 +33,20 @@ interface Props {
 }
 
 export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: Props) {
-  const { user, updateProfile } = useAuth()
+  const { user, profile, updateProfile } = useAuth()
   const supabase = createClient()
 
   const [name, setName] = useState(defaults.name || '')
   const [username, setUsername] = useState(defaults.username || '')
   const [bio, setBio] = useState(defaults.author_bio || '')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(defaults.avatar_url)
+  const [bannerUrl, setBannerUrl] = useState<string | null>(profile?.author_banner_url || null)
   const [color, setColor] = useState<CardColorPreset | null>(defaults.profile_card_color)
-  const [uploading, setUploading] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
   const [saving, setSaving] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const fileAvatarRef = useRef<HTMLInputElement>(null)
+  const fileBannerRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -51,16 +54,21 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
     setUsername(defaults.username || '')
     setBio(defaults.author_bio || '')
     setAvatarUrl(defaults.avatar_url)
+    setBannerUrl(profile?.author_banner_url || null)
     setColor(defaults.profile_card_color)
-  }, [open, defaults])
+  }, [open, defaults, profile?.author_banner_url])
 
   const autoPreset = presetFromMacros(defaults.booksByMacro)
   const effectivePreset: CardColorPreset = color || autoPreset
+  const preset = getPreset(effectivePreset)
+  const rank = getRank(defaults.total_xp)
+  const displayName = defaults.author_pseudonym || name || 'Nome autore'
+  const showUsername = !!username && username.toLowerCase() !== displayName.toLowerCase()
 
   const handleAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !user) return
-    setUploading(true)
+    setUploadingAvatar(true)
     const path = `${user.id}/avatar_${Date.now()}.${file.name.split('.').pop()}`
     const { error } = await supabase.storage.from('avatars').upload(path, file)
     if (!error) {
@@ -69,8 +77,26 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
     } else {
       toast.error('Upload avatar non riuscito')
     }
-    setUploading(false)
+    setUploadingAvatar(false)
   }
+
+  const handleBanner = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    setUploadingBanner(true)
+    const path = `${user.id}/banner_${Date.now()}.${file.name.split('.').pop()}`
+    // Bucket 'avatars' — riusiamo lo stesso bucket pubblico
+    const { error } = await supabase.storage.from('avatars').upload(path, file)
+    if (!error) {
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      setBannerUrl(data.publicUrl)
+    } else {
+      toast.error('Upload banner non riuscito')
+    }
+    setUploadingBanner(false)
+  }
+
+  const removeBanner = () => setBannerUrl(null)
 
   const save = async () => {
     if (!user) return
@@ -80,6 +106,7 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
       username: username.trim() || null,
       author_bio: bio.trim() || null,
       avatar_url: avatarUrl,
+      author_banner_url: bannerUrl,
       profile_card_color: color,
     } as any)
     setSaving(false)
@@ -93,10 +120,6 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
   }
 
   if (!open) return null
-
-  const displayName = defaults.author_pseudonym || name || 'Nome autore'
-  const preset = getPreset(effectivePreset)
-  const rank = getRank(defaults.total_xp)
 
   return (
     <div
@@ -117,20 +140,34 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
 
         <div className="p-5 sm:p-6">
           <h2 className="text-lg font-bold text-sage-900 dark:text-sage-100 mb-4">
-            Personalizza il tuo profilo
+            Personalizza la tua card
           </h2>
 
           <div className="grid md:grid-cols-2 gap-5">
             {/* Colonna form */}
             <div className="space-y-5">
-              {/* Sfondo */}
+              {/* Fascia (banner) */}
               <div>
                 <p className="text-xs font-semibold text-sage-900 dark:text-sage-100 mb-2">
-                  Sfondo card
+                  Fascia in cima
                 </p>
-                <div className="flex items-center gap-2 flex-wrap">
+
+                {/* Preset colori pastello */}
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setColor(null)}
+                    title="Colore default (automatico dal genere)"
+                    className="relative w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 flex items-center justify-center"
+                    style={{
+                      background: `linear-gradient(135deg, ${getPreset(autoPreset).bannerColor} 50%, #f0f0f0 50%)`,
+                      borderColor: color === null ? '#111' : 'rgba(0,0,0,0.1)',
+                    }}
+                  >
+                    {color === null && <Check className="w-4 h-4 text-white drop-shadow" />}
+                  </button>
                   {CARD_COLOR_PRESETS.map((p) => {
-                    const selected = effectivePreset === p.key
+                    const selected = color === p.key
                     return (
                       <button
                         key={p.key}
@@ -139,28 +176,46 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
                         title={p.label}
                         className="relative w-8 h-8 rounded-full border-2 transition-transform hover:scale-110"
                         style={{
-                          background: p.gradient,
+                          backgroundColor: p.bannerColor,
                           borderColor: selected ? '#111' : 'rgba(0,0,0,0.1)',
                         }}
                       >
                         {selected && (
-                          <Check className="absolute inset-0 m-auto w-4 h-4 text-white drop-shadow" />
+                          <Check className="absolute inset-0 m-auto w-4 h-4 text-bark-700" />
                         )}
                       </button>
                     )
                   })}
-                  {color !== null && (
+                </div>
+                <p className="text-[11px] text-bark-400 dark:text-sage-500 mb-2">
+                  {color ? `Preset: ${getPreset(color).label}` : 'Default automatico dal genere prevalente'}
+                </p>
+
+                {/* Foto banner */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileBannerRef.current?.click()}
+                    disabled={uploadingBanner}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-sage-200 dark:border-sage-700 hover:bg-sage-50 dark:hover:bg-sage-800 disabled:opacity-50"
+                  >
+                    {uploadingBanner ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                    {bannerUrl ? 'Cambia foto banner' : 'Carica foto banner'}
+                  </button>
+                  {bannerUrl && (
                     <button
                       type="button"
-                      onClick={() => setColor(null)}
-                      className="text-[11px] text-bark-500 dark:text-sage-400 underline hover:text-bark-700 ml-1"
+                      onClick={removeBanner}
+                      title="Rimuovi banner"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
                     >
-                      Reset automatico
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
+                  <input ref={fileBannerRef} type="file" accept="image/*" className="hidden" onChange={handleBanner} />
                 </div>
                 <p className="text-[11px] text-bark-400 dark:text-sage-500 mt-1">
-                  {color ? 'Preset personalizzato' : 'Automatico dal genere prevalente'}
+                  La foto banner ha priorita sul colore preset
                 </p>
               </div>
 
@@ -180,14 +235,14 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
                   </div>
                   <button
                     type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading}
+                    onClick={() => fileAvatarRef.current?.click()}
+                    disabled={uploadingAvatar}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-sage-200 dark:border-sage-700 hover:bg-sage-50 dark:hover:bg-sage-800 disabled:opacity-50"
                   >
-                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                    {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                     Cambia foto
                   </button>
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
+                  <input ref={fileAvatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
                 </div>
               </div>
 
@@ -229,43 +284,78 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
               </div>
             </div>
 
-            {/* Colonna anteprima */}
+            {/* Colonna anteprima — replica esatta della nuova card */}
             <div>
               <p className="text-xs font-semibold text-sage-900 dark:text-sage-100 mb-2">Anteprima</p>
               <div className="flex justify-center">
                 <div
-                  className="relative w-[180px] rounded-2xl overflow-hidden shadow-lg flex flex-col items-center px-3 pt-5 pb-3"
-                  style={{ height: 280, background: preset.gradient }}
+                  className="relative rounded-xl overflow-hidden bg-white flex flex-col"
+                  style={{
+                    width: 175,
+                    height: 255,
+                    border: '1px solid #E8E8E8',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
-                  <div className="relative w-14 h-14 rounded-full overflow-hidden bg-sage-100 flex items-center justify-center border-2 border-white/70">
-                    {avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-lg font-bold text-sage-700">{(displayName || '?').charAt(0).toUpperCase()}</span>
-                    )}
+                  {/* Fascia */}
+                  <div
+                    className="relative w-full"
+                    style={{
+                      height: 60,
+                      backgroundColor: bannerUrl ? undefined : preset.bannerColor,
+                      backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  >
+                    <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/85 flex items-center justify-center">
+                      <Pencil className="w-3 h-3 text-bark-600" />
+                    </div>
                   </div>
-                  <h4 className="relative text-white font-bold text-sm mt-2 text-center truncate w-full">
-                    {displayName || '—'}
-                  </h4>
-                  <p className="relative text-[11px] text-white/70 text-center truncate w-full" style={{ minHeight: 14 }}>
-                    {username ? `@${username}` : '\u00A0'}
-                  </p>
-                  <p className="relative text-[10px] text-white/80 text-center line-clamp-2 w-full mt-1" style={{ minHeight: 24 }}>
-                    {bio || '\u00A0'}
-                  </p>
-                  <span className={`relative inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mt-1.5 ${rank.chip}`}>
-                    {rank.label}
-                  </span>
-                  <div className="relative flex items-center justify-center gap-2 mt-1.5 text-[10px] text-white/90">
-                    <span className="inline-flex items-center gap-0.5"><BookOpen className="w-2.5 h-2.5" />{defaults.totalBooks}</span>
-                    <span className="inline-flex items-center gap-0.5"><Users className="w-2.5 h-2.5" />{defaults.totalFollowers}</span>
-                    <span className="inline-flex items-center gap-0.5"><Star className="w-2.5 h-2.5 text-amber-300 fill-amber-300" />{defaults.avgRating ? defaults.avgRating.toFixed(1) : '—'}</span>
+
+                  {/* Avatar */}
+                  <div className="relative z-10 flex justify-center" style={{ marginTop: -28 }}>
+                    <div
+                      className="rounded-full overflow-hidden flex items-center justify-center bg-sage-100"
+                      style={{ width: 56, height: 56, border: '3px solid #FFFFFF', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+                    >
+                      {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg font-bold text-sage-700">{(displayName || '?').charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="relative mt-auto w-full pt-2">
-                    <div className="w-full h-7 rounded-full bg-white text-sage-800 text-[10px] font-bold flex items-center justify-center">
-                      Segui
+
+                  {/* Corpo */}
+                  <div className="relative flex flex-col items-center px-2 pt-1 pb-2 flex-1 min-h-0">
+                    <h3 className="font-bold text-[13px] text-center leading-tight w-full truncate" style={{ color: '#1A1A1A' }}>
+                      {displayName || '—'}
+                    </h3>
+                    <p className="text-[11px] text-center truncate w-full leading-tight" style={{ color: '#888888', minHeight: 13 }}>
+                      {showUsername ? `@${username}` : ''}
+                    </p>
+                    <p className="text-[11px] text-center line-clamp-2 w-full px-1 mt-1 leading-tight" style={{ color: '#666666', minHeight: 28 }}>
+                      {bio || ''}
+                    </p>
+                    <div className="flex items-center justify-center mt-1.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold leading-tight ${rank.chip}`}>
+                        {rank.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-[11px] mt-1.5" style={{ color: '#666666' }}>
+                      <span className="inline-flex items-center gap-0.5"><BookOpen className="w-3 h-3" /><span className="font-semibold">{defaults.totalBooks}</span></span>
+                      <span className="inline-flex items-center gap-0.5"><Users className="w-3 h-3" /><span className="font-semibold">{defaults.totalFollowers}</span></span>
+                      <span className="inline-flex items-center gap-0.5"><Star className={`w-3 h-3 ${defaults.avgRating ? 'text-amber-400 fill-amber-400' : ''}`} /><span className="font-semibold">{defaults.avgRating ? defaults.avgRating.toFixed(1) : '—'}</span></span>
+                    </div>
+                    <div className="mt-auto w-[80%] pt-1.5">
+                      <div
+                        className="w-full rounded-full text-[12px] font-bold flex items-center justify-center bg-white text-sage-700 border border-sage-500"
+                        style={{ height: 28 }}
+                      >
+                        Segui
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -289,7 +379,7 @@ export default function AuthorCardEditor({ open, onClose, defaults, onSaved }: P
               className="px-4 py-2 rounded-xl text-sm font-semibold bg-sage-500 text-white hover:bg-sage-600 disabled:opacity-50 flex items-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Salva modifiche
+              Salva
             </button>
           </div>
         </div>

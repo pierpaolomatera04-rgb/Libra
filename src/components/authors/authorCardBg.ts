@@ -1,21 +1,62 @@
-// Palette preset card autore
+// Palette preset card autore — fascia in cima (figurina elegante)
 export type CardColorPreset = 'terracotta' | 'blu_notte' | 'sage' | 'lavender' | 'grigio_caldo'
 
-export const CARD_COLOR_PRESETS: { key: CardColorPreset; label: string; gradient: string; swatch: string }[] = [
-  { key: 'terracotta',   label: 'Terracotta',    gradient: 'linear-gradient(160deg,#c97b63 0%,#a85a42 100%)', swatch: '#c97b63' },
-  { key: 'blu_notte',    label: 'Blu notte',     gradient: 'linear-gradient(160deg,#3c4e7a 0%,#1f2a44 100%)', swatch: '#3c4e7a' },
-  { key: 'sage',         label: 'Verde salvia',  gradient: 'linear-gradient(160deg,#7a9e6e 0%,#4a6f62 100%)', swatch: '#7a9e6e' },
-  { key: 'lavender',     label: 'Viola lavanda', gradient: 'linear-gradient(160deg,#9b8ac7 0%,#6f5fa0 100%)', swatch: '#9b8ac7' },
-  { key: 'grigio_caldo', label: 'Grigio caldo',  gradient: 'linear-gradient(160deg,#a39689 0%,#6e6459 100%)', swatch: '#a39689' },
+export interface CardColorPresetDef {
+  key: CardColorPreset
+  label: string
+  /** Colore solido pastello per la fascia in cima della card (60px) */
+  bannerColor: string
+  /** Per UI swatch nell'editor (cerchietto preview) */
+  swatch: string
+  /** Mantenuto per retrocompatibilità (modale anteprima legacy) */
+  gradient: string
+}
+
+export const CARD_COLOR_PRESETS: CardColorPresetDef[] = [
+  {
+    key: 'terracotta',
+    label: 'Rosa antico',
+    bannerColor: '#E8C4B8',
+    swatch: '#E8C4B8',
+    gradient: 'linear-gradient(160deg,#E8C4B8 0%,#D4A091 100%)',
+  },
+  {
+    key: 'lavender',
+    label: 'Lavanda',
+    bannerColor: '#C8C0D8',
+    swatch: '#C8C0D8',
+    gradient: 'linear-gradient(160deg,#C8C0D8 0%,#A89BC2 100%)',
+  },
+  {
+    key: 'sage',
+    label: 'Verde salvia',
+    bannerColor: '#C8D8C0',
+    swatch: '#C8D8C0',
+    gradient: 'linear-gradient(160deg,#C8D8C0 0%,#A4BC97 100%)',
+  },
+  {
+    key: 'blu_notte',
+    label: 'Pesca',
+    bannerColor: '#F0D8C0',
+    swatch: '#F0D8C0',
+    gradient: 'linear-gradient(160deg,#F0D8C0 0%,#D9B89A 100%)',
+  },
+  {
+    key: 'grigio_caldo',
+    label: 'Beige dorato',
+    bannerColor: '#E8D8B0',
+    swatch: '#E8D8B0',
+    gradient: 'linear-gradient(160deg,#E8D8B0 0%,#C9B584 100%)',
+  },
 ]
 
 // Mapping macro_area → preset automatico
 const MACRO_TO_PRESET: Record<string, CardColorPreset> = {
-  narrativa: 'terracotta',
-  mondi_immaginari: 'blu_notte',
-  pratico_lifestyle: 'sage',
-  illustrazioni_comics: 'lavender',
-  realta_conoscenza: 'grigio_caldo',
+  narrativa: 'terracotta',           // Rosa antico
+  pratico_lifestyle: 'sage',          // Verde salvia (Crescita Personale)
+  mondi_immaginari: 'lavender',       // Lavanda (Sci-Fi / Fantasy)
+  illustrazioni_comics: 'blu_notte',  // Pesca (chiave legacy mappata su pesca)
+  realta_conoscenza: 'grigio_caldo',  // Beige dorato (default)
 }
 
 /** Determina il preset a partire dal genere macro prevalente dell'autore */
@@ -26,6 +67,6 @@ export function presetFromMacros(booksByMacro: Record<string, number> | undefine
   return MACRO_TO_PRESET[top[0]] || 'grigio_caldo'
 }
 
-export function getPreset(key: CardColorPreset | null | undefined) {
+export function getPreset(key: CardColorPreset | null | undefined): CardColorPresetDef {
   return CARD_COLOR_PRESETS.find(p => p.key === key) || CARD_COLOR_PRESETS[4]
 }
