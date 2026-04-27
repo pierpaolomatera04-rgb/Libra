@@ -10,6 +10,7 @@ import {
   Timer, Radio, ChevronRight, ChevronLeft, BookMarked, Heart
 } from 'lucide-react'
 import { MACRO_AREAS, type MacroArea } from '@/lib/genres'
+import { imdbScore, fetchGlobalAverageRating } from '@/lib/imdbRating'
 
 const READING_TIMES = [
   { label: 'Veloce (< 10 blocchi)', max: 10 },
@@ -457,13 +458,13 @@ export default function BrowsePage() {
       }
     }
 
-    // ── 4. I PIÙ VOTATI — 70% recensioni + 30% voti blocchi ──
+    // ── 4. I PIÙ VOTATI — formula IMDb su rating 70% recensioni + 30% blocchi ──
     {
       let q = supabase.from('books').select(BOOK_SELECT)
         .in('status', ['published', 'ongoing', 'completed'])
         .gt('total_reviews', 0)
       q = applyCategoryFilter(q)
-      const { data: candidates } = await q.limit(60)
+      const { data: candidates } = await q.limit(100)
       if (candidates && candidates.length > 0) {
         // Voti medi blocchi per ciascun libro candidato
         const ids = candidates.map((b: any) => b.id)
@@ -480,16 +481,19 @@ export default function BrowsePage() {
           cur.count += 1
           bookBlockAvg.set(bid, cur)
         }
+        // C: media globale (Bayesian prior) — basata su tutti i libri con voti
+        const C = await fetchGlobalAverageRating(supabase)
         const scored = candidates.map((b: any) => {
           const blk = bookBlockAvg.get(b.id)
           const blockAvg = blk && blk.count > 0 ? blk.sum / blk.count : 0
-          const reviewAvg = b.average_rating || 0
-          const weighted = blockAvg > 0
-            ? reviewAvg * 0.7 + blockAvg * 0.3
-            : reviewAvg
-          return { ...b, _weightedRating: weighted }
+          const reviewAvg = Number(b.average_rating) || 0
+          // R: rating proprio del libro (70% review + 30% blocchi)
+          const R = blockAvg > 0 ? reviewAvg * 0.7 + blockAvg * 0.3 : reviewAvg
+          const v = Number(b.total_reviews) || 0
+          const score = imdbScore(R, v, C) // m default = 5
+          return { ...b, _weightedRating: R, _imdbScore: score }
         })
-        scored.sort((a: any, b: any) => b._weightedRating - a._weightedRating)
+        scored.sort((a: any, b: any) => b._imdbScore - a._imdbScore)
         setTopRated(scored.slice(0, 12))
       } else {
         setTopRated([])

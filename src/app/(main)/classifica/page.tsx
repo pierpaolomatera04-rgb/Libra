@@ -11,9 +11,10 @@ import {
 } from 'lucide-react'
 import { LevelBadge } from '@/components/ui/LevelBadge'
 import { getXpLevel, getRankTier, type RankTier } from '@/lib/badges'
+import { imdbScore, fetchGlobalAverageRating } from '@/lib/imdbRating'
 
 type MainTab = 'libri' | 'autori' | 'community'
-type BookFilter = 'reads' | 'likes' | 'trending' | 'new' | 'serializing'
+type BookFilter = 'reads' | 'likes' | 'rating' | 'trending' | 'new' | 'serializing'
 type AuthorFilter = 'followers' | 'reads' | 'active' | 'new'
 type CommunityFilter = 'xp' | 'active' | 'donors'
 
@@ -136,13 +137,15 @@ export default function ClassificaPage() {
 
   const currentRpc = useMemo(() => {
     if (mainTab === 'libri') {
+      // 'rating' non usa RPC: la formula IMDb viene calcolata lato client
+      if (bookFilter === 'rating') return null
       return ({
         reads: 'leaderboard_books_reads',
         likes: 'leaderboard_books_likes',
         trending: 'leaderboard_books_trending',
         new: 'leaderboard_books_new',
         serializing: 'leaderboard_books_serializing',
-      } as const)[bookFilter]
+      } as const)[bookFilter as Exclude<BookFilter, 'rating'>]
     }
     if (mainTab === 'autori') {
       return ({
@@ -163,6 +166,63 @@ export default function ClassificaPage() {
     let cancelled = false
     const fetchData = async () => {
       setLoading(true)
+
+      // Branch speciale: classifica "Più votati" — formula IMDb client-side
+      if (mainTab === 'libri' && bookFilter === 'rating') {
+        const { data: candidates } = await supabase
+          .from('books')
+          .select(`
+            id, title, cover_image_url, genre, total_blocks, total_likes,
+            total_reads, total_reviews, average_rating, status, published_at,
+            author:profiles!books_author_id_fkey(id, name, username, author_pseudonym, avatar_url)
+          `)
+          .in('status', ['published', 'ongoing', 'completed'])
+          .gt('total_reviews', 0)
+          .limit(200)
+        if (cancelled) return
+        if (!candidates || candidates.length === 0) {
+          setItems([])
+          setLoading(false)
+          return
+        }
+        // Voti medi blocchi per i candidati
+        const ids = (candidates as any[]).map(b => b.id)
+        const { data: blockRatings } = await supabase
+          .from('block_ratings')
+          .select('block_id, stars, block:blocks!inner(book_id)')
+          .in('block.book_id', ids)
+        if (cancelled) return
+        const bookBlockAvg = new Map<string, { sum: number; count: number }>()
+        for (const r of (blockRatings as any[]) || []) {
+          const bid = r.block?.book_id
+          if (!bid) continue
+          const cur = bookBlockAvg.get(bid) || { sum: 0, count: 0 }
+          cur.sum += r.stars || 0
+          cur.count += 1
+          bookBlockAvg.set(bid, cur)
+        }
+        const C = await fetchGlobalAverageRating(supabase)
+        if (cancelled) return
+        const scored = (candidates as any[]).map(b => {
+          const blk = bookBlockAvg.get(b.id)
+          const blockAvg = blk && blk.count > 0 ? blk.sum / blk.count : 0
+          const reviewAvg = Number(b.average_rating) || 0
+          const R = blockAvg > 0 ? reviewAvg * 0.7 + blockAvg * 0.3 : reviewAvg
+          const v = Number(b.total_reviews) || 0
+          return { ...b, _imdbScore: imdbScore(R, v, C), _weightedRating: R }
+        })
+        scored.sort((a, b) => b._imdbScore - a._imdbScore)
+        setItems(scored.slice(0, 20))
+        setLoading(false)
+        return
+      }
+
+      // Default: RPC server-side (le altre tab/filtri)
+      if (!currentRpc) {
+        setItems([])
+        setLoading(false)
+        return
+      }
       const { data, error } = await supabase.rpc(currentRpc, { p_limit: 20 })
       if (cancelled) return
       if (error) {
@@ -175,7 +235,7 @@ export default function ClassificaPage() {
     }
     fetchData()
     return () => { cancelled = true }
-  }, [currentRpc, supabase])
+  }, [currentRpc, supabase, mainTab, bookFilter])
 
   // ============================================
   // RENDER HELPERS
@@ -253,10 +313,23 @@ export default function ClassificaPage() {
 
     if (bookFilter === 'likes') {
       return (
+        <div className={`${baseCls} bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800`}>
+          <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-400" />
+          <span className="text-rose-700 dark:text-rose-300">{fmt(b.total_likes || 0)}</span>
+          <span className="text-[10px] font-medium text-rose-600/70 dark:text-rose-400/70">cuori</span>
+        </div>
+      )
+    }
+
+    if (bookFilter === 'rating') {
+      const r = Number(b.average_rating) || 0
+      return (
         <div className={`${baseCls} bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800`}>
           <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-          <span className="text-amber-700 dark:text-amber-300">{fmt(b.total_reviews || 0)}</span>
-          <span className="text-[10px] font-medium text-amber-600/70 dark:text-amber-400/70">voti</span>
+          <span className="text-amber-700 dark:text-amber-300">{r > 0 ? r.toFixed(1) : '—'}</span>
+          <span className="text-[10px] font-medium text-amber-600/70 dark:text-amber-400/70">
+            ({fmt(b.total_reviews || 0)})
+          </span>
         </div>
       )
     }
@@ -550,7 +623,8 @@ export default function ClassificaPage() {
       <div className="flex gap-1.5 mb-5 flex-wrap">
         {mainTab === 'libri' && ([
           { key: 'reads' as BookFilter, label: 'Più letti', icon: Eye },
-          { key: 'likes' as BookFilter, label: 'Più votati', icon: Heart },
+          { key: 'rating' as BookFilter, label: 'Più votati', icon: Star },
+          { key: 'likes' as BookFilter, label: 'Più amati', icon: Heart },
           { key: 'trending' as BookFilter, label: 'In tendenza', icon: TrendingUp },
           { key: 'new' as BookFilter, label: 'Nuovi', icon: Sparkles },
           { key: 'serializing' as BookFilter, label: 'Serializzazioni', icon: Layers },
