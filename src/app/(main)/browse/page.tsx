@@ -296,33 +296,115 @@ export default function BrowsePage() {
       setContinueReading([])
     }
 
-    // ── 1. CONSIGLIATI PER TE ──
-    // Generi dei libri letti/salvati. Se utente nuovo o non loggato → più letti in assoluto.
-    let recommendedGenres: string[] | null = null
-    if (user) {
-      const { data: histData } = await supabase
-        .from('user_library')
-        .select('book:books!user_library_book_id_fkey(genre)')
-        .eq('user_id', user.id)
-        .in('status', ['reading', 'completed', 'saved'])
-        .limit(50)
-      if (histData && histData.length > 0) {
-        const genres = histData
-          .map((r: any) => r.book?.genre)
-          .filter(Boolean)
-        if (genres.length > 0) recommendedGenres = Array.from(new Set(genres))
-      }
-    }
+    // ── 1. CONSIGLIATI PER TE — algoritmo a 4 livelli basato sui generi ──
+    // L1: generi dei libri letti (reading/completed) + salvati  → match diretto
+    // L2: solo salvati (se non ha letto nulla)                  → match sui salvati
+    // L3: generi dei libri degli autori seguiti                 → match dai follow
+    // L4: utente nuovo/anon → più letti in assoluto (come trending)
     {
+      const RECOMMENDED_LIMIT = 20
+      let recommendedGenres: string[] = []
+      const excludedBookIds = new Set<string>() // libri da non mostrare: completati + già in "Continua a leggere"
+
+      if (user) {
+        const { data: libData } = await supabase
+          .from('user_library')
+          .select('book_id, status, book:books!user_library_book_id_fkey(genre)')
+          .eq('user_id', user.id)
+          .in('status', ['reading', 'completed', 'saved'])
+          .limit(200)
+
+        const readGenres: string[] = []
+        const savedGenres: string[] = []
+        if (libData && libData.length > 0) {
+          for (const r of libData as any[]) {
+            // Esclude i libri completati e quelli in "Continua a leggere"
+            if (r.status === 'completed' || r.status === 'reading') {
+              excludedBookIds.add(r.book_id)
+            }
+            const g = r.book?.genre
+            if (!g) continue
+            if (r.status === 'reading' || r.status === 'completed') readGenres.push(g)
+            else if (r.status === 'saved') savedGenres.push(g)
+          }
+        }
+
+        if (readGenres.length > 0) {
+          // L1: priorità ai letti, ma includiamo anche i salvati per ampliare
+          recommendedGenres = Array.from(new Set([...readGenres, ...savedGenres]))
+        } else if (savedGenres.length > 0) {
+          // L2: solo salvati
+          recommendedGenres = Array.from(new Set(savedGenres))
+        } else {
+          // L3: prova con i generi dei libri degli autori seguiti
+          let followedAuthorIds: string[] = []
+          try {
+            const { data: followsNew } = await supabase
+              .from('followers')
+              .select('following_id')
+              .eq('follower_id', user.id)
+              .limit(200)
+            followedAuthorIds = (followsNew || []).map((r: any) => r.following_id)
+          } catch { /* fallback alla tabella legacy */ }
+          if (followedAuthorIds.length === 0) {
+            try {
+              const { data: followsLegacy } = await supabase
+                .from('follows')
+                .select('following_id')
+                .eq('follower_id', user.id)
+                .limit(200)
+              followedAuthorIds = (followsLegacy || []).map((r: any) => r.following_id)
+            } catch { /* nessuna delle due tabelle disponibile */ }
+          }
+          if (followedAuthorIds.length > 0) {
+            const { data: authorBooks } = await supabase
+              .from('books')
+              .select('genre')
+              .in('author_id', followedAuthorIds)
+              .in('status', ['published', 'ongoing', 'completed'])
+              .limit(200)
+            if (authorBooks && authorBooks.length > 0) {
+              const genres = (authorBooks as any[]).map(r => r.genre).filter(Boolean)
+              if (genres.length > 0) recommendedGenres = Array.from(new Set(genres))
+            }
+          }
+        }
+      }
+
+      // Filtro categoria UI (selettore in alto): ha sempre priorità sull'algoritmo
+      const useGenreFilter = allowedGenres
+        ? allowedGenres
+        : (recommendedGenres.length > 0 ? recommendedGenres : null)
+      const isFallbackL4 = !useGenreFilter
+
+      // Query principale — fetcho un buffer più ampio per poter filtrare lato client
       let q = supabase.from('books').select(BOOK_SELECT)
         .in('status', ['published', 'ongoing', 'completed'])
-      if (allowedGenres) {
-        q = q.in('genre', allowedGenres)
-      } else if (recommendedGenres) {
-        q = q.in('genre', recommendedGenres)
+      if (useGenreFilter) q = q.in('genre', useGenreFilter)
+      // L4 fallback: ordina per total_reads (come "più letti"); altrimenti visibility_score
+      q = q.order(isFallbackL4 ? 'total_reads' : 'visibility_score', { ascending: false })
+        .limit(RECOMMENDED_LIMIT * 3)
+
+      const { data: rawData } = await q
+      let recommendedBooks = (rawData || []).filter((b: any) => !excludedBookIds.has(b.id))
+
+      // Riempimento: se siamo sotto al target e abbiamo filtrato per genere,
+      // completa con i più letti generici (esclusi quelli già selezionati e quelli in libreria)
+      if (recommendedBooks.length < RECOMMENDED_LIMIT && useGenreFilter && !allowedGenres) {
+        const have = new Set(recommendedBooks.map((b: any) => b.id))
+        excludedBookIds.forEach(id => have.add(id))
+        const need = RECOMMENDED_LIMIT - recommendedBooks.length
+        const { data: fillData } = await supabase
+          .from('books')
+          .select(BOOK_SELECT)
+          .in('status', ['published', 'ongoing', 'completed'])
+          .order('total_reads', { ascending: false })
+          .limit(need * 3)
+        const extra = (fillData || []).filter((b: any) => !have.has(b.id)).slice(0, need)
+        recommendedBooks = [...recommendedBooks, ...extra]
       }
-      const { data } = await q.order('total_reads', { ascending: false }).limit(12)
-      setRecommended(data || [])
+
+      setRecommended(recommendedBooks.slice(0, RECOMMENDED_LIMIT))
     }
 
     // ── 2. IN TENDENZA — visibility_score ultimi 7 giorni ──
