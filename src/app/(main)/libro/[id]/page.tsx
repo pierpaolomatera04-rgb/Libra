@@ -38,6 +38,7 @@ export default function BookDetailPage() {
   const [boosting, setBoosting] = useState(false)
   const [canBoost, setCanBoost] = useState(true)
   const [hoursUntilBoost, setHoursUntilBoost] = useState<number | null>(null)
+  const [showBoostConfirm, setShowBoostConfirm] = useState(false)
 
   useEffect(() => {
     const fetchBook = async () => {
@@ -226,10 +227,34 @@ export default function BookDetailPage() {
     }
   }
 
-  const handleBoost = async () => {
+  const BOOST_COST = 10
+
+  // Costo formattato in base ai token effettivamente disponibili (bonus prima, premium poi)
+  const getBoostCostLabel = (): string => {
+    const bonus = profile?.bonus_tokens ?? 0
+    const premium = profile?.premium_tokens ?? 0
+    if (bonus >= BOOST_COST) return `${BOOST_COST} token (bonus)`
+    if (premium >= BOOST_COST && bonus === 0) return `${BOOST_COST} token (acquistati)`
+    if (bonus > 0 && bonus + premium >= BOOST_COST) {
+      const fromPremium = BOOST_COST - bonus
+      return `${BOOST_COST} token (${bonus} bonus + ${fromPremium} acquistati)`
+    }
+    return `${BOOST_COST} token`
+  }
+
+  const totalAvailableTokens = (profile?.bonus_tokens ?? 0) + (profile?.premium_tokens ?? 0)
+  const hasEnoughTokensForBoost = totalAvailableTokens >= BOOST_COST
+
+  // Apertura popup conferma — il boost reale parte solo dopo confirmBoost()
+  const handleBoost = () => {
     if (!user) return router.push('/login')
     if (!canBoost || boosting) return
+    setShowBoostConfirm(true)
+  }
 
+  const confirmBoost = async () => {
+    if (!user || !canBoost || boosting) return
+    setShowBoostConfirm(false)
     setBoosting(true)
     try {
       const { data, error } = await (supabase.rpc as any)('boost_book', {
@@ -772,6 +797,73 @@ export default function BookDetailPage() {
               </div>
             </div>
             <p className="text-sm text-bark-500 leading-relaxed">{book.author.author_bio}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════ Modale conferma BOOST ═══════ */}
+      {showBoostConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          onClick={() => setShowBoostConfirm(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="boost-confirm-title"
+        >
+          <div
+            className="relative w-full max-w-[85vw] sm:max-w-md bg-white dark:bg-[#1e221c] rounded-2xl shadow-2xl border border-sage-100 dark:border-sage-800 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header con accent dorato */}
+            <div className="px-5 pt-5 pb-3 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20 border-b border-amber-100 dark:border-amber-800/50">
+              <h3 id="boost-confirm-title" className="flex items-center gap-2 text-lg font-bold text-amber-800 dark:text-amber-200">
+                <Zap className="w-5 h-5 fill-amber-300 text-amber-600 dark:text-amber-400" />
+                Boosta questo libro
+              </h3>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-sm text-bark-500 dark:text-sage-300 leading-relaxed">
+                Il boost aumenta la visibilità del libro nel catalogo e nelle sezioni in evidenza, aiutandolo a raggiungere più lettori.
+              </p>
+
+              {/* Costo */}
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
+                <span className="text-sm font-medium text-bark-600 dark:text-sage-200">Costo</span>
+                <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                  {getBoostCostLabel()}
+                </span>
+              </div>
+
+              {!hasEnoughTokensForBoost && (
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                  Token insufficienti — hai {totalAvailableTokens} token disponibili.
+                </p>
+              )}
+            </div>
+
+            {/* Bottoni */}
+            <div className="flex gap-2 px-5 pb-5 pt-1">
+              <button
+                onClick={() => setShowBoostConfirm(false)}
+                className="flex-1 h-10 px-4 rounded-xl text-sm font-medium bg-bark-100 dark:bg-sage-800 text-bark-600 dark:text-sage-200 hover:bg-bark-200 dark:hover:bg-sage-700 transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={confirmBoost}
+                disabled={!hasEnoughTokensForBoost || boosting}
+                className={`flex-[1.5] h-10 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                  hasEnoughTokensForBoost && !boosting
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-white shadow-md hover:from-amber-500 hover:to-amber-600'
+                    : 'bg-bark-100 dark:bg-sage-800 text-bark-400 cursor-not-allowed'
+                }`}
+              >
+                <Zap className="w-4 h-4 fill-white" />
+                Conferma boost
+              </button>
+            </div>
           </div>
         </div>
       )}
