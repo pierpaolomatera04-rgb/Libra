@@ -34,14 +34,41 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Resolve auth state in modo robusto:
+  // - getUser() valida il JWT con una chiamata di rete e refresha i cookie scaduti
+  // - su Safari iOS / mobile con ITP, network instabile o cold start, può fallire
+  //   silenziosamente e restituire null anche per utenti loggati
+  // - in quel caso facciamo fallback su getSession() che legge solo dal cookie locale
+  //   (no rete) per evitare redirect spuri al login
+  let user: { id: string } | null = null
+  try {
+    const { data, error } = await supabase.auth.getUser()
+    if (!error && data?.user) {
+      user = data.user
+    }
+  } catch {
+    // ignore: gestito sotto
+  }
+  if (!user) {
+    try {
+      const { data } = await supabase.auth.getSession()
+      if (data?.session?.user) {
+        user = data.session.user
+      }
+    } catch {
+      // se fallisce anche getSession l'utente è davvero non autenticato
+    }
+  }
 
   // Proteggi le rotte autenticate
   const protectedRoutes = ['/dashboard', '/pubblica', '/libreria', '/wallet', '/profilo', '/impostazioni', '/onboarding']
   const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
 
   if (isProtectedRoute && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    // Conserva la destinazione originale così dopo il login l'utente torna dove voleva andare
+    loginUrl.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
+    return NextResponse.redirect(loginUrl)
   }
 
   // Redirect utenti autenticati lontano da login/signup
