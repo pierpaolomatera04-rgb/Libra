@@ -266,48 +266,61 @@ export default function PromuoviPage() {
             return (
               <div
                 key={book.id}
-                className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${
+                className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border transition-all ${
                   isActive
                     ? 'bg-gradient-to-r from-amber-50/50 to-orange-50/50 border-amber-300 shadow-sm'
                     : 'bg-white border-sage-100'
                 }`}
               >
-                {book.cover_image_url ? (
-                  <img src={book.cover_image_url} alt="" className="w-14 h-20 rounded-lg object-cover shrink-0" />
-                ) : (
-                  <div className="w-14 h-20 rounded-lg bg-sage-100 flex items-center justify-center shrink-0">
-                    <BookOpen className="w-5 h-5 text-sage-400" />
-                  </div>
-                )}
+                {/* Riga 1 mobile: copertina + titolo (su desktop fa parte della riga unica) */}
+                <div className="flex items-center gap-3 sm:gap-4 sm:flex-1 sm:min-w-0">
+                  {book.cover_image_url ? (
+                    <img src={book.cover_image_url} alt="" className="w-12 h-16 sm:w-14 sm:h-20 rounded-lg object-cover shrink-0" />
+                  ) : (
+                    <div className="w-12 h-16 sm:w-14 sm:h-20 rounded-lg bg-sage-100 flex items-center justify-center shrink-0">
+                      <BookOpen className="w-5 h-5 text-sage-400" />
+                    </div>
+                  )}
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-sage-900 truncate">{book.title}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p
+                        className="font-bold text-sage-900"
+                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+                      >
+                        {book.title}
+                      </p>
+                    </div>
+                    {/* Riga 2 mobile: badge BOOST + ore rimanenti */}
                     {isActive && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-full">
-                        <Zap className="w-3 h-3" /> Boost attivo
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-full">
+                          <Zap className="w-3 h-3" /> Boost attivo
+                        </span>
+                        {remaining && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 font-semibold">
+                            <Clock className="w-3 h-3" /> {remaining.text} rimasti
+                          </span>
+                        )}
+                      </div>
                     )}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-bark-500 mt-1">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> {book.total_reads || 0} letture
-                    </span>
-                    <span className="flex items-center gap-1 capitalize">
-                      <TrendingUp className="w-3 h-3" /> {book.status}
-                    </span>
-                    {isActive && remaining && (
-                      <span className="flex items-center gap-1 text-amber-700 font-semibold">
-                        <Clock className="w-3 h-3" /> {remaining.text} rimasti
+                    {/* Riga 3: statistiche letture + stato */}
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 text-xs text-bark-500 mt-1">
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> {book.total_reads || 0} letture
                       </span>
-                    )}
+                      <span className="flex items-center gap-1 capitalize">
+                        <TrendingUp className="w-3 h-3" /> {book.status}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
+                {/* Riga 4 mobile: pulsante full-width — su desktop torna inline a destra */}
                 <button
                   onClick={() => openBoostModal(book)}
                   disabled={balance.boostable < 10}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sage-500 text-white font-semibold text-sm hover:bg-sage-600 transition-colors disabled:bg-sage-200 disabled:cursor-not-allowed shrink-0"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded-xl bg-sage-500 text-white font-semibold text-sm hover:bg-sage-600 transition-colors disabled:bg-sage-200 disabled:cursor-not-allowed shrink-0"
                 >
                   <Rocket className="w-4 h-4" />
                   {isActive ? 'Estendi' : 'Boosta'}

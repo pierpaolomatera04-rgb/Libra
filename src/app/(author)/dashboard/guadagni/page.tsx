@@ -86,12 +86,17 @@ export default function GuadagniPage() {
                       <BookOpen className="w-4 h-4 text-sage-400" />
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-sage-800 truncate">{book.title}</p>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p
+                      className="text-sm font-medium text-sage-800"
+                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+                    >
+                      {book.title}
+                    </p>
                     <p className="text-xs text-bark-400">{book.total_reads || 0} letture</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-sage-600">{Number(book.total_earnings || 0)} tk</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-sage-600 whitespace-nowrap">{Number(book.total_earnings || 0)} tk</p>
                   </div>
                 </div>
               ))}

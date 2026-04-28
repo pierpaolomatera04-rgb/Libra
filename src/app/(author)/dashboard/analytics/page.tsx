@@ -75,27 +75,40 @@ export default function AnalyticsPage() {
         <h1 className="text-2xl font-bold text-sage-900">Statistiche</h1>
       </div>
 
-      {/* Overview cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+      {/* Overview cards — mobile compatto (max ~80px), desktop esteso con descrizioni */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4 mb-6 sm:mb-8">
         {[
-          { label: 'Pagine lette totali', desc: 'Pagine lette dai tuoi lettori — base per il calcolo dei tuoi guadagni', value: totalStats.reads.toLocaleString(), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50', href: null },
+          { label: 'Pagine lette', desc: 'Pagine lette dai tuoi lettori — base per il calcolo dei tuoi guadagni', value: totalStats.reads.toLocaleString(), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50', href: null },
           { label: 'Like totali', desc: null, value: totalStats.likes.toLocaleString(), icon: Heart, color: 'text-red-500', bg: 'bg-red-50', href: null },
           { label: 'Commenti', desc: null, value: totalStats.comments.toLocaleString(), icon: MessageCircle, color: 'text-amber-500', bg: 'bg-amber-50', href: '/dashboard/commenti' },
           { label: 'Followers', desc: null, value: totalStats.followers.toLocaleString(), icon: Users, color: 'text-purple-500', bg: 'bg-purple-50', href: null },
           { label: 'Salvataggi', desc: 'Quante volte i lettori hanno salvato i tuoi libri nella loro libreria', value: totalStats.saves.toLocaleString(), icon: Bookmark, color: 'text-sage-600', bg: 'bg-sage-50', href: null },
-          { label: 'Tasso completamento', desc: 'Percentuale di blocchi letti fino alla fine rispetto al totale delle letture', value: `${totalStats.completionRate}%`, icon: BookOpen, color: 'text-green-600', bg: 'bg-green-50', href: null },
+          { label: 'Completamento', desc: 'Percentuale di blocchi letti fino alla fine rispetto al totale delle letture', value: `${totalStats.completionRate}%`, icon: BookOpen, color: 'text-green-600', bg: 'bg-green-50', href: null },
         ].map((stat) => {
           const content = (
-            <div className={`bg-white rounded-2xl border border-sage-100 p-5 flex flex-col ${stat.href ? 'hover:border-sage-300 hover:shadow-sm cursor-pointer' : ''} transition-all`} style={{ minHeight: '180px' }}>
-              <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+            <div className={`bg-white rounded-xl sm:rounded-2xl border border-sage-100 p-3 sm:p-5 flex flex-col ${stat.href ? 'hover:border-sage-300 hover:shadow-sm cursor-pointer' : ''} transition-all`}>
+              {/* Mobile: layout compatto su una riga (icona + valore + label) */}
+              <div className="sm:hidden flex items-center gap-2" style={{ maxHeight: 80 }}>
+                <div className={`w-8 h-8 ${stat.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[22px] leading-none font-bold text-sage-900 truncate">{stat.value}</p>
+                  <p className="text-[11px] text-bark-500 font-medium truncate mt-1">{stat.label}</p>
+                </div>
               </div>
-              <p className="text-2xl font-bold text-sage-900">{stat.value}</p>
-              <p className="text-xs text-bark-500 font-medium mt-1">{stat.label}</p>
-              <div className="mt-1.5" style={{ minHeight: '2.5rem' }}>
-                {stat.desc && (
-                  <p className="text-[10px] text-bark-400 leading-relaxed line-clamp-3">{stat.desc}</p>
-                )}
+              {/* Desktop: layout originale con descrizione */}
+              <div className="hidden sm:flex sm:flex-col" style={{ minHeight: '180px' }}>
+                <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
+                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                </div>
+                <p className="text-2xl font-bold text-sage-900">{stat.value}</p>
+                <p className="text-xs text-bark-500 font-medium mt-1">{stat.label}</p>
+                <div className="mt-1.5" style={{ minHeight: '2.5rem' }}>
+                  {stat.desc && (
+                    <p className="text-[10px] text-bark-400 leading-relaxed line-clamp-3">{stat.desc}</p>
+                  )}
+                </div>
               </div>
             </div>
           )

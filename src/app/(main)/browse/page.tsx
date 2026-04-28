@@ -918,7 +918,7 @@ export default function BrowsePage() {
           )
         }
         return (
-          <div className="mt-5 space-y-6">
+          <div className="mt-5 space-y-5 sm:space-y-6">
             {/* 0. Continua a leggere — card più piccole, sempre in cima */}
             {continueReading.length > 0 && (
               <section>

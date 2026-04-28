@@ -119,25 +119,27 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-sage-900">Dashboard Autore</h1>
-          <p className="text-sm text-bark-400 mt-1">
+      {/* Header — su mobile titolo + bottone su unica riga, bottone compatto */}
+      <div className="flex items-center justify-between gap-2 mb-6 sm:mb-8">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-sage-900 truncate">Dashboard Autore</h1>
+          <p className="text-xs sm:text-sm text-bark-400 mt-1 truncate">
             Ciao {profile.author_pseudonym || profile.name}!
           </p>
         </div>
         <Link
           href="/pubblica"
-          className="flex items-center gap-2 px-5 py-2.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-5 py-2 sm:py-2.5 bg-sage-500 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          Pubblica libro
+          <span className="hidden xs:inline sm:inline">Pubblica libro</span>
+          <span className="xs:hidden sm:hidden">Pubblica</span>
         </Link>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      {/* Stats grid — box compatti: max ~80px alto, padding 12px, icona 20px,
+          numero 22px, label 11px (mobile-first; desktop conserva più aria) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 mb-6 sm:mb-8">
         {[
           { label: 'Libri', value: stats.totalBooks, icon: BookOpen, color: 'text-sage-600', href: '/dashboard/opere' },
           { label: 'Pagine lette', value: stats.totalReads.toLocaleString(), icon: Eye, color: 'text-blue-500', href: '/dashboard/analytics' },
@@ -146,12 +148,17 @@ export default function DashboardPage() {
           { label: 'Followers', value: stats.totalFollowers.toLocaleString(), icon: Users, color: 'text-purple-500', href: '/dashboard/analytics' },
           { label: 'Guadagni', value: `${stats.totalEarnings} tk`, icon: Coins, color: 'text-sage-600', href: '/dashboard/guadagni' },
         ].map((stat) => (
-          <Link key={stat.label} href={stat.href} className="bg-white rounded-xl border border-sage-100 p-4 hover:border-sage-300 hover:shadow-sm transition-all cursor-pointer">
-            <div className="flex items-center gap-2 mb-2">
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
-              <span className="text-xs text-bark-400">{stat.label}</span>
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className="bg-white rounded-xl border border-sage-100 p-3 sm:p-4 hover:border-sage-300 hover:shadow-sm transition-all cursor-pointer"
+            style={{ maxHeight: 80 }}
+          >
+            <div className="flex items-center gap-1.5 mb-1 sm:mb-2">
+              <stat.icon className={`w-5 h-5 sm:w-4 sm:h-4 ${stat.color}`} />
+              <span className="text-[11px] sm:text-xs text-bark-400 truncate">{stat.label}</span>
             </div>
-            <p className="text-xl font-bold text-sage-900">{stat.value}</p>
+            <p className="text-[22px] leading-tight sm:text-xl font-bold text-sage-900 truncate">{stat.value}</p>
           </Link>
         ))}
       </div>
@@ -186,10 +193,15 @@ export default function DashboardPage() {
                       <BookOpen className="w-4 h-4 text-sage-400" />
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-sage-800 truncate">{book.title}</p>
-                    <div className="flex items-center gap-3 text-xs text-bark-400 mt-0.5">
-                      <span>{book.total_reads || 0} pagine lette</span>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p
+                      className="text-sm font-medium text-sage-800"
+                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+                    >
+                      {book.title}
+                    </p>
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-bark-400 mt-0.5">
+                      <span>{book.total_reads || 0} pagine</span>
                       <span>{book.total_likes || 0} like</span>
                       <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                         book.status === 'published' || book.status === 'ongoing'
