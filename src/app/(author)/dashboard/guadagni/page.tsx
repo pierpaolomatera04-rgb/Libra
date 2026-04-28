@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
-import { Coins, BookOpen, Loader2, TrendingUp, Unlock, Gift } from 'lucide-react'
+import { Coins, BookOpen, Loader2, TrendingUp, Unlock, Gift, BarChart3 } from 'lucide-react'
+import BookAnalyticsModal from '@/components/dashboard/BookAnalyticsModal'
 
 export default function GuadagniPage() {
   const { user } = useAuth()
@@ -12,14 +13,15 @@ export default function GuadagniPage() {
   const [donations, setDonations] = useState<any[]>([])
   const [totalEarnings, setTotalEarnings] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [analyticsBook, setAnalyticsBook] = useState<any | null>(null)
 
   useEffect(() => {
     if (!user) return
     const fetchEarnings = async () => {
-      // Guadagni dai libri
+      // Guadagni dai libri — carico anche like/commenti/salvataggi per la modale analytics
       const { data: booksData } = await supabase
         .from('books')
-        .select('id, title, total_earnings, total_reads, cover_image_url')
+        .select('id, title, total_earnings, total_reads, total_likes, total_comments, total_saves, cover_image_url')
         .eq('author_id', user.id)
         .order('total_earnings', { ascending: false })
 
@@ -78,7 +80,13 @@ export default function GuadagniPage() {
           ) : (
             <div className="space-y-3">
               {books.map((book) => (
-                <div key={book.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-sage-50 transition-colors">
+                <button
+                  key={book.id}
+                  type="button"
+                  onClick={() => setAnalyticsBook(book)}
+                  title="Apri statistiche dettagliate"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sage-50 transition-colors text-left group"
+                >
                   {book.cover_image_url ? (
                     <img src={book.cover_image_url} alt="" className="w-10 h-14 rounded-lg object-cover flex-shrink-0" />
                   ) : (
@@ -88,17 +96,23 @@ export default function GuadagniPage() {
                   )}
                   <div className="flex-1 min-w-0 overflow-hidden">
                     <p
-                      className="text-sm font-medium text-sage-800"
+                      className="text-sm font-medium text-sage-800 group-hover:text-sage-900"
                       style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
                     >
                       {book.title}
                     </p>
-                    <p className="text-xs text-bark-400">{book.total_reads || 0} letture</p>
+                    <p className="text-xs text-bark-400 inline-flex items-center gap-1">
+                      <span>{book.total_reads || 0} letture</span>
+                      <span className="text-bark-300">·</span>
+                      <span className="inline-flex items-center gap-0.5 text-sage-500 group-hover:text-sage-700">
+                        <BarChart3 className="w-3 h-3" /> Statistiche
+                      </span>
+                    </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold text-sage-600 whitespace-nowrap">{Number(book.total_earnings || 0)} tk</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -152,6 +166,11 @@ export default function GuadagniPage() {
           )}
         </div>
       </div>
+
+      {/* Modale statistiche dettagliate per libro */}
+      {analyticsBook && (
+        <BookAnalyticsModal book={analyticsBook} onClose={() => setAnalyticsBook(null)} />
+      )}
     </div>
   )
 }
