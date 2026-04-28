@@ -933,10 +933,10 @@ export default function BrowsePage() {
                 </div>
                 <HorizontalCarousel>
                   {continueReading.map((book: any) => (
-                    <div key={book.id} className="flex-shrink-0 w-[110px] sm:w-[160px]">
+                    <div key={book.id} className="flex-shrink-0 w-[80px] sm:w-[120px]">
                       <Link href={`/libro/${book.id}`} className="group block">
-                        {/* Card solo-copertina con testo sovrapposto — sezione più bassa delle altre */}
-                        <div className="relative rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300" style={{ aspectRatio: '2/3' }}>
+                        {/* Card compatta solo-copertina — più piccola delle card di scoperta */}
+                        <div className="relative rounded-md overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300" style={{ aspectRatio: '2/3' }}>
                           {book.cover_image_url ? (
                             <img
                               src={book.cover_image_url}
@@ -945,15 +945,15 @@ export default function BrowsePage() {
                             />
                           ) : (
                             <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-sage-200 to-sage-300">
-                              <BookOpen className="w-8 h-8 text-sage-500" />
+                              <BookOpen className="w-6 h-6 text-sage-500" />
                             </div>
                           )}
-                          {/* Gradiente + titolo + barra progresso sovrapposti */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent px-2 pt-6 pb-2">
-                            <p className="text-white text-[10px] font-semibold line-clamp-2 leading-tight mb-1.5">
+                          {/* Gradiente + titolo + barra progresso sovrapposti — compatti */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-1.5 pt-4 pb-1.5">
+                            <p className="text-white text-[9px] font-semibold line-clamp-2 leading-tight mb-1">
                               {book.title}
                             </p>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <div className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-amber-400 rounded-full"
@@ -962,7 +962,7 @@ export default function BrowsePage() {
                                   }}
                                 />
                               </div>
-                              <span className="text-white/70 text-[9px] whitespace-nowrap">
+                              <span className="text-white/70 text-[8px] whitespace-nowrap tabular-nums">
                                 {book.currentBlock}/{book.total_blocks}
                               </span>
                             </div>
