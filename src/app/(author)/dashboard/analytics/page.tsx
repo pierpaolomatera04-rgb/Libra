@@ -108,64 +108,125 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Classifica libri per performance */}
-      <div className="bg-white rounded-2xl border border-sage-100 p-6">
+      <div className="bg-white rounded-2xl border border-sage-100 p-4 sm:p-6">
         <h2 className="text-lg font-bold text-sage-900 mb-4">Performance per libro</h2>
 
         {books.length === 0 ? (
           <p className="text-center text-sm text-bark-400 py-8">Nessun libro pubblicato ancora</p>
         ) : (
-          <div className="space-y-3">
-            {/* Header */}
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] font-semibold text-bark-400 uppercase tracking-wider">
-              <div className="col-span-5">Libro</div>
-              <div className="col-span-2 text-center">Pagine lette</div>
-              <div className="col-span-1 text-center">Like</div>
-              <div className="col-span-2 text-center">Commenti</div>
-              <div className="col-span-2 text-center">Salvataggi</div>
+          <>
+            {/* Desktop ≥640px: tabella a griglia (layout originale) */}
+            <div className="hidden sm:block space-y-3">
+              {/* Header */}
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] font-semibold text-bark-400 uppercase tracking-wider">
+                <div className="col-span-5">Libro</div>
+                <div className="col-span-2 text-center">Pagine lette</div>
+                <div className="col-span-1 text-center">Like</div>
+                <div className="col-span-2 text-center">Commenti</div>
+                <div className="col-span-2 text-center">Salvataggi</div>
+              </div>
+
+              {books.map((book, index) => {
+                const maxReads = Math.max(...books.map((b: any) => b.total_reads || 1))
+                const barWidth = ((book.total_reads || 0) / maxReads) * 100
+
+                return (
+                  <div key={book.id} className="grid grid-cols-12 gap-2 items-center px-3 py-3 rounded-xl hover:bg-sage-50 transition-colors">
+                    <div className="col-span-5 flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-bold text-bark-300 w-5 text-center">{index + 1}</span>
+                      <Link href={`/libro/${book.id}`} className="flex-shrink-0">
+                        {book.cover_image_url ? (
+                          <img src={book.cover_image_url} alt="" className="w-8 h-11 rounded-lg object-cover hover:opacity-80 transition-opacity" />
+                        ) : (
+                          <div className="w-8 h-11 rounded-lg bg-sage-100 flex items-center justify-center hover:bg-sage-200 transition-colors">
+                            <BookOpen className="w-3.5 h-3.5 text-sage-400" />
+                          </div>
+                        )}
+                      </Link>
+                      <div className="min-w-0">
+                        <Link href={`/libro/${book.id}`} className="text-sm font-medium text-sage-800 truncate block hover:text-sage-600 transition-colors">{book.title}</Link>
+                        <div className="w-full bg-sage-100 rounded-full h-1 mt-1.5">
+                          <div className="bg-sage-400 h-1 rounded-full" style={{ width: `${barWidth}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-span-2 text-center text-sm font-semibold text-sage-800">
+                      {(book.total_reads || 0).toLocaleString()}
+                    </div>
+                    <div className="col-span-1 text-center text-sm text-bark-500">
+                      {book.total_likes || 0}
+                    </div>
+                    <div className="col-span-2 text-center text-sm text-bark-500">
+                      {book.total_comments || 0}
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <span className="text-sm font-semibold text-sage-600">
+                        {book.total_saves || 0}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
 
-            {books.map((book, index) => {
-              const maxReads = Math.max(...books.map((b: any) => b.total_reads || 1))
-              const barWidth = ((book.total_reads || 0) / maxReads) * 100
+            {/* Mobile <640px: card verticali */}
+            <div className="sm:hidden space-y-2.5">
+              {books.map((book, index) => {
+                const maxReads = Math.max(...books.map((b: any) => b.total_reads || 1))
+                const barWidth = ((book.total_reads || 0) / maxReads) * 100
 
-              return (
-                <div key={book.id} className="grid grid-cols-12 gap-2 items-center px-3 py-3 rounded-xl hover:bg-sage-50 transition-colors">
-                  <div className="col-span-5 flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-bold text-bark-300 w-5 text-center">{index + 1}</span>
-                    <Link href={`/libro/${book.id}`} className="flex-shrink-0">
+                return (
+                  <Link
+                    key={book.id}
+                    href={`/libro/${book.id}`}
+                    className="flex items-start gap-3 p-3 rounded-xl border border-sage-100 hover:border-sage-300 hover:bg-sage-50 transition-colors"
+                  >
+                    <span className="text-xs font-bold text-bark-300 w-4 text-center flex-shrink-0 mt-0.5 tabular-nums">
+                      {index + 1}
+                    </span>
+                    <div className="flex-shrink-0">
                       {book.cover_image_url ? (
-                        <img src={book.cover_image_url} alt="" className="w-8 h-11 rounded-lg object-cover hover:opacity-80 transition-opacity" />
+                        <img src={book.cover_image_url} alt="" className="w-10 h-14 rounded-md object-cover" />
                       ) : (
-                        <div className="w-8 h-11 rounded-lg bg-sage-100 flex items-center justify-center hover:bg-sage-200 transition-colors">
-                          <BookOpen className="w-3.5 h-3.5 text-sage-400" />
+                        <div className="w-10 h-14 rounded-md bg-sage-100 flex items-center justify-center">
+                          <BookOpen className="w-4 h-4 text-sage-400" />
                         </div>
                       )}
-                    </Link>
-                    <div className="min-w-0">
-                      <Link href={`/libro/${book.id}`} className="text-sm font-medium text-sage-800 truncate block hover:text-sage-600 transition-colors">{book.title}</Link>
-                      <div className="w-full bg-sage-100 rounded-full h-1 mt-1.5">
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {/* Titolo: a capo se necessario, mai troncato */}
+                      <p className="text-sm font-semibold text-sage-800 leading-tight break-words">
+                        {book.title}
+                      </p>
+                      {/* Stats inline con icone */}
+                      <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 mt-1.5 text-[11px] text-bark-500">
+                        <span className="inline-flex items-center gap-0.5" title="Pagine lette">
+                          <Eye className="w-3 h-3" />
+                          <span className="font-semibold text-sage-800">{(book.total_reads || 0).toLocaleString()}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-0.5" title="Like">
+                          <Heart className="w-3 h-3" />
+                          <span className="font-medium">{book.total_likes || 0}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-0.5" title="Commenti">
+                          <MessageCircle className="w-3 h-3" />
+                          <span className="font-medium">{book.total_comments || 0}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-0.5" title="Salvataggi">
+                          <Bookmark className="w-3 h-3" />
+                          <span className="font-medium">{book.total_saves || 0}</span>
+                        </span>
+                      </div>
+                      {/* Barra avanzamento relativa */}
+                      <div className="w-full bg-sage-100 rounded-full h-1 mt-2">
                         <div className="bg-sage-400 h-1 rounded-full" style={{ width: `${barWidth}%` }} />
                       </div>
                     </div>
-                  </div>
-                  <div className="col-span-2 text-center text-sm font-semibold text-sage-800">
-                    {(book.total_reads || 0).toLocaleString()}
-                  </div>
-                  <div className="col-span-1 text-center text-sm text-bark-500">
-                    {book.total_likes || 0}
-                  </div>
-                  <div className="col-span-2 text-center text-sm text-bark-500">
-                    {book.total_comments || 0}
-                  </div>
-                  <div className="col-span-2 text-center">
-                    <span className="text-sm font-semibold text-sage-600">
-                      {book.total_saves || 0}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -31,7 +31,7 @@ export default function AuthorLayout({ children }: { children: React.ReactNode }
     <>
       <Navbar />
       {showSidebar ? (
-        <div className="min-h-[calc(100vh-4rem)] flex">
+        <div className="min-h-[calc(100vh-4rem)] flex w-full max-w-[100vw] overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
           {/* Sidebar desktop */}
           <aside className="hidden lg:flex w-64 bg-white border-r border-sage-100 flex-col py-6 px-4 flex-shrink-0">
             <div className="mb-6 px-3">
@@ -102,13 +102,14 @@ export default function AuthorLayout({ children }: { children: React.ReactNode }
             </Link>
           </div>
 
-          {/* Content */}
-          <main className="flex-1 bg-cream-50 min-h-[calc(100vh-4rem)] pb-20 lg:pb-0">
+          {/* Content — min-w-0 critico: senza, i figli con tabelle/grafici larghi
+              fanno espandere il flex item oltre il viewport e creano scroll orizzontale */}
+          <main className="flex-1 min-w-0 bg-cream-50 min-h-[calc(100vh-4rem)] pb-20 lg:pb-0 overflow-x-hidden">
             {children}
           </main>
         </div>
       ) : (
-        <main className="min-h-[calc(100vh-4rem)] bg-cream-50">{children}</main>
+        <main className="min-h-[calc(100vh-4rem)] bg-cream-50 w-full max-w-[100vw] overflow-x-hidden">{children}</main>
       )}
     </>
   )
