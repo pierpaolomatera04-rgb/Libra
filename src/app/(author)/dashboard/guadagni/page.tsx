@@ -57,17 +57,17 @@ export default function GuadagniPage() {
       </div>
 
       {/* Totale */}
-      <div className="bg-sage-500 rounded-2xl p-6 text-white mb-8">
+      <div className="bg-sage-500 rounded-2xl p-4 sm:p-6 text-white mb-6 sm:mb-8 overflow-hidden min-w-0">
         <p className="text-sage-200 text-sm mb-1">Guadagno totale</p>
-        <p className="text-4xl font-bold">{totalEarnings.toLocaleString()} token</p>
+        <p className="text-3xl sm:text-4xl font-bold break-words">{totalEarnings.toLocaleString()} token</p>
         <p className="text-sage-200 text-xs mt-2">
           Guadagnati dagli sblocchi dei blocchi e dalle donazioni dei lettori
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
         {/* Per libro */}
-        <div className="bg-white rounded-2xl border border-sage-100 p-6">
+        <div className="bg-white rounded-2xl border border-sage-100 p-4 sm:p-6 overflow-hidden min-w-0">
           <h2 className="text-lg font-bold text-sage-900 mb-4 flex items-center gap-2">
             <Unlock className="w-5 h-5 text-sage-500" />
             Guadagni per libro
@@ -105,7 +105,7 @@ export default function GuadagniPage() {
         </div>
 
         {/* Donazioni */}
-        <div className="bg-white rounded-2xl border border-sage-100 p-6">
+        <div className="bg-white rounded-2xl border border-sage-100 p-4 sm:p-6 overflow-hidden min-w-0">
           <h2 className="text-lg font-bold text-sage-900 mb-4 flex items-center gap-2">
             <Gift className="w-5 h-5 text-amber-500" />
             Donazioni ricevute
@@ -124,16 +124,24 @@ export default function GuadagniPage() {
                   <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
                     <Gift className="w-4 h-4 text-amber-600" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-sage-800">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p
+                      className="text-sm font-medium text-sage-800"
+                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+                    >
                       {don.donor?.author_pseudonym || don.donor?.name || 'Anonimo'}
                     </p>
                     {don.message && (
-                      <p className="text-xs text-bark-400 truncate">{don.message}</p>
+                      <p
+                        className="text-xs text-bark-400"
+                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+                      >
+                        {don.message}
+                      </p>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-amber-600">+{don.amount} tk</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-amber-600 whitespace-nowrap">+{don.amount} tk</p>
                     <p className="text-[10px] text-bark-400">
                       {new Date(don.created_at).toLocaleDateString('it-IT')}
                     </p>

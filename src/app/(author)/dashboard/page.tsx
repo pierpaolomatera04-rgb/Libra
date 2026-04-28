@@ -151,7 +151,7 @@ export default function DashboardPage() {
           <Link
             key={stat.label}
             href={stat.href}
-            className="bg-white rounded-xl border border-sage-100 p-3 sm:p-4 hover:border-sage-300 hover:shadow-sm transition-all cursor-pointer"
+            className="bg-white rounded-xl border border-sage-100 p-3 sm:p-4 hover:border-sage-300 hover:shadow-sm transition-all cursor-pointer overflow-hidden min-w-0"
             style={{ maxHeight: 80 }}
           >
             <div className="flex items-center gap-1.5 mb-1 sm:mb-2">
@@ -166,7 +166,7 @@ export default function DashboardPage() {
       {/* Quick links */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Recent books */}
-        <div className="bg-white rounded-2xl border border-sage-100 p-6">
+        <div className="bg-white rounded-2xl border border-sage-100 p-4 sm:p-6 overflow-hidden min-w-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-sage-900">I tuoi libri</h2>
             <Link href="/dashboard/opere" className="text-sm text-sage-600 hover:text-sage-700">
@@ -221,7 +221,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick actions */}
-        <div className="bg-white rounded-2xl border border-sage-100 p-6">
+        <div className="bg-white rounded-2xl border border-sage-100 p-4 sm:p-6 overflow-hidden min-w-0">
           <h2 className="text-lg font-bold text-sage-900 mb-4">Azioni rapide</h2>
           <div className="space-y-2">
             {[
@@ -238,10 +238,10 @@ export default function DashboardPage() {
                 href={action.href}
                 className="flex items-center gap-3 p-3 rounded-xl hover:bg-sage-50 transition-colors group"
               >
-                <div className="w-10 h-10 bg-sage-50 group-hover:bg-sage-100 rounded-xl flex items-center justify-center transition-colors">
+                <div className="w-10 h-10 bg-sage-50 group-hover:bg-sage-100 rounded-xl flex items-center justify-center transition-colors flex-shrink-0">
                   <action.icon className="w-5 h-5 text-sage-500" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-sm font-medium text-sage-800">{action.label}</p>
                   <p className="text-xs text-bark-400">{action.desc}</p>
                 </div>
