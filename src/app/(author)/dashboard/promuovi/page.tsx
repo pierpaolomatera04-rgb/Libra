@@ -342,70 +342,126 @@ export default function PromuoviPage() {
           <p className="text-sm text-bark-400">Nessun boost effettuato finora</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-sage-100 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-sage-50 text-xs uppercase text-bark-500">
-              <tr>
-                <th className="text-left px-4 py-3 font-semibold">Libro</th>
-                <th className="text-left px-4 py-3 font-semibold">Token</th>
-                <th className="text-left px-4 py-3 font-semibold">Durata</th>
-                <th className="text-left px-4 py-3 font-semibold">Letture aggiunte</th>
-                <th className="text-left px-4 py-3 font-semibold">Stato</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((h) => {
-                const startedStr = new Date(h.started_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
-                return (
-                  <tr key={h.id} className="border-t border-sage-100 hover:bg-sage-50/30">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {h.book_cover ? (
-                          <img src={h.book_cover} alt="" className="w-8 h-11 rounded object-cover shrink-0" />
-                        ) : (
-                          <div className="w-8 h-11 rounded bg-sage-100 flex items-center justify-center shrink-0">
-                            <BookOpen className="w-3 h-3 text-sage-400" />
+        <>
+          {/* Desktop: tabella ≥640px */}
+          <div className="hidden sm:block bg-white rounded-2xl border border-sage-100 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-sage-50 text-xs uppercase text-bark-500">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold">Libro</th>
+                  <th className="text-left px-4 py-3 font-semibold">Token</th>
+                  <th className="text-left px-4 py-3 font-semibold">Durata</th>
+                  <th className="text-left px-4 py-3 font-semibold">Letture aggiunte</th>
+                  <th className="text-left px-4 py-3 font-semibold">Stato</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => {
+                  const startedStr = new Date(h.started_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
+                  return (
+                    <tr key={h.id} className="border-t border-sage-100 hover:bg-sage-50/30">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {h.book_cover ? (
+                            <img src={h.book_cover} alt="" className="w-8 h-11 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className="w-8 h-11 rounded bg-sage-100 flex items-center justify-center shrink-0">
+                              <BookOpen className="w-3 h-3 text-sage-400" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-medium text-sage-800 truncate">{h.book_title || '—'}</p>
+                            <p className="text-[10px] text-bark-400">{startedStr}</p>
                           </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-medium text-sage-800 truncate">{h.book_title || '—'}</p>
-                          <p className="text-[10px] text-bark-400">{startedStr}</p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-bold text-sage-900">{h.tokens_spent}</p>
-                      <p className="text-[10px] text-bark-400">
-                        {h.tokens_from_bonus}b + {h.tokens_from_purchased}r
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-bold text-sage-900">{h.tokens_spent}</p>
+                        <p className="text-[10px] text-bark-400">
+                          {h.tokens_from_bonus}b + {h.tokens_from_purchased}r
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{h.duration_days} {h.duration_days === 1 ? 'giorno' : 'giorni'}</p>
+                        <p className="text-[10px] text-bark-400">×{Number(h.multiplier).toFixed(1)}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 font-bold ${h.reads_delta > 0 ? 'text-emerald-700' : 'text-bark-400'}`}>
+                          <TrendingUp className="w-3 h-3" />
+                          +{h.reads_delta}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {h.is_active ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                            <Zap className="w-3 h-3" /> Attivo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-sage-100 text-bark-500 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="w-3 h-3" /> Terminato
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile <640px: card verticali */}
+          <div className="sm:hidden space-y-2.5">
+            {history.map((h) => {
+              const startedStr = new Date(h.started_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
+              return (
+                <div key={h.id} className="bg-white rounded-xl border border-sage-100 p-3 flex items-start gap-3 w-full max-w-full overflow-hidden" style={{ boxSizing: 'border-box' }}>
+                  {h.book_cover ? (
+                    <img src={h.book_cover} alt="" className="w-10 h-14 rounded object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-10 h-14 rounded bg-sage-100 flex items-center justify-center flex-shrink-0">
+                      <BookOpen className="w-3.5 h-3.5 text-sage-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-start justify-between gap-2">
+                      <p
+                        className="text-sm font-semibold text-sage-800 leading-tight"
+                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+                      >
+                        {h.book_title || '—'}
                       </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{h.duration_days} {h.duration_days === 1 ? 'giorno' : 'giorni'}</p>
-                      <p className="text-[10px] text-bark-400">×{Number(h.multiplier).toFixed(1)}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 font-bold ${h.reads_delta > 0 ? 'text-emerald-700' : 'text-bark-400'}`}>
+                      {h.is_active ? (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                          <Zap className="w-2.5 h-2.5" /> Attivo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase bg-sage-100 text-bark-500 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                          <CheckCircle2 className="w-2.5 h-2.5" /> Fine
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-bark-400 mt-0.5">{startedStr}</p>
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px] text-bark-500">
+                      <span className="inline-flex items-center gap-0.5">
+                        <Coins className="w-3 h-3" />
+                        <span className="font-semibold text-sage-800">{h.tokens_spent}</span>
+                        <span>tk</span>
+                      </span>
+                      <span className="inline-flex items-center gap-0.5">
+                        <Clock className="w-3 h-3" />
+                        <span className="font-medium">{h.duration_days}g ×{Number(h.multiplier).toFixed(1)}</span>
+                      </span>
+                      <span className={`inline-flex items-center gap-0.5 font-semibold ${h.reads_delta > 0 ? 'text-emerald-700' : 'text-bark-400'}`}>
                         <TrendingUp className="w-3 h-3" />
                         +{h.reads_delta}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {h.is_active ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                          <Zap className="w-3 h-3" /> Attivo
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-sage-100 text-bark-500 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3" /> Terminato
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {/* Modale boost */}

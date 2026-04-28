@@ -23,6 +23,17 @@ body {
   background: var(--background);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+  /* Safety net globale: nessuno scroll orizzontale spurio.
+     Lascio html senza overflow-x per non rompere position:sticky in pagine
+     che lo usano (reader, navbar). */
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+html {
+  /* Evita che gli iframe / il viewport venga calcolato male su iOS */
+  max-width: 100vw;
+  overflow-x: clip; /* clip non rompe sticky come hidden */
 }
 
 /* ============================================
