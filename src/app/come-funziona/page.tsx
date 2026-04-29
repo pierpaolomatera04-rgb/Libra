@@ -1,13 +1,15 @@
+'use client'
+
 import Link from 'next/link'
-import { BookOpen, Shield, Coins, PenTool, ArrowRight, Layers, Clock, Star, Zap, Gift, Lock } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 
 export default function ComeFunzionaPage() {
   return (
     <div className="min-h-screen bg-cream-50">
-      {/* Navbar minimale */}
+      {/* Navbar minimale (coerente con la home) */}
       <nav className="sticky top-0 z-50 bg-cream-50/80 backdrop-blur-md border-b border-sage-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center">
             <img src="/logo.png" alt="Libra" className="h-10 sm:h-11" />
           </Link>
           <div className="flex items-center gap-3">
@@ -15,295 +17,284 @@ export default function ComeFunzionaPage() {
               Accedi
             </Link>
             <Link href="/signup" className="px-4 py-2 text-sm font-medium bg-sage-500 text-white rounded-lg hover:bg-sage-600 transition-colors">
-              Registrati gratis
+              Inizia gratis
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-16 pb-12 text-center">
-        <h1 className="text-4xl sm:text-5xl font-bold text-sage-900 mb-4">Come funziona Libra</h1>
-        <p className="text-lg text-bark-500 max-w-2xl mx-auto">
-          Tutto quello che devi sapere sulla piattaforma di lettura a blocchi
+      {/* INTRO */}
+      <section className="max-w-3xl mx-auto px-4 sm:px-6 pt-20 pb-16 text-center">
+        <h1 className="text-4xl sm:text-5xl font-bold text-sage-900 leading-tight">
+          Libra &egrave; diverso da tutto quello che hai provato.
+        </h1>
+        <p className="text-lg text-bark-500 mt-6 leading-relaxed">
+          Non &egrave; Kindle. Non &egrave; Wattpad. Non &egrave; un social network.
+          <br className="hidden sm:block" />
+          &Egrave; la prima piattaforma italiana di storytelling seriale con community integrata.
         </p>
+        <p className="text-base text-sage-700 font-semibold mt-6">Funziona cos&igrave;:</p>
       </section>
 
-      {/* Cos&apos;è Libra */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-16">
-        <div className="bg-white rounded-2xl border border-sage-100 p-8 sm:p-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-sage-100 rounded-xl flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-sage-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-sage-900">Cos&apos;&egrave; Libra?</h2>
-          </div>
-          <div className="space-y-4 text-bark-600 leading-relaxed">
-            <p>
-              Libra &egrave; una piattaforma di lettura innovativa dove i libri vengono pubblicati <strong>a blocchi</strong>,
-              come episodi di una serie. Ogni settimana escono nuovi blocchi delle storie che segui.
-            </p>
-            <p>
-              Gli autori caricano i loro libri divisi in blocchi da almeno 15 minuti di lettura ciascuno.
-              Ogni libro pu&ograve; avere fino a 36 blocchi, pubblicati con un calendario settimanale (max 3 a settimana, entro 3 mesi).
-            </p>
-            <p>
-              Il primo blocco di ogni libro &egrave; <strong>sempre gratuito</strong>: puoi iniziare a leggere
-              senza impegno e decidere dopo se continuare.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Come funziona - Step */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-16">
-        <h2 className="text-2xl font-bold text-sage-900 mb-8 text-center">La lettura a blocchi in 4 step</h2>
-        <div className="grid sm:grid-cols-2 gap-6">
-          {[
-            {
-              step: '1',
-              icon: Layers,
-              title: 'Sfoglia il catalogo',
-              desc: 'Cerca tra i libri disponibili per genere, popolarit&agrave; o novit&agrave;. Filtra per serializzazioni in corso.',
-            },
-            {
-              step: '2',
-              icon: Gift,
-              title: 'Leggi il primo blocco gratis',
-              desc: 'Ogni libro ha il primo blocco gratuito. Inizia a leggere e scopri se la storia ti appassiona.',
-            },
-            {
-              step: '3',
-              icon: Coins,
-              title: 'Sblocca con i token',
-              desc: 'Usa i token per sbloccare i blocchi successivi. Con un piano Silver o Gold hai sconti e token mensili.',
-            },
-            {
-              step: '4',
-              icon: Clock,
-              title: 'Segui le uscite',
-              desc: 'I nuovi blocchi escono secondo il calendario dell\'autore. Ricevi le notifiche e continua la lettura.',
-            },
-          ].map((item) => (
-            <div key={item.step} className="bg-white rounded-2xl border border-sage-100 p-6 flex gap-4">
-              <div className="w-10 h-10 bg-sage-500 text-white rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0">
-                {item.step}
-              </div>
-              <div>
-                <h3 className="font-semibold text-sage-800 mb-2">{item.title}</h3>
-                <p className="text-sm text-bark-500 leading-relaxed">{item.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Piani */}
+      {/* SEZIONE 1 — Lettura a blocchi */}
       <section className="bg-white py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <Shield className="w-6 h-6 text-sage-600" />
-              <h2 className="text-2xl font-bold text-sage-900">I piani</h2>
-            </div>
-            <p className="text-bark-500">Tre livelli per ogni tipo di lettore</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Free */}
-            <div className="rounded-2xl border border-sage-100 p-6">
-              <h3 className="text-lg font-bold text-sage-800 mb-1">Free</h3>
-              <p className="text-2xl font-bold text-sage-600 mb-4">Gratis</p>
-              <ul className="space-y-2.5 text-sm text-bark-500">
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />10 Welcome Token alla registrazione</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Primo blocco di ogni libro gratuito</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Accesso ai libri Free</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Commenti e like illimitati</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Acquisto token singoli</li>
-              </ul>
-            </div>
-
-            {/* Silver */}
-            <div className="rounded-2xl bg-sage-500 text-white p-6 ring-4 ring-sage-200 scale-105">
-              <h3 className="text-lg font-bold mb-1">Silver</h3>
-              <p className="text-2xl font-bold text-sage-100 mb-1">&euro;4,99<span className="text-sm font-normal text-sage-200">/mese</span></p>
-              <p className="text-xs text-sage-200 mb-4">o &euro;49,99/anno (2 mesi gratis + 40 token bonus)</p>
-              <ul className="space-y-2.5 text-sm text-sage-100">
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-200 mt-0.5 flex-shrink-0" />10 token al mese (scadono dopo 30gg)</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-200 mt-0.5 flex-shrink-0" />Sconto 15% su tutti i blocchi</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-200 mt-0.5 flex-shrink-0" />Accesso ai contenuti Silver</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-200 mt-0.5 flex-shrink-0" />Anteprima blocchi 24h prima</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-200 mt-0.5 flex-shrink-0" />Fino a 3 serializzazioni attive</li>
-              </ul>
-            </div>
-
-            {/* Gold */}
-            <div className="rounded-2xl border border-sage-100 p-6">
-              <h3 className="text-lg font-bold text-sage-800 mb-1">Gold</h3>
-              <p className="text-2xl font-bold text-sage-600 mb-1">&euro;9,99<span className="text-sm font-normal text-bark-400">/mese</span></p>
-              <p className="text-xs text-bark-400 mb-4">o &euro;99,99/anno (2 mesi gratis + 80 token bonus)</p>
-              <ul className="space-y-2.5 text-sm text-bark-500">
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />20 token al mese (scadono dopo 30gg)</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Sconto 30% su tutti i blocchi</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Accesso a tutto il catalogo (Silver + Gold)</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Anteprima blocchi 48h prima</li>
-                <li className="flex items-start gap-2"><Shield className="w-4 h-4 text-sage-400 mt-0.5 flex-shrink-0" />Serializzazioni illimitate</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Token */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-20">
-        <div className="bg-white rounded-2xl border border-sage-100 p-8 sm:p-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-              <Coins className="w-5 h-5 text-amber-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-sage-900">Il sistema Token</h2>
-          </div>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-sage-900 mb-6">
+            <span aria-hidden>📖</span> Leggi come guardi una serie.
+          </h2>
           <div className="space-y-4 text-bark-600 leading-relaxed">
+            <p>Ogni storia su Libra esce a blocchi — come gli episodi di una serie TV.</p>
+            <p>Gli autori pubblicano fino a 3 blocchi a settimana, per un massimo di 3 mesi.</p>
             <p>
-              I <strong>token</strong> sono la valuta di Libra. Tasso fisso: <strong>10 token = &euro;1,00</strong>.
-              Esistono due tipologie di token, con regole di utilizzo diverse.
+              Ogni blocco dura dai 5 ai 15 minuti di lettura. Abbastanza per immergersi, poco
+              abbastanza da non sentirti mai sopraffatto.
             </p>
-
-            <div className="grid sm:grid-cols-2 gap-4 mt-6">
-              {/* TOKEN PREMIUM */}
-              <div className="bg-sage-50 rounded-xl p-4 border border-sage-200">
-                <h4 className="font-semibold text-sage-800 mb-2 flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-sage-600" />
-                  Token Premium
-                </h4>
-                <p className="text-xs text-bark-500 mb-2">
-                  Ottenuti acquistando un pacchetto dal Wallet con pagamento reale. <strong>Non scadono mai</strong>.
-                </p>
-                <ul className="text-sm space-y-1.5">
-                  <li>&bull; Sblocco blocchi singoli</li>
-                  <li>&bull; Acquisto libro intero</li>
-                  <li>&bull; <strong>Mance agli autori</strong> (consentite)</li>
-                  <li>&bull; Generano guadagno reale per l&apos;autore</li>
-                </ul>
-              </div>
-
-              {/* TOKEN BONUS */}
-              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                <h4 className="font-semibold text-sage-800 mb-2 flex items-center gap-2">
-                  <Gift className="w-4 h-4 text-amber-600" />
-                  Token Bonus
-                </h4>
-                <p className="text-xs text-bark-500 mb-2">
-                  Ricevuti gratis dai piani VIP (Silver/Gold) o come Welcome Token. <strong>Scadono dopo 30 giorni</strong>.
-                </p>
-                <ul className="text-sm space-y-1.5">
-                  <li>&bull; Sblocco blocchi premium</li>
-                  <li>&bull; Boost / interazioni social</li>
-                  <li>&bull; <strong>Non utilizzabili per mance</strong></li>
-                  <li>&bull; <strong>Non utilizzabili per acquisto libro intero</strong></li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="bg-sage-100 dark:bg-sage-900/20 border border-sage-200 rounded-xl p-4 mt-4">
-              <p className="text-sm text-sage-800">
-                <strong>Visibilita&apos; e guadagno autore.</strong> Quando sblocchi un blocco con
-                <strong> Token Bonus</strong>, dai visibilita&apos; all&apos;autore (lettura, statistiche,
-                presenza in classifica) ma <em>non</em> generi un compenso diretto. Per far guadagnare
-                davvero un autore servono soldi reali: pacchetti acquistati, abbonamenti VIP (pool
-                redistribuito agli autori) o mance pagate con Token Premium.
-              </p>
-            </div>
-
-            <p className="text-sm text-bark-400 mt-4">
-              Ordine di spesa automatico: <strong>Token Bonus prima</strong> (per evitarne la scadenza),
-              poi Token Premium. I Welcome Token non possono essere usati per mance ne&apos; per acquisti totali.
+            <p>
+              Nessun libro da 400 pagine che ti fissa dal comodino. Solo il prossimo blocco che non
+              vedi l&rsquo;ora di leggere.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Diventare autore */}
-      <section className="bg-sage-800 py-20">
+      {/* SEZIONE 2 — I piani */}
+      <section className="bg-cream-50 py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
-            <PenTool className="w-10 h-10 text-sage-300 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-3">Diventa autore su Libra</h2>
-            <p className="text-sage-200 max-w-2xl mx-auto">
-              Pubblica i tuoi libri a blocchi e guadagna per ogni pagina letta
+          <h2 className="text-2xl sm:text-3xl font-bold text-sage-900 mb-10 text-center">
+            <span aria-hidden>💳</span> Scegli come leggere.
+          </h2>
+
+          {/* FREE */}
+          <div className="bg-white rounded-2xl border border-sage-200 p-6 sm:p-8 mb-5">
+            <div className="flex items-baseline gap-2 mb-3">
+              <h3 className="text-xl font-bold text-sage-800">FREE</h3>
+              <span className="text-bark-400">— 0€</span>
+            </div>
+            <div className="space-y-2 text-bark-600 leading-relaxed">
+              <p>Il primo blocco di ogni storia &egrave; sempre gratis. Sempre.</p>
+              <p>
+                Scopri nuovi autori, trova le storie che ti appassionano, poi decidi se continuare.
+              </p>
+              <p>Con la registrazione ricevi 10 token omaggio per iniziare subito.</p>
+            </div>
+          </div>
+
+          {/* SILVER */}
+          <div className="bg-white rounded-2xl border border-sage-200 p-6 sm:p-8 mb-5">
+            <div className="flex items-baseline gap-2 mb-4 flex-wrap">
+              <h3 className="text-xl font-bold text-sage-800">SILVER</h3>
+              <span className="text-bark-400">— 4,99€/mese</span>
+              <span className="text-xs text-sage-600 font-medium">(o 47,99€/anno — 2 mesi gratis)</span>
+            </div>
+            <ul className="space-y-2.5 text-bark-600">
+              {[
+                '3 libri completi al mese dal catalogo standard',
+                'Leggi ogni nuovo blocco 24 ore prima degli utenti free',
+                'Sconto del 15% su tutti gli sblocchi con token',
+                '10 token omaggio ogni mese',
+                'Bonus 40 token al primo accesso con piano annuale',
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-sage-500 flex-shrink-0 mt-0.5" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* GOLD */}
+          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl border-2 border-amber-300 ring-4 ring-amber-100/60 p-6 sm:p-8 mb-5">
+            <div className="flex items-baseline gap-2 mb-4 flex-wrap">
+              <h3 className="text-xl font-bold text-amber-900">GOLD</h3>
+              <span className="text-amber-700">— 9,99€/mese</span>
+              <span className="text-xs text-amber-700 font-medium">(o 95,99€/anno — 2 mesi gratis)</span>
+            </div>
+            <ul className="space-y-2.5 text-amber-900">
+              {[
+                'Catalogo completo, senza limiti',
+                'Leggi ogni nuovo blocco 48 ore prima di tutti',
+                'Sconto del 30% su tutti gli sblocchi con token',
+                '20 token omaggio ogni mese',
+                'Bonus 80 token al primo accesso con piano annuale',
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-xl bg-sage-100/60 border border-sage-200 px-4 py-3 text-sm text-sage-800">
+            <span className="mr-1" aria-hidden>📌</span>
+            I libri acquistati con token rimangono in libreria per sempre — anche se cancelli
+            l&rsquo;abbonamento.
+          </div>
+        </div>
+      </section>
+
+      {/* SEZIONE 3 — I token */}
+      <section className="bg-white py-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-sage-900 mb-6">
+            <span aria-hidden>🪙</span> I token: la tua libreria per sempre.
+          </h2>
+          <div className="space-y-4 text-bark-600 leading-relaxed mb-8">
+            <p>
+              I token sono la valuta di Libra. Puoi usarli per sbloccare qualsiasi blocco o libro
+              fuori dal tuo piano.
+            </p>
+            <p>
+              La differenza con un abbonamento? I libri che sblocchi con i token rimangono tuoi per
+              sempre — anche se cancelli l&rsquo;abbonamento.
+            </p>
+            <p>
+              Gli abbonati Silver e Gold ricevono uno sconto automatico su ogni acquisto con token.
+              Pi&ugrave; alto &egrave; il piano, pi&ugrave; risparmi.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-6 mb-10">
+          <div className="grid sm:grid-cols-2 gap-3">
             {[
-              {
-                icon: Layers,
-                title: 'Pubblica a blocchi',
-                desc: 'Carica il tuo libro e dividilo in blocchi (max 36). Scegli il calendario di pubblicazione.',
-              },
-              {
-                icon: Coins,
-                title: 'Guadagna',
-                desc: 'Ricevi il 70% di ogni sblocco con token e il 90% delle mance. Payout mensile.',
-              },
-              {
-                icon: Star,
-                title: 'Cresci',
-                desc: 'I lettori ti scoprono tramite il catalogo. Più letture = più visibilità nel trending.',
-              },
-            ].map((item, i) => (
-              <div key={i} className="bg-sage-700/50 rounded-xl p-6 text-center">
-                <item.icon className="w-8 h-8 text-sage-300 mx-auto mb-3" />
-                <h3 className="font-semibold text-white mb-2">{item.title}</h3>
-                <p className="text-sm text-sage-300 leading-relaxed">{item.desc}</p>
+              { name: 'Starter', price: '4,99€', tokens: '50 token', extra: null },
+              { name: 'Medium', price: '9,99€', tokens: '110 token', extra: '+10%' },
+              { name: 'Large', price: '19,99€', tokens: '230 token', extra: '+15%' },
+              { name: 'XL', price: '39,99€', tokens: '500 token', extra: '+25%' },
+            ].map((p) => (
+              <div key={p.name} className="rounded-xl border border-sage-200 bg-white p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sage-800">{p.name}</p>
+                  <p className="text-sm text-bark-500">{p.price}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-sage-700">{p.tokens}</p>
+                  {p.extra && (
+                    <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full mt-0.5">
+                      {p.extra}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+        </div>
+      </section>
 
-          <div className="text-center">
+      {/* SEZIONE 4 — La community */}
+      <section className="bg-cream-50 py-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-sage-900 mb-4">
+            <span aria-hidden>👥</span> Non leggi da solo.
+          </h2>
+          <p className="text-bark-600 leading-relaxed mb-8">
+            Su Libra la lettura &egrave; un&rsquo;esperienza condivisa.
+          </p>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[
+              'Commenta i blocchi mentre li leggi — ogni capitolo ha la sua sezione commenti',
+              'Salva le frasi che ti colpiscono e condividile con la community',
+              'Scala le classifiche — più leggi, più commenti, più sali di livello',
+              'Guadagna XP per ogni azione e raggiungi i rank: Bronzo → Argento → Oro → Diamante — con premi reali in token',
+            ].map((point) => (
+              <div key={point} className="rounded-xl bg-white border border-sage-200 p-4 flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-sage-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-bark-600 leading-relaxed">{point}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SEZIONE 5 — Diventa autore */}
+      <section id="diventa-autore" className="bg-white py-20 scroll-mt-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-sage-900 mb-4">
+            <span aria-hidden>✍️</span> Diventa autore.
+          </h2>
+          <p className="text-bark-600 leading-relaxed mb-8">
+            Chiunque pu&ograve; pubblicare su Libra. Nessun editore. Nessuna approvazione.
+          </p>
+
+          <h3 className="text-base font-bold text-sage-800 mb-3">Come funziona:</h3>
+          <ul className="space-y-2.5 mb-8 text-bark-600">
+            {[
+              'Pubblica la tua storia a blocchi — fino a 3 blocchi a settimana per 3 mesi',
+              'Scegli se renderla free, disponibile agli abbonati Silver o riservata ai Gold',
+              'Cambia strategia nel tempo — come le finestre di distribuzione al cinema',
+            ].map((f) => (
+              <li key={f} className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-sage-500 flex-shrink-0 mt-0.5" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+
+          <h3 className="text-base font-bold text-sage-800 mb-3">Come guadagni:</h3>
+          <ul className="space-y-2.5 mb-8 text-bark-600">
+            {[
+              '70% di ogni token speso per sbloccare i tuoi contenuti',
+              'Quota mensile dal pool abbonamenti, proporzionale alle pagine lette',
+              '90% delle mance inviate direttamente dai tuoi lettori',
+            ].map((f) => (
+              <li key={f} className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-sage-500 flex-shrink-0 mt-0.5" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-bark-600 leading-relaxed mb-8">
+            I lettori possono seguirti, supportarti, leggere in anteprima. Il tuo pubblico cresce
+            con te.
+          </p>
+
+          <Link
+            href="/signup?author=1"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-sage-500 text-white rounded-xl font-semibold hover:bg-sage-600 transition-colors"
+          >
+            Inizia a pubblicare
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </section>
+
+      {/* CTA FINALE */}
+      <section className="py-16 bg-cream-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="rounded-3xl bg-gradient-to-br from-sage-500 to-sage-600 text-white p-8 sm:p-12 text-center shadow-xl">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Pronti a leggere diversamente?</h2>
+            <p className="text-sage-100 text-lg mb-2">Unisciti ai primi lettori di Libra.</p>
+            <p className="text-sage-200 text-sm mb-8">
+              Il primo blocco &egrave; sempre gratis — nessuna carta di credito richiesta.
+            </p>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-sage-800 rounded-xl text-sm font-medium hover:bg-sage-50 transition-colors"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-sage-700 rounded-xl font-semibold hover:bg-sage-50 transition-colors text-lg"
             >
-              <PenTool className="w-4 h-4" />
-              Diventa autore
+              Registrati gratis
+              <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* CTA finale */}
-      <section className="py-20 bg-cream-50 text-center">
-        <div className="max-w-2xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-sage-900 mb-4">Pronto a iniziare?</h2>
-          <p className="text-bark-500 mb-8">Registrati gratis e scopri la lettura a blocchi</p>
-          <Link
-            href="/signup"
-            className="inline-flex items-center gap-2 px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors text-lg"
-          >
-            Registrati gratis
-            <ArrowRight className="w-5 h-5" />
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
+      {/* FOOTER */}
       <footer className="bg-sage-900 text-sage-300 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <img src="/logo.png" alt="Libra" className="h-10 invert brightness-90" />
             </div>
-            <div className="flex items-center gap-6 text-sm">
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
               <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
-              <Link href="/diventa-autore" className="hover:text-white transition-colors">Diventa Autore</Link>
+              <Link href="/come-funziona#diventa-autore" className="hover:text-white transition-colors">Diventa Autore</Link>
               <Link href="/termini" className="hover:text-white transition-colors">Termini di servizio</Link>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link href="/contatti" className="hover:text-white transition-colors">Contatti</Link>
             </div>
-            <div className="text-xs text-sage-500 text-center md:text-right">
-              <p>Libra — fatto col ❤️ in Italia</p>
-              <p>&copy; 2025 Libra. Tutti i diritti riservati.</p>
+            <div className="text-center md:text-right">
+              <p className="text-xs text-sage-500">&copy; 2025 Libra — Tutti i diritti riservati</p>
             </div>
           </div>
         </div>
