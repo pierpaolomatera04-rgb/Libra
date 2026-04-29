@@ -36,6 +36,10 @@ html {
   overflow-x: clip; /* clip non rompe sticky come hidden */
 }
 
+/* Utility per nascondere la scrollbar (per pill / tab scrollabili orizzontalmente) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* ============================================
    DARK MODE — Override completi
    Tutti i testi, sfondi e bordi usati nell'app

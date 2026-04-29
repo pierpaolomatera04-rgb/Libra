@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
-  X, Eye, Coins, Users, Calendar, BookOpen, TrendingUp, Heart, MessageCircle, Bookmark,
-  CreditCard, Repeat, Gift,
+  X, Eye, Coins, Users, Calendar, BookOpen, Heart, MessageCircle, Bookmark,
+  CreditCard, Repeat, Zap, Info, ArrowRight, Sparkles, DollarSign,
 } from 'lucide-react'
 
 type Range = 7 | 30 | 90
@@ -14,7 +15,6 @@ type Series = 'reads' | 'earnings'
 interface DailyPoint {
   day: string // YYYY-MM-DD
   reads: number
-  /** breakdown — somma di tutti i tipi */
   earnings: number
   earnings_real: number     // premium
   earnings_plan: number     // abbonamento
@@ -89,25 +89,29 @@ function buildDailySeries(
 
 /**
  * Chart SVG vanilla — area + linea con tooltip on hover.
- * Per la serie 'earnings' disegna l'area in 3 strati impilati (real, plan, bonus).
+ * Renderizza SEMPRE, anche con tutti i valori a zero (linea piatta sull'asse X).
  */
 function LineAreaChart({
   data,
   series,
+  height = 220,
 }: {
   data: DailyPoint[]
   series: Series
+  height?: number
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
   const W = 700
-  const H = 220
+  const H = height
   const PAD = { top: 16, right: 12, bottom: 28, left: 36 }
   const innerW = W - PAD.left - PAD.right
   const innerH = H - PAD.top - PAD.bottom
 
   const totals = data.map(d => series === 'reads' ? d.reads : d.earnings)
-  const maxV = Math.max(1, ...totals)
-  const niceMax = Math.ceil(maxV * 1.1)
+  const maxV = Math.max(0, ...totals)
+  // Se tutti zero usiamo una scala "vuota" 0..1 così l'asse Y mostra comunque i tick
+  const niceMax = maxV > 0 ? Math.ceil(maxV * 1.1) : 1
+  const allZero = maxV === 0
 
   const x = (i: number) => PAD.left + (data.length <= 1 ? 0 : (i * innerW) / (data.length - 1))
   const y = (v: number) => PAD.top + innerH - (v / niceMax) * innerH
@@ -119,7 +123,6 @@ function LineAreaChart({
     .join(' ')
   const areaPath = `${linePath} L ${x(data.length - 1)} ${PAD.top + innerH} L ${x(0)} ${PAD.top + innerH} Z`
 
-  // Strati impilati per i guadagni — bonus in basso, plan al centro, real in cima
   const stackedPaths = useMemo(() => {
     if (series !== 'earnings') return null
     type Layer = { color: string; path: string }
@@ -137,12 +140,13 @@ function LineAreaChart({
       const top = tops.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(v)}`).join(' ')
       const baseAtPrev = tops.map((v, i) => v - data[i][k])
       const bottom = [...baseAtPrev]
-        .map((v, i) => `L ${x(data.length - 1 - i)} ${y(baseAtPrev[data.length - 1 - i])}`)
+        .map((_, i) => `L ${x(data.length - 1 - i)} ${y(baseAtPrev[data.length - 1 - i])}`)
         .join(' ')
       layers.push({ color: colors[k], path: `${top} ${bottom} Z` })
     }
     return layers
-  }, [data, series, x, y])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, series, niceMax])
 
   const gridLevels = [0, 0.25, 0.5, 0.75, 1].map(p => ({
     y: PAD.top + innerH - p * innerH,
@@ -171,7 +175,9 @@ function LineAreaChart({
     <div className="relative w-full">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full h-auto"
+        preserveAspectRatio="none"
+        className="w-full"
+        style={{ height }}
         onMouseMove={onMove}
         onMouseLeave={() => setHoverIdx(null)}
         onTouchMove={onMove}
@@ -210,13 +216,12 @@ function LineAreaChart({
         ))}
 
         {/* Area */}
-        {series === 'reads' ? (
-          <path d={areaPath} fill="url(#grad-reads)" />
-        ) : stackedPaths ? (
+        {!allZero && series === 'reads' && <path d={areaPath} fill="url(#grad-reads)" />}
+        {!allZero && series === 'earnings' && stackedPaths && (
           stackedPaths.map((l, i) => (
             <path key={i} d={l.path} fill={l.color} fillOpacity={0.55} />
           ))
-        ) : null}
+        )}
 
         {/* Linea totale */}
         <path d={linePath} fill="none" stroke={lineColor} strokeWidth={2.2} strokeLinejoin="round" />
@@ -281,7 +286,7 @@ function LineAreaChart({
       {/* Tooltip */}
       {hoverPoint && (
         <div
-          className="absolute -translate-x-1/2 pointer-events-none bg-bark-900 text-white px-2.5 py-1.5 rounded-md text-[11px] shadow-lg whitespace-nowrap"
+          className="absolute -translate-x-1/2 pointer-events-none bg-bark-900 text-white px-2.5 py-1.5 rounded-md text-[11px] shadow-lg whitespace-nowrap z-10"
           style={{
             left: `${(x(hoverIdx!) / W) * 100}%`,
             top: 0,
@@ -319,10 +324,20 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DailyPoint[]>([])
   const [uniqueReaders, setUniqueReaders] = useState(0)
+  const [hasAnyHistorical, setHasAnyHistorical] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const [showBonusInfo, setShowBonusInfo] = useState(false)
+  // Larghezza viewport: usata per scegliere chart height (180 mobile / 250 desktop)
+  const [isDesktop, setIsDesktop] = useState(false)
 
-  // Portal: monta solo lato client per evitare hydration mismatch
   useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 640)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -334,7 +349,7 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
     }
   }, [onClose])
 
-  // Fetch time-series — letture da block_reads, guadagni da block_unlocks (split per token_type)
+  // Fetch time-series
   useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -363,6 +378,21 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
       const unlocks = (unlocksRes.data as any[]) || []
       setData(buildDailySeries(range, reads, unlocks))
       setUniqueReaders(new Set(reads.map(r => r.user_id)).size)
+
+      // Determina se il libro ha mai avuto dati storici (per il messaggio sotto al grafico)
+      const hasInPeriod = reads.length > 0 || unlocks.length > 0
+      if (hasInPeriod) {
+        setHasAnyHistorical(true)
+      } else {
+        // Controllo storico totale (fuori dal periodo) — una sola riga è sufficiente
+        const [{ data: anyReads }, { data: anyUnlocks }] = await Promise.all([
+          supabase.from('block_reads').select('id').eq('book_id', book.id).limit(1),
+          supabase.from('block_unlocks').select('id').eq('book_id', book.id).limit(1),
+        ])
+        if (cancelled) return
+        setHasAnyHistorical((anyReads?.length || 0) + (anyUnlocks?.length || 0) > 0)
+      }
+
       setLoading(false)
     }
     load()
@@ -382,17 +412,20 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
       real,
       plan,
       bonus,
+      realCombined: real + plan, // token reali = sblocchi + pool abbonamenti (no donazioni per-libro disponibili)
       avgReadsPerDay: reads / days,
     }
   }, [data])
 
+  const chartHeight = isDesktop ? 250 : 180
+
   const content = (
     <div
-      className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center"
+      className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-stretch sm:items-center justify-center"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-[#1e221c] w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        className="bg-white dark:bg-[#1e221c] w-full sm:max-w-[800px] sm:rounded-2xl shadow-2xl overflow-hidden h-full sm:h-auto sm:max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -424,13 +457,13 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
 
         {/* Body scrollabile */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          {/* Range pills */}
-          <div className="flex items-center gap-1.5 px-4 pt-4">
+          {/* Range pills — scrollabili orizzontalmente se non ci stanno */}
+          <div className="flex items-center gap-1.5 px-4 pt-4 overflow-x-auto no-scrollbar">
             {([7, 30, 90] as Range[]).map(r => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
                   range === r
                     ? 'bg-sage-600 text-white'
                     : 'bg-sage-50 dark:bg-sage-800 text-bark-500 dark:text-sage-400 hover:bg-sage-100'
@@ -441,7 +474,7 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
             ))}
           </div>
 
-          {/* Stats riepilogo (periodo selezionato) */}
+          {/* Stats riepilogo periodo: 2x2 mobile, 4 in riga desktop */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-4 pt-4">
             <Stat icon={Eye} color="text-blue-600" label={`Letture ${range}g`} value={fmtCompact(totals.reads)} />
             <Stat icon={Coins} color="text-amber-600" label={`Guadagni ${range}g`} value={`${fmtCompact(totals.earnings)} tk`} />
@@ -449,67 +482,85 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
             <Stat icon={Calendar} color="text-emerald-600" label="Letture/giorno" value={fmtCompact(totals.avgReadsPerDay)} />
           </div>
 
-          {/* Breakdown guadagni per tipo */}
-          <div className="px-4 pt-4">
-            <p className="text-[11px] font-semibold text-bark-400 dark:text-sage-500 uppercase tracking-wider mb-2">
-              Guadagni per origine ({range}g)
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <SplitStat
-                icon={CreditCard}
-                color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                label="Reali"
-                hint="Pagati con token acquistati"
-                value={`${fmtCompact(totals.real)} tk`}
-                pct={totals.earnings > 0 ? (totals.real / totals.earnings) * 100 : 0}
-              />
-              <SplitStat
-                icon={Repeat}
-                color="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                label="Abbonamenti"
-                hint="Letture da utenti con piano attivo"
-                value={`${fmtCompact(totals.plan)} tk`}
-                pct={totals.earnings > 0 ? (totals.plan / totals.earnings) * 100 : 0}
-              />
-              <SplitStat
-                icon={Gift}
-                color="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                label="Bonus"
-                hint="Token bonus / promozionali"
-                value={`${fmtCompact(totals.bonus)} tk`}
-                pct={totals.earnings > 0 ? (totals.bonus / totals.earnings) * 100 : 0}
-              />
-            </div>
-          </div>
-
-          {/* Tabs serie */}
+          {/* Tabs */}
           <div className="flex items-center gap-1.5 px-4 pt-5 border-b border-sage-100 dark:border-sage-800">
             <TabButton active={series === 'reads'} onClick={() => setSeries('reads')} icon={Eye} label="Letture" />
             <TabButton active={series === 'earnings'} onClick={() => setSeries('earnings')} icon={Coins} label="Guadagni" />
           </div>
 
-          {/* Chart */}
-          <div className="px-2 sm:px-4 pt-4 pb-4 text-bark-700 dark:text-sage-300">
+          {/* Chart — sempre visibile, anche con dati a zero */}
+          <div className="px-2 sm:px-4 pt-4 pb-2 text-bark-700 dark:text-sage-300">
             {loading ? (
-              <div className="h-[220px] flex items-center justify-center text-sm text-bark-400">
+              <div className="flex items-center justify-center text-sm text-bark-400" style={{ height: chartHeight }}>
                 Caricamento dati...
               </div>
-            ) : data.every(d => d.reads === 0 && d.earnings === 0) ? (
-              <div className="h-[220px] flex flex-col items-center justify-center text-sm text-bark-400 gap-2">
-                <TrendingUp className="w-8 h-8 text-sage-200" />
-                <span>Nessun dato in questo periodo</span>
-              </div>
             ) : (
-              <LineAreaChart data={data} series={series} />
+              <>
+                <LineAreaChart data={data} series={series} height={chartHeight} />
+                {!hasAnyHistorical && (
+                  <p className="text-center text-[11px] text-bark-400 dark:text-sage-500 mt-2 italic">
+                    Inizia a pubblicare per vedere i dati crescere
+                  </p>
+                )}
+              </>
             )}
           </div>
 
-          {/* Stats totali libro (life-time) */}
-          <div className="px-4 pb-6">
+          {/* Tab GUADAGNI: due sezioni distinte (Reali vs Bonus) */}
+          {series === 'earnings' && (
+            <div className="px-4 pt-4 pb-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Token reali — sfondo verde chiarissimo */}
+              <div className="rounded-2xl border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50/70 dark:bg-emerald-900/20 p-4 overflow-hidden min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl" aria-hidden>💰</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Token reali</p>
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-300/80 leading-tight">Convertibili in pagamento</p>
+                  </div>
+                </div>
+                <p className="text-2xl sm:text-3xl font-bold text-emerald-700 dark:text-emerald-300 leading-none">
+                  {fmtCompact(totals.realCombined)} <span className="text-base">tk</span>
+                </p>
+                <div className="mt-3 space-y-1.5 text-[11px]">
+                  <BreakdownRow icon={CreditCard} label="Sblocchi reali" value={`${fmtCompact(totals.real)} tk`} />
+                  <BreakdownRow icon={Repeat} label="Pool abbonamenti" value={`${fmtCompact(totals.plan)} tk`} />
+                  {/* Le mance per-libro non sono ancora tracciate a livello di book_id; quando lo saranno, sostituire questa riga */}
+                </div>
+              </div>
+
+              {/* Token bonus — sfondo ambra chiarissimo */}
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-700/50 bg-amber-50/70 dark:bg-amber-900/20 p-4 overflow-hidden min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl" aria-hidden>⚡</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-amber-900 dark:text-amber-100 leading-tight">Token bonus</p>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-300/80 leading-tight">Solo per boost — non convertibili</p>
+                  </div>
+                </div>
+                <p className="text-2xl sm:text-3xl font-bold text-amber-700 dark:text-amber-300 leading-none">
+                  {fmtCompact(totals.bonus)} <span className="text-base">tk</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowBonusInfo(true)}
+                  className="mt-3 w-full flex items-center justify-between gap-2 text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-100/60 dark:bg-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-800/50 rounded-lg px-2.5 py-1.5 transition-colors"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    Cosa sono i token bonus?
+                  </span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Totali del libro — SEMPRE visibili in entrambe le tab */}
+          <div className="px-4 pt-4 pb-6">
             <p className="text-xs font-semibold text-bark-400 dark:text-sage-500 uppercase tracking-wider mb-2">
               Totali del libro
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <Stat icon={Eye} color="text-blue-600" label="Letture totali" value={fmtCompact(book.total_reads || 0)} />
               <Stat icon={Coins} color="text-amber-600" label="Guadagni totali" value={`${fmtCompact(book.total_earnings || 0)} tk`} />
               <Stat icon={Heart} color="text-rose-600" label="Like" value={fmtCompact(book.total_likes || 0)} />
@@ -519,11 +570,52 @@ export default function BookAnalyticsModal({ book, onClose }: BookAnalyticsModal
           </div>
         </div>
       </div>
+
+      {/* Sub-modale: cosa sono i token bonus */}
+      {showBonusInfo && (
+        <div
+          className="fixed inset-0 z-[1100] bg-black/60 flex items-center justify-center p-4"
+          onClick={(e) => { e.stopPropagation(); setShowBonusInfo(false) }}
+        >
+          <div
+            className="bg-white dark:bg-[#1e221c] rounded-2xl shadow-2xl max-w-md w-full p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-base font-bold text-sage-900 dark:text-sage-100">Token bonus</h4>
+                <p className="text-sm text-bark-500 dark:text-sage-400 mt-2 leading-relaxed">
+                  I token bonus <strong>non sono denaro reale</strong>. Puoi usarli per
+                  boostare i tuoi libri e aumentarne la visibilità nel catalogo. Non sono
+                  convertibili in pagamento.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBonusInfo(false)}
+                aria-label="Chiudi"
+                className="flex-shrink-0 w-7 h-7 rounded-full bg-sage-50 dark:bg-sage-800 hover:bg-sage-100 dark:hover:bg-sage-700 flex items-center justify-center transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-bark-500 dark:text-sage-300" />
+              </button>
+            </div>
+            <Link
+              href="/dashboard/promuovi"
+              onClick={() => { setShowBonusInfo(false); onClose() }}
+              className="mt-4 flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-sage-500 hover:bg-sage-600 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Zap className="w-4 h-4" />
+              Vai a Promuovi
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 
-  // Portal: monta direttamente sul body così nessuno stacking-context
-  // o overflow-hidden di un layout antenato può "intrappolare" la modale.
   if (!mounted) return null
   return createPortal(content, document.body)
 }
@@ -547,24 +639,20 @@ function Stat({
   )
 }
 
-function SplitStat({
-  icon: Icon, color, label, hint, value, pct,
+function BreakdownRow({
+  icon: Icon, label, value,
 }: {
   icon: any
-  color: string
   label: string
-  hint: string
   value: string
-  pct: number
 }) {
   return (
-    <div className="rounded-xl p-2.5 border border-sage-100 dark:border-sage-800 bg-white dark:bg-sage-900/30 overflow-hidden min-w-0" title={hint}>
-      <div className={`inline-flex items-center justify-center w-7 h-7 rounded-lg mb-1.5 ${color}`}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <p className="text-[10px] text-bark-400 dark:text-sage-500 truncate">{label}</p>
-      <p className="text-[15px] leading-tight font-bold text-sage-900 dark:text-sage-100 truncate">{value}</p>
-      <p className="text-[10px] text-bark-400 dark:text-sage-500 mt-0.5">{pct.toFixed(0)}%</p>
+    <div className="flex items-center justify-between gap-2 text-emerald-900 dark:text-emerald-200">
+      <span className="inline-flex items-center gap-1 min-w-0 truncate">
+        <Icon className="w-3 h-3 flex-shrink-0 opacity-70" />
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="font-semibold tabular-nums whitespace-nowrap">{value}</span>
     </div>
   )
 }
