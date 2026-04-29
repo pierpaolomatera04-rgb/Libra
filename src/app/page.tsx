@@ -299,7 +299,7 @@ function SiteFooter() {
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
             <Link href="/come-funziona" className="hover:text-white transition-colors">Come funziona</Link>
-            <Link href="/come-funziona#diventa-autore" className="hover:text-white transition-colors">Diventa Autore</Link>
+            <Link href="/diventa-autore" className="hover:text-white transition-colors">Diventa Autore</Link>
             <Link href="/termini" className="hover:text-white transition-colors">Termini di servizio</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link href="/contatti" className="hover:text-white transition-colors">Contatti</Link>
