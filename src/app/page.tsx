@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { BookOpen, Users, Star, ArrowRight, Check, Crown } from 'lucide-react'
+import {
+  BookOpen, ArrowRight, Check, Crown,
+  ShoppingCart, BookMarked, Heart, MessageCircle, Trophy, Zap, ChevronRight, PenTool,
+} from 'lucide-react'
 
 export default function HomePage() {
   const [books, setBooks] = useState<any[]>([])
@@ -130,7 +133,109 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SEZIONE 3 — I piani */}
+      {/* SEZIONE 3 — I token */}
+      <section className="py-24 bg-cream-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold text-sage-600 uppercase tracking-widest mb-3">🪙 I token</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-sage-900">La tua libreria. Per sempre.</h2>
+            <p className="text-base sm:text-lg text-bark-500 mt-4 max-w-2xl mx-auto leading-relaxed">
+              I token sono la valuta di Libra. Sblocchi qualsiasi blocco o libro fuori dal tuo
+              piano — e quello che sblocchi resta tuo, anche se cancelli l&rsquo;abbonamento.
+            </p>
+          </div>
+
+          {/* Flusso a 3 step */}
+          <div className="grid md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto mb-12">
+            {[
+              { icon: ShoppingCart, color: 'text-emerald-600', bg: 'bg-emerald-100', title: 'Acquisti i token', desc: 'Scegli il pacchetto. Più grande, più risparmi.' },
+              { icon: BookMarked, color: 'text-blue-600', bg: 'bg-blue-100', title: 'Sblocchi un libro', desc: 'Usi i token per qualsiasi blocco o libro.' },
+              { icon: Heart, color: 'text-rose-600', bg: 'bg-rose-100', title: 'Resta tuo per sempre', desc: 'Senza scadenze. Anche dopo l’abbonamento.' },
+            ].map((step, i) => (
+              <div key={i} className="relative bg-white border border-sage-200 rounded-2xl p-5 sm:p-6 text-center">
+                {i < 2 && (
+                  <div className="hidden md:flex absolute top-1/2 -right-3 -translate-y-1/2 z-10">
+                    <ChevronRight className="w-6 h-6 text-sage-400" />
+                  </div>
+                )}
+                <div className={`w-14 h-14 mx-auto mb-3 rounded-2xl ${step.bg} flex items-center justify-center`}>
+                  <step.icon className={`w-7 h-7 ${step.color}`} />
+                </div>
+                <h3 className="text-base font-bold text-sage-900 mb-1.5">{step.title}</h3>
+                <p className="text-sm text-bark-500 leading-relaxed">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Pacchetti disponibili */}
+          <div className="max-w-3xl mx-auto">
+            <p className="text-xs font-bold text-bark-400 uppercase tracking-widest text-center mb-4">Pacchetti disponibili</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { name: 'Starter', price: '4,99€', tokens: 50, extra: null },
+                { name: 'Medium', price: '9,99€', tokens: 110, extra: '+10%' },
+                { name: 'Large', price: '19,99€', tokens: 230, extra: '+15%' },
+                { name: 'XL', price: '39,99€', tokens: 500, extra: '+25%' },
+              ].map((p) => (
+                <div
+                  key={p.name}
+                  className={`rounded-xl border bg-white p-4 flex items-center justify-between transition-all hover:shadow-md ${
+                    p.extra ? 'border-emerald-200' : 'border-sage-200'
+                  }`}
+                >
+                  <div>
+                    <p className="font-bold text-sage-800">{p.name}</p>
+                    <p className="text-sm text-bark-500">{p.price}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-sage-700">{p.tokens} token</p>
+                    {p.extra && (
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full mt-0.5">
+                        {p.extra} bonus
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-bark-400 text-center mt-4">
+              Silver e Gold ricevono uno sconto automatico su ogni acquisto.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* SEZIONE 4 — La community */}
+      <section className="py-24 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold text-sage-600 uppercase tracking-widest mb-3">👥 Community</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-sage-900">Non leggi da solo.</h2>
+            <p className="text-base sm:text-lg text-bark-500 mt-4 max-w-2xl mx-auto leading-relaxed">
+              Su Libra la lettura &egrave; un&rsquo;esperienza condivisa.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 max-w-4xl mx-auto">
+            {[
+              { icon: MessageCircle, color: 'text-blue-600', bg: 'bg-blue-100', title: 'Commenti', desc: 'Ogni capitolo ha la sua sezione commenti. Reagisci mentre leggi.' },
+              { icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-100', title: 'Classifiche', desc: 'Più leggi e commenti, più sali in classifica.' },
+              { icon: Zap, color: 'text-purple-600', bg: 'bg-purple-100', title: 'XP e rank', desc: 'Bronzo → Argento → Oro → Diamante. Con premi reali in token.' },
+              { icon: Heart, color: 'text-rose-600', bg: 'bg-rose-100', title: 'Mance agli autori', desc: 'Supporta direttamente chi scrive. Il 90% va all’autore.' },
+            ].map((c, i) => (
+              <div key={i} className="bg-cream-50/80 border border-sage-200 rounded-2xl p-4 sm:p-6 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 ${c.bg} rounded-2xl flex items-center justify-center mb-3 sm:mb-4`}>
+                  <c.icon className={`w-6 h-6 sm:w-7 sm:h-7 ${c.color}`} />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-sage-900 mb-1.5">{c.title}</h3>
+                <p className="text-xs sm:text-sm text-bark-500 leading-relaxed">{c.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SEZIONE 5 — I piani */}
       <section className="py-24 bg-cream-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-sage-900 mb-12">
@@ -228,7 +333,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SEZIONE 4 — Anteprima catalogo */}
+      {/* SEZIONE 6 — Anteprima catalogo */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-sage-900 mb-3">
@@ -269,24 +374,29 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SEZIONE 5 — Diventa autore */}
-      <section className="py-24 bg-sage-800">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Hai una storia da raccontare?
-          </h2>
-          <p className="text-sage-200 text-lg mb-8 leading-relaxed">
-            Pubblica su Libra. Costruisci il tuo pubblico. Guadagna per ogni pagina letta.
-            <br className="hidden sm:block" />
-            Non aspettare un editore — il tuo pubblico &egrave; gi&agrave; qui.
-          </p>
-          <Link
-            href="/signup?author=1"
-            className="inline-flex items-center gap-2 px-6 py-3 border-2 border-sage-300 text-white rounded-xl font-medium hover:bg-sage-700 transition-colors"
-          >
-            Inizia a pubblicare
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+      {/* SEZIONE 7 — Diventa autore (teaser compatto verso /diventa-autore) */}
+      <section className="py-16 bg-cream-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="bg-white border border-sage-200 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-sage-100 flex items-center justify-center flex-shrink-0">
+              <PenTool className="w-5 h-5 text-sage-700" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg font-bold text-sage-900 mb-0.5">
+                Hai una storia da raccontare?
+              </h3>
+              <p className="text-sm text-bark-500 leading-relaxed">
+                Pubblica su Libra a blocchi e guadagna per ogni pagina letta.
+              </p>
+            </div>
+            <Link
+              href="/diventa-autore"
+              className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-sage-500 text-white rounded-xl font-semibold hover:bg-sage-600 transition-colors whitespace-nowrap"
+            >
+              Inizia a pubblicare
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
