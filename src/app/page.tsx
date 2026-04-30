@@ -41,33 +41,40 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* SEZIONE 1 — Hero */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-sage-900 leading-tight max-w-4xl mx-auto">
-          Leggi come guardi una serie.
-        </h1>
+      {/* SEZIONE 1 — Hero (sfondo scuro uniforme, coerente con /diventa-autore) */}
+      <section className="bg-sage-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-white text-xs font-semibold mb-8 border border-white/30 bg-transparent">
+            <span aria-hidden>🤍</span> Fatto con il cuore in Italia
+          </div>
 
-        <p className="text-lg text-bark-500 mt-6 max-w-2xl mx-auto leading-relaxed">
-          Storie a blocchi, community reale, autori che puoi supportare direttamente.
-          <br className="hidden sm:block" />
-          Nessun libro infinito. Solo il prossimo blocco che non vedi l&rsquo;ora di leggere.
-        </p>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight max-w-4xl mx-auto">
+            Leggi come guardi{' '}
+            <span style={{ color: '#C8A951' }}>una serie.</span>
+          </h1>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-          <Link
-            href="/signup"
-            className="px-8 py-3.5 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors flex items-center gap-2 text-lg"
-          >
-            <BookOpen className="w-5 h-5" />
-            Inizia gratis
-          </Link>
-          <Link
-            href="/come-funziona"
-            className="px-8 py-3.5 border-2 border-sage-300 text-sage-700 rounded-xl font-medium hover:bg-sage-50 transition-colors flex items-center gap-2 text-lg"
-          >
-            Come funziona
-            <ArrowRight className="w-5 h-5" />
-          </Link>
+          <p className="text-lg text-white/85 mt-6 max-w-2xl mx-auto leading-relaxed">
+            Storie a blocchi, community reale, autori che puoi supportare direttamente.
+            <br className="hidden sm:block" />
+            Nessun libro infinito. Solo il prossimo blocco che non vedi l&rsquo;ora di leggere.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
+            <Link
+              href="/signup"
+              className="px-8 py-3.5 bg-white text-sage-700 rounded-xl font-semibold hover:bg-cream-50 transition-colors flex items-center gap-2 text-lg shadow-lg"
+            >
+              <BookOpen className="w-5 h-5" />
+              Inizia gratis
+            </Link>
+            <Link
+              href="/come-funziona"
+              className="px-8 py-3.5 border-2 border-white/40 text-white rounded-xl font-medium hover:bg-white/10 transition-colors flex items-center gap-2 text-lg"
+            >
+              Come funziona
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
       </section>
 
