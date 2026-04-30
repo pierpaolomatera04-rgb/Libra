@@ -39,6 +39,10 @@ export default function BookDetailPage() {
   const [canBoost, setCanBoost] = useState(true)
   const [hoursUntilBoost, setHoursUntilBoost] = useState<number | null>(null)
   const [showBoostConfirm, setShowBoostConfirm] = useState(false)
+  // Acquisto libro intero con token reali (premium_tokens)
+  const [owned, setOwned] = useState(false)
+  const [showPurchaseConfirm, setShowPurchaseConfirm] = useState(false)
+  const [purchasing, setPurchasing] = useState(false)
 
   useEffect(() => {
     const fetchBook = async () => {
@@ -148,6 +152,16 @@ export default function BookDetailPage() {
           setUnlockedBlocks(new Set(unlocksData.map((u: any) => u.block_id)))
         }
 
+        // Verifica se il libro è OWNED (acquistato a vita con token)
+        const { data: libraryOwn } = await supabase
+          .from('library')
+          .select('ownership_type')
+          .eq('user_id', user.id)
+          .eq('book_id', bookId)
+          .eq('ownership_type', 'OWNED')
+          .maybeSingle()
+        if (libraryOwn) setOwned(true)
+
         // Verifica se l'utente ha gia boostato negli ultimi 24h
         const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
         const { data: recentBoost } = await supabase
@@ -244,6 +258,95 @@ export default function BookDetailPage() {
 
   const totalAvailableTokens = (profile?.bonus_tokens ?? 0) + (profile?.premium_tokens ?? 0)
   const hasEnoughTokensForBoost = totalAvailableTokens >= BOOST_COST
+
+  // ── Prezzo libro intero (acquisto a vita con token reali) ─────────
+  // Solo i premium_tokens (acquistati con denaro reale) sono ammessi: i bonus
+  // (welcome / reward / monthly) restano dedicati a sblocchi blocco e boost.
+  const userTier: 'free' | 'silver' | 'gold' = profile?.subscription_plan || 'free'
+  const tierDiscount = userTier === 'gold' ? 0.30 : userTier === 'silver' ? 0.15 : 0
+  const fullBookBasePrice = (book?.token_price_per_block || 0) * (book?.total_blocks || 0)
+  const fullBookFinalPrice = Math.max(0, Math.round(fullBookBasePrice * (1 - tierDiscount)))
+  const fullBookSavings = fullBookBasePrice - fullBookFinalPrice
+  const userPremiumTokens = profile?.premium_tokens ?? 0
+  const hasEnoughPremiumForBook = userPremiumTokens >= fullBookFinalPrice
+
+  const handlePurchaseBook = () => {
+    if (!user) return router.push(`/login?redirect=${encodeURIComponent(`/libro/${bookId}`)}`)
+    if (owned || purchasing) return
+    if (!book?.token_price_per_block || !book?.total_blocks) return
+    setShowPurchaseConfirm(true)
+  }
+
+  const confirmPurchaseBook = async () => {
+    if (!user || owned || purchasing) return
+    if (!hasEnoughPremiumForBook) return
+    setShowPurchaseConfirm(false)
+    setPurchasing(true)
+    try {
+      // 1) Scala i token reali dal profilo (solo premium_tokens)
+      const newPremium = userPremiumTokens - fullBookFinalPrice
+      const { error: updErr } = await supabase
+        .from('profiles')
+        .update({ premium_tokens: newPremium })
+        .eq('id', user.id)
+      if (updErr) {
+        toast.error('Errore acquisto', { description: updErr.message })
+        return
+      }
+
+      // 2) Inserisci/aggiorna la libreria come OWNED.
+      //    Se esisteva una riga PLAN per questo libro, la promuoviamo a OWNED.
+      const { error: libErr } = await (supabase.from('library') as any).upsert(
+        {
+          user_id: user.id,
+          book_id: bookId,
+          ownership_type: 'OWNED',
+        },
+        { onConflict: 'user_id,book_id' }
+      )
+      if (libErr) {
+        // rollback token
+        await supabase.from('profiles').update({ premium_tokens: userPremiumTokens }).eq('id', user.id)
+        toast.error('Errore registrazione libreria', { description: libErr.message })
+        return
+      }
+
+      // 3) Registra la transazione (negativa per il buyer)
+      await supabase.from('transactions').insert({
+        user_id: user.id,
+        type: 'unlock',
+        amount: -fullBookFinalPrice,
+        book_id: bookId,
+        description: `Acquisto libro completo - ${book.title}${tierDiscount > 0 ? ` (sconto ${Math.round(tierDiscount * 100)}%)` : ''}`,
+      })
+
+      // 4) Notifica all'autore
+      if (book?.author_id) {
+        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+        createNotification({
+          supabase,
+          recipientId: book.author_id,
+          actorId: user.id,
+          actorName,
+          type: 'unlock',
+          title: 'Libro acquistato',
+          message: `${actorName} ha acquistato "${book.title}" (${fullBookFinalPrice} token)`,
+          data: { book_id: bookId, book_title: book.title, tokens_spent: fullBookFinalPrice },
+        })
+      }
+
+      setOwned(true)
+      // Aggiorna il profilo locale così il saldo token nella navbar/UI è subito corretto
+      try { (profile as any).premium_tokens = newPremium } catch { /* readonly: ignorato */ }
+      toast.success('Libro acquistato! È tuo per sempre.', {
+        description: `Hai speso ${fullBookFinalPrice} token reali.`,
+      })
+    } catch (e: any) {
+      toast.error('Errore acquisto', { description: e?.message || 'Riprova' })
+    } finally {
+      setPurchasing(false)
+    }
+  }
 
   // Apertura popup conferma — il boost reale parte solo dopo confirmBoost()
   const handleBoost = () => {
@@ -505,7 +608,7 @@ export default function BookDetailPage() {
           </div>
 
           {/* Action buttons — compatti 40px h, 14px font, px-3 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {user ? (
               <Link
                 href={`/reader/${book.id}/1`}
@@ -545,6 +648,44 @@ export default function BookDetailPage() {
               <Bookmark className={`w-4 h-4 ${saved ? 'fill-sage-500 text-sage-500' : ''}`} />
               <span className="hidden sm:inline">{saved ? 'Salvato' : 'Salva'}</span>
             </button>
+            {/* Acquista libro intero con token reali */}
+            <button
+              onClick={handlePurchaseBook}
+              disabled={owned || purchasing || !book?.token_price_per_block || !book?.total_blocks}
+              title={
+                owned
+                  ? 'Hai gia acquistato questo libro — e tuo per sempre'
+                  : `Acquista il libro completo per ${fullBookFinalPrice} token reali`
+              }
+              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border whitespace-nowrap shrink-0 ${
+                owned
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'
+                  : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+              }`}
+            >
+              {purchasing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : owned ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <Coins className="w-4 h-4" />
+              )}
+              {owned ? (
+                <span className="whitespace-nowrap">Tuo per sempre</span>
+              ) : (
+                <span className="whitespace-nowrap inline-flex items-center gap-1">
+                  Acquista
+                  {tierDiscount > 0 && fullBookBasePrice > 0 ? (
+                    <>
+                      <span className="text-bark-400 line-through text-[11px]">{fullBookBasePrice}</span>
+                      <span className="font-bold">{fullBookFinalPrice} tk</span>
+                    </>
+                  ) : (
+                    <span className="font-bold">— {fullBookFinalPrice} tk</span>
+                  )}
+                </span>
+              )}
+            </button>
             <button
               onClick={handleBoost}
               disabled={!canBoost || boosting}
@@ -565,6 +706,26 @@ export default function BookDetailPage() {
               </span>
             </button>
           </div>
+
+          {/* Messaggio promozionale sotto la riga azioni — sempre visibile */}
+          {!owned && (
+            <p className="text-xs text-bark-400 dark:text-sage-500 mt-3 leading-relaxed">
+              <span className="mr-1" aria-hidden>💡</span>
+              {tierDiscount > 0 ? (
+                <>
+                  Con il tuo piano <strong className="text-sage-700 dark:text-sage-300">{userTier === 'gold' ? 'Gold' : 'Silver'}</strong>{' '}
+                  hai il <strong className="text-sage-700 dark:text-sage-300">{Math.round(tierDiscount * 100)}%</strong> di sconto su ogni acquisto. I libri acquistati restano tuoi per sempre.
+                </>
+              ) : user ? (
+                <>
+                  <Link href="/wallet" className="underline hover:text-sage-700">Abbonati</Link>{' '}
+                  per ottenere sconti fino al <strong className="text-sage-700 dark:text-sage-300">30%</strong> su ogni acquisto.
+                </>
+              ) : (
+                <>Abbonati per ottenere sconti fino al <strong className="text-sage-700 dark:text-sage-300">30%</strong> su ogni acquisto.</>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -797,6 +958,102 @@ export default function BookDetailPage() {
               </div>
             </div>
             <p className="text-sm text-bark-500 leading-relaxed">{book.author.author_bio}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════ Modale conferma ACQUISTO LIBRO ═══════ */}
+      {showPurchaseConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          onClick={() => setShowPurchaseConfirm(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="purchase-confirm-title"
+        >
+          <div
+            className="relative w-full max-w-[85vw] sm:max-w-md bg-white dark:bg-[#1e221c] rounded-2xl shadow-2xl border border-sage-100 dark:border-sage-800 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header con accent verde */}
+            <div className="px-5 pt-5 pb-3 bg-gradient-to-br from-emerald-50 to-sage-50 dark:from-emerald-900/30 dark:to-sage-900/20 border-b border-emerald-100 dark:border-emerald-800/50">
+              <h3 id="purchase-confirm-title" className="flex items-center gap-2 text-lg font-bold text-emerald-800 dark:text-emerald-200">
+                <span aria-hidden>🪙</span>
+                Acquista questo libro
+              </h3>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-sm text-bark-500 dark:text-sage-300 leading-relaxed">
+                Il libro sar&agrave; tuo <strong>per sempre</strong> — anche se cancelli l&rsquo;abbonamento.
+              </p>
+
+              {/* Banner sconto se abbonato */}
+              {tierDiscount > 0 && (
+                <div className="px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50">
+                  <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-snug">
+                    <span className="mr-1" aria-hidden>🎉</span>
+                    Il tuo piano <strong>{userTier === 'gold' ? 'Gold' : 'Silver'}</strong> ti d&agrave; il <strong>{Math.round(tierDiscount * 100)}% di sconto</strong> — risparmi <strong>{fullBookSavings} token</strong>.
+                  </p>
+                </div>
+              )}
+
+              {/* Prezzo */}
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50">
+                <span className="text-sm font-medium text-bark-600 dark:text-sage-200">Prezzo</span>
+                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-2">
+                  {tierDiscount > 0 && fullBookBasePrice > fullBookFinalPrice && (
+                    <span className="text-bark-400 line-through font-medium text-xs">{fullBookBasePrice} tk</span>
+                  )}
+                  <span>{fullBookFinalPrice} token</span>
+                </span>
+              </div>
+
+              {/* Saldo token reali */}
+              <div className="flex items-center justify-between px-3 py-2 text-xs text-bark-500 dark:text-sage-400">
+                <span>Saldo token reali</span>
+                <span className={`font-semibold ${hasEnoughPremiumForBook ? 'text-sage-700 dark:text-sage-300' : 'text-red-600 dark:text-red-400'}`}>
+                  {userPremiumTokens} token
+                </span>
+              </div>
+
+              {!hasEnoughPremiumForBook && (
+                <Link
+                  href="/wallet"
+                  className="block px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors group"
+                >
+                  <p className="text-xs font-medium text-red-700 dark:text-red-400 flex items-center justify-between gap-2">
+                    <span>Token insufficienti — ti mancano {fullBookFinalPrice - userPremiumTokens} token reali.</span>
+                    <span className="font-bold whitespace-nowrap group-hover:underline inline-flex items-center gap-0.5">
+                      Acquista token <ChevronRight className="w-3 h-3" />
+                    </span>
+                  </p>
+                </Link>
+              )}
+            </div>
+
+            {/* Bottoni */}
+            <div className="flex gap-2 px-5 pb-5 pt-1">
+              <button
+                onClick={() => setShowPurchaseConfirm(false)}
+                className="flex-1 h-10 px-4 rounded-xl text-sm font-medium bg-bark-100 dark:bg-sage-800 text-bark-600 dark:text-sage-200 hover:bg-bark-200 dark:hover:bg-sage-700 transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={confirmPurchaseBook}
+                disabled={!hasEnoughPremiumForBook || purchasing}
+                className={`flex-[1.5] h-10 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                  hasEnoughPremiumForBook && !purchasing
+                    ? 'bg-gradient-to-r from-emerald-500 to-sage-600 text-white shadow-md hover:from-emerald-600 hover:to-sage-700'
+                    : 'bg-bark-100 dark:bg-sage-800 text-bark-400 cursor-not-allowed'
+                }`}
+              >
+                {purchasing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Conferma acquisto
+              </button>
+            </div>
           </div>
         </div>
       )}
