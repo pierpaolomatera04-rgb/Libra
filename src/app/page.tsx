@@ -46,7 +46,7 @@ export default function HomePage() {
 
       {/* SEZIONE 1 — Hero (sfondo scuro uniforme, coerente con /diventa-autore) */}
       <section className="bg-sage-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-14 sm:pt-14 sm:pb-14 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-white text-xs font-semibold mb-8 border border-white/30 bg-transparent">
             <span aria-hidden>🤍</span> Fatto con il cuore in Italia
           </div>
@@ -82,15 +82,18 @@ export default function HomePage() {
       </section>
 
       {/* SEZIONE 2 — Come funziona (sintesi) */}
-      <section className="bg-white py-24">
+      <section className="bg-white py-10 sm:py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8 sm:mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-sage-900">
               Non &egrave; un libro. Non &egrave; un social. &Egrave; qualcosa di nuovo.
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-10 max-w-5xl mx-auto">
+          {/* items-stretch (default su grid) garantisce card di stessa altezza;
+              ogni card è flex-col con titolo a min-height fisso → testi
+              allineati orizzontalmente sulle 3 card su desktop */}
+          <div className="grid md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto items-stretch">
             {[
               {
                 emoji: '📖',
@@ -110,31 +113,25 @@ export default function HomePage() {
             ].map((item, i) => (
               <div
                 key={i}
-                className="relative text-center bg-cream-50/80 border border-sage-200/60 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all duration-300"
+                className="h-full flex flex-col text-center bg-cream-50/80 border border-sage-200/60 rounded-2xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-all duration-300"
               >
                 <div className="w-16 h-16 mx-auto mb-5 bg-sage-100 rounded-full flex items-center justify-center text-3xl">
                   <span aria-hidden>{item.emoji}</span>
                 </div>
-                <h3 className="text-lg font-semibold text-sage-800 mb-3">{item.title}</h3>
-                <p className="text-bark-500 text-sm leading-relaxed">{item.desc}</p>
+                {/* Titolo a min-height fisso così il paragrafo descrittivo
+                    parte dalla stessa Y su tutte le card affiancate */}
+                <h3 className="text-lg font-semibold text-sage-800 mb-3 leading-snug md:min-h-[3.5rem] flex items-center justify-center">
+                  {item.title}
+                </h3>
+                <p className="text-bark-500 text-sm leading-relaxed flex-1">{item.desc}</p>
               </div>
             ))}
-          </div>
-
-          <div className="text-center mt-12">
-            <Link
-              href="/come-funziona"
-              className="inline-flex items-center gap-2 text-sage-600 font-semibold hover:text-sage-700"
-            >
-              Scopri di pi&ugrave;
-              <ArrowRight className="w-4 h-4" />
-            </Link>
           </div>
         </div>
       </section>
 
       {/* SEZIONE 3 — I token */}
-      <section className="py-24 bg-cream-50">
+      <section className="py-10 sm:py-14 bg-cream-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-xs font-bold text-sage-600 uppercase tracking-widest mb-3">🪙 I token</p>
@@ -206,7 +203,7 @@ export default function HomePage() {
       </section>
 
       {/* SEZIONE 4 — La community */}
-      <section className="py-24 bg-white">
+      <section className="py-10 sm:py-14 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-xs font-bold text-sage-600 uppercase tracking-widest mb-3">👥 Community</p>
@@ -236,9 +233,9 @@ export default function HomePage() {
       </section>
 
       {/* SEZIONE 5 — I piani */}
-      <section className="py-24 bg-cream-50">
+      <section className="py-10 sm:py-14 bg-cream-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-sage-900 mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold text-sage-900 mb-8 sm:mb-10">
             Inizia gratis. Rimani perch&eacute; ne vale la pena.
           </h2>
 
@@ -334,7 +331,7 @@ export default function HomePage() {
       </section>
 
       {/* SEZIONE 6 — Anteprima catalogo */}
-      <section className="py-24 bg-white">
+      <section className="py-10 sm:py-14 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-sage-900 mb-3">
             Storie che non trovi da nessun&rsquo;altra parte.
@@ -375,7 +372,7 @@ export default function HomePage() {
       </section>
 
       {/* SEZIONE 7 — Diventa autore (teaser compatto verso /diventa-autore) */}
-      <section className="py-16 bg-cream-50">
+      <section className="py-10 sm:py-14 bg-cream-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="bg-white border border-sage-200 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-sage-100 flex items-center justify-center flex-shrink-0">
