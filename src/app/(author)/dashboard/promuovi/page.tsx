@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
 import {
   Rocket, Coins, Gift, Loader2, BookOpen, Clock, TrendingUp,
-  Zap, X, Info, Eye, CheckCircle2, ArrowRight,
+  Zap, X, Info, Eye, CheckCircle2, ArrowRight, AlertTriangle,
 } from 'lucide-react'
 
 type BookRow = {
@@ -122,7 +122,16 @@ export default function PromuoviPage() {
     fetchAll()
   }, [fetchAll])
 
+  // Modale "Token insufficienti" mostrato quando l'autore prova a boostare
+  // (o estendere) senza saldo sufficiente. Il bottone Boost/Estendi resta
+  // sempre cliccabile per non lasciare l'utente in un vicolo cieco.
+  const [insufficientOpen, setInsufficientOpen] = useState(false)
+
   const openBoostModal = (book: BookRow) => {
+    if (balance.boostable < 10) {
+      setInsufficientOpen(true)
+      return
+    }
     setSelectedBook(book)
     setModalTokens(Math.min(30, Math.max(10, balance.boostable)))
     setModalDays(3)
@@ -319,8 +328,7 @@ export default function PromuoviPage() {
                 {/* Riga 4 mobile: pulsante full-width — su desktop torna inline a destra */}
                 <button
                   onClick={() => openBoostModal(book)}
-                  disabled={balance.boostable < 10}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded-xl bg-sage-500 text-white font-semibold text-sm hover:bg-sage-600 transition-colors disabled:bg-sage-200 disabled:cursor-not-allowed shrink-0"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded-xl bg-sage-500 text-white font-semibold text-sm hover:bg-sage-600 transition-colors shrink-0"
                 >
                   <Rocket className="w-4 h-4" />
                   {isActive ? 'Estendi' : 'Boosta'}
@@ -462,6 +470,49 @@ export default function PromuoviPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* Modale "Token insufficienti" — bottone Boosta sempre cliccabile,
+          se mancano i token portiamo l'autore al wallet invece di disabilitare. */}
+      {insufficientOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setInsufficientOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-[#1e221c] rounded-2xl w-full max-w-sm shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <AlertTriangle className="w-7 h-7 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold text-sage-900 dark:text-sage-100">
+                ⚡ Token insufficienti
+              </h3>
+              <p className="text-sm text-bark-500 dark:text-sage-400 mt-2 leading-relaxed">
+                Non hai abbastanza token per boostare questo libro. Acquistane altri per aumentare la visibilità.
+              </p>
+            </div>
+            <div className="px-6 pb-6 space-y-2">
+              <Link
+                href="/wallet"
+                onClick={() => setInsufficientOpen(false)}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-sage-500 text-white font-semibold text-sm hover:bg-sage-600 transition-colors"
+              >
+                Acquista token
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setInsufficientOpen(false)}
+                className="w-full py-2.5 rounded-xl bg-sage-50 dark:bg-sage-800 text-bark-500 dark:text-sage-300 text-sm font-medium hover:bg-sage-100 dark:hover:bg-sage-700 transition-colors"
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modale boost */}
