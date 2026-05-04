@@ -108,29 +108,63 @@ export default function BookCard({ book, showTrending = false, trendingPosition,
     if (savingBookmark) return
     setSavingBookmark(true)
     const next = !saved
-    setSaved(next)
+
     if (next) {
+      // ── ADD: salva nella libreria, qualunque sia lo stato precedente ──
+      setSaved(true)
       await supabase.from('user_library').upsert(
         { user_id: user.id, book_id: book.id, status: 'saved' },
         { onConflict: 'user_id,book_id' }
       )
       toast.success('Salvato nella tua libreria')
-    } else {
-      // Se era solo "saved" → rimuovi. Se l'utente stava "reading" non lo tolgo per sicurezza.
-      const { data: existing } = await supabase
+      setSavingBookmark(false)
+      return
+    }
+
+    // ── REMOVE: i libri OWNED non si possono rimuovere ──
+    const { data: ownership } = await supabase
+      .from('library')
+      .select('ownership_type')
+      .eq('user_id', user.id)
+      .eq('book_id', book.id)
+      .eq('ownership_type', 'OWNED')
+      .maybeSingle()
+
+    if (ownership) {
+      toast.error('Hai acquistato questo libro — è tuo per sempre e non può essere rimosso')
+      setSavingBookmark(false)
+      return
+    }
+
+    // ── REMOVE con periodo di grazia di 5s (snackbar Annulla) ──
+    setSaved(false)
+    let cancelled = false
+    const timeoutId = window.setTimeout(async () => {
+      if (cancelled) return
+      await supabase
         .from('user_library')
-        .select('id, status')
+        .delete()
         .eq('user_id', user.id)
         .eq('book_id', book.id)
-        .maybeSingle()
-      if (existing?.status === 'saved') {
-        await supabase.from('user_library').delete().eq('id', existing.id)
-      } else if (existing?.status === 'reading') {
-        // Riporto a "reading" nello stato UI
-        setSaved(true)
-        toast.info('Il libro è in lettura — rimuovilo dalla libreria se vuoi toglierlo')
-      }
-    }
+      await supabase
+        .from('library')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('book_id', book.id)
+        .neq('ownership_type', 'OWNED')
+    }, 5000)
+
+    toast('Libro rimosso dalla libreria', {
+      duration: 5000,
+      action: {
+        label: 'Annulla',
+        onClick: () => {
+          cancelled = true
+          window.clearTimeout(timeoutId)
+          setSaved(true)
+        },
+      },
+    })
     setSavingBookmark(false)
   }
 

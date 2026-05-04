@@ -404,32 +404,73 @@ export default function BookDetailPage() {
     if (!user) return router.push('/login')
 
     if (saved) {
-      await supabase.from('user_library').delete().eq('book_id', bookId).eq('user_id', user.id)
-      setSaved(false)
-      toast.success('Libro rimosso dalla libreria')
-    } else {
-      await supabase.from('user_library').insert({
-        user_id: user.id,
-        book_id: bookId,
-        status: 'saved',
-      })
-      setSaved(true)
-      toast.success('Libro aggiunto alla tua libreria')
+      // ── REMOVE: i libri OWNED non si possono rimuovere ──
+      const { data: ownership } = await supabase
+        .from('library')
+        .select('ownership_type')
+        .eq('user_id', user.id)
+        .eq('book_id', bookId)
+        .eq('ownership_type', 'OWNED')
+        .maybeSingle()
 
-      // Notifica all'autore
-      if (book?.author_id) {
-        const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
-        createNotification({
-          supabase,
-          recipientId: book.author_id,
-          actorId: user.id,
-          actorName,
-          type: 'save',
-          title: 'Libro salvato',
-          message: `${actorName} ha salvato "${book.title}" nella libreria`,
-          data: { book_id: bookId, book_title: book.title },
-        })
+      if (ownership) {
+        toast.error('Hai acquistato questo libro — è tuo per sempre e non può essere rimosso')
+        return
       }
+
+      // Optimistic + 5s undo
+      setSaved(false)
+      let cancelled = false
+      const timeoutId = window.setTimeout(async () => {
+        if (cancelled) return
+        await supabase
+          .from('user_library')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('book_id', bookId)
+        await supabase
+          .from('library')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('book_id', bookId)
+          .neq('ownership_type', 'OWNED')
+      }, 5000)
+
+      toast('Libro rimosso dalla libreria', {
+        duration: 5000,
+        action: {
+          label: 'Annulla',
+          onClick: () => {
+            cancelled = true
+            window.clearTimeout(timeoutId)
+            setSaved(true)
+          },
+        },
+      })
+      return
+    }
+
+    // ── ADD ──
+    await supabase.from('user_library').upsert(
+      { user_id: user.id, book_id: bookId, status: 'saved' },
+      { onConflict: 'user_id,book_id' }
+    )
+    setSaved(true)
+    toast.success('Libro aggiunto alla tua libreria')
+
+    // Notifica all'autore
+    if (book?.author_id) {
+      const actorName = profile?.author_pseudonym || profile?.name || 'Un lettore'
+      createNotification({
+        supabase,
+        recipientId: book.author_id,
+        actorId: user.id,
+        actorName,
+        type: 'save',
+        title: 'Libro salvato',
+        message: `${actorName} ha salvato "${book.title}" nella libreria`,
+        data: { book_id: bookId, book_title: book.title },
+      })
     }
   }
 
