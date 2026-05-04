@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import CoverCropper from '@/components/ui/CoverCropper'
 import BookMockup from '@/components/ui/BookMockup'
+import TagInput from '@/components/book/TagInput'
 
 // ============================================
 // TIPI
@@ -27,6 +28,7 @@ interface WizardData {
   description: string
   macroCategory: string
   genre: string
+  tags: string[]
   mood: string
   coverImage: File | null
   coverPreview: string | null
@@ -45,6 +47,7 @@ const INITIAL_DATA: WizardData = {
   description: '',
   macroCategory: '',
   genre: '',
+  tags: [],
   mood: '',
   coverImage: null,
   coverPreview: null,
@@ -97,6 +100,7 @@ function saveDraft(step: number, blockCount: number, data: WizardData) {
         description: data.description,
         macroCategory: data.macroCategory,
         genre: data.genre,
+        tags: data.tags || [],
         mood: data.mood,
         accessLevel: data.accessLevel,
         tokenPricePerBlock: data.tokenPricePerBlock,
@@ -196,6 +200,7 @@ export default function PublishPage() {
       description: d.description,
       macroCategory: d.macroCategory,
       genre: d.genre,
+      tags: d.tags || [],
       mood: d.mood,
       accessLevel: d.accessLevel,
       tokenPricePerBlock: d.tokenPricePerBlock,
@@ -523,6 +528,7 @@ export default function PublishPage() {
         cover_image_url: coverUrl,
         macro_category: data.macroCategory,
         genre: data.genre,
+        tags: data.tags && data.tags.length > 0 ? data.tags : [],
         mood: data.mood || null,
         total_blocks: data.blocks.length,
         access_level: data.accessLevel,
@@ -1143,6 +1149,22 @@ export default function PublishPage() {
                     <p className="text-sm text-bark-400">Seleziona prima una Macro-Area per vedere i sotto-generi disponibili</p>
                   </div>
                 )}
+              </div>
+
+              {/* Hashtag */}
+              <div>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">
+                  Hashtag <span className="font-normal text-bark-400">(opzionale, max 5)</span>
+                </label>
+                <p className="text-xs text-bark-400 mb-2">
+                  Aiutano i lettori a trovare il tuo libro nella ricerca per <code>#hashtag</code>.
+                  Solo lettere, numeri e <code>_</code>.
+                </p>
+                <TagInput
+                  tags={data.tags}
+                  onChange={(next) => setData(prev => ({ ...prev, tags: next }))}
+                  max={5}
+                />
               </div>
 
               {/* Mood */}

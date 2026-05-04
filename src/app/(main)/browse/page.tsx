@@ -183,7 +183,16 @@ export default function BrowsePage() {
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
+      const trimmed = search.trim()
+      // Se la query inizia con '#', interpretala come hashtag e cerca per array tags
+      if (trimmed.startsWith('#')) {
+        const tagOnly = trimmed.replace(/^#+/, '').toLowerCase().replace(/\s+/g, '')
+        if (tagOnly) {
+          query = query.contains('tags', [tagOnly])
+        }
+      } else {
+        query = query.or(`title.ilike.%${trimmed}%,description.ilike.%${trimmed}%`)
+      }
     }
 
     if (genre) {
@@ -691,7 +700,7 @@ export default function BrowsePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cerca titolo..."
+              placeholder="Cerca titolo o #hashtag…"
               className="w-full pl-9 pr-9 py-2 rounded-lg border border-sage-200 dark:border-sage-700 focus:border-sage-400 dark:focus:border-sage-500 focus:ring-2 focus:ring-sage-200 dark:focus:ring-sage-700 outline-none transition-all text-sm bg-white dark:bg-[#252525] dark:text-gray-200"
             />
             {search && (
@@ -1060,7 +1069,14 @@ export default function BrowsePage() {
               <HorizontalCarousel>
                 {books.map((book) => (
                   <div key={book.id} className="flex-shrink-0 w-[100px] sm:w-[150px]">
-                    <BookCard book={book} />
+                    <BookCard
+                      book={book}
+                      highlightTag={
+                        search.trim().startsWith('#')
+                          ? search.trim().replace(/^#+/, '').toLowerCase().replace(/\s+/g, '')
+                          : undefined
+                      }
+                    />
                   </div>
                 ))}
               </HorizontalCarousel>

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { BookOpen, Bookmark, TrendingUp, Flame, Star, Users, MessageCircle } from 'lucide-react'
+import { BookOpen, Bookmark, TrendingUp, Flame, Star, Users, MessageCircle, Hash } from 'lucide-react'
 import { getGenreTagColor } from '@/lib/genres'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -16,6 +16,7 @@ interface BookCardProps {
     description: string | null
     cover_image_url: string | null
     genre: string | null
+    tags?: string[] | null
     total_blocks: number
     /** Numero di blocchi già pubblicati (opzionale — se assente, la barra serializzazione mostra un'animazione generica) */
     published_blocks?: number
@@ -41,6 +42,9 @@ interface BookCardProps {
   }
   showTrending?: boolean
   trendingPosition?: number
+  /** Hashtag attivo (senza '#') da evidenziare sulla card. Se presente nei tags
+   *  del libro, viene mostrato in primo piano con stile sage pieno. */
+  highlightTag?: string
 }
 
 function formatCompact(n: number): string {
@@ -50,7 +54,7 @@ function formatCompact(n: number): string {
   return String(n)
 }
 
-export default function BookCard({ book, showTrending = false, trendingPosition }: BookCardProps) {
+export default function BookCard({ book, showTrending = false, trendingPosition, highlightTag }: BookCardProps) {
   const router = useRouter()
   const { user } = useAuth()
   const supabase = createClient()
@@ -274,6 +278,37 @@ export default function BookCard({ book, showTrending = false, trendingPosition 
               {book.genre}
             </span>
           )}
+
+          {/* Hashtag: in modalita' ricerca per #tag mostriamo il tag matchato in
+              evidenza; altrimenti mostriamo al massimo 2 tag come pill compatte. */}
+          {Array.isArray(book.tags) && book.tags.length > 0 && (() => {
+            const lowerHl = highlightTag ? highlightTag.toLowerCase() : null
+            const matched = lowerHl && book.tags.includes(lowerHl) ? lowerHl : null
+            const display = matched
+              ? [matched, ...book.tags.filter(t => t !== matched).slice(0, 1)]
+              : book.tags.slice(0, 2)
+            return (
+              <div className="flex flex-wrap gap-1 mb-1">
+                {display.map((t) => {
+                  const isHl = matched === t
+                  return (
+                    <span
+                      key={t}
+                      className={`inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md max-w-full truncate ${
+                        isHl
+                          ? 'bg-sage-500 text-white shadow-sm ring-1 ring-sage-300'
+                          : 'bg-sage-50 text-sage-700 dark:bg-sage-800/50 dark:text-sage-200'
+                      }`}
+                      title={`#${t}`}
+                    >
+                      <Hash className="w-2.5 h-2.5 opacity-80 flex-shrink-0" />
+                      <span className="truncate">{t}</span>
+                    </span>
+                  )
+                })}
+              </div>
+            )
+          })()}
 
           <h3
             className="font-semibold text-sage-900 dark:text-sage-100 text-[11px] sm:text-sm group-hover:text-sage-600 dark:group-hover:text-sage-300 transition-colors"
