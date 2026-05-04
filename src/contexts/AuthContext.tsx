@@ -8,6 +8,7 @@ interface UserProfile {
   id: string
   email: string
   name: string | null
+  surname: string | null
   username: string | null
   avatar_url: string | null
   is_author: boolean
@@ -39,6 +40,7 @@ interface AuthContextType {
     email: string,
     password: string,
     name: string,
+    surname: string,
     authorMeta?: { isAuthor?: boolean; pseudonym?: string }
   ) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
@@ -145,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     name: string,
+    surname: string,
     authorMeta?: { isAuthor?: boolean; pseudonym?: string }
   ) => {
     // Prima controlla se l'email esiste già
@@ -167,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         data: {
           name,
+          surname: surname?.trim() || '',
           ...(isAuthor ? { is_author_intent: true, author_pseudonym: pseudonym } : {}),
         },
       },
@@ -268,25 +272,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null }
   }
 
-  // Redirect a /onboarding se l'utente si è appena registrato come autore
-  // (conferma email + primo login). Il flag viene settato in signUp e
-  // rimosso da /onboarding dopo il completamento.
+  // Redirect post-registrazione (conferma email + primo login):
+  //  - se c'e' un pending author flag → /onboarding (autore)
+  //  - se l'utente non ha completato l'onboarding lettore → /onboarding/generi
+  // Le pagine target rimuovono i flag e marcano completed_onboarding=true.
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!user || !profile) return
-    if (profile.is_author) return
-    let pending: string | null = null
-    try {
-      pending = window.localStorage.getItem('libra_pending_author')
-    } catch {
-      return
-    }
-    if (!pending) return
+
     const path = window.location.pathname
-    // Non reindirizzare se siamo già su onboarding o su pagine auth
+    // Non reindirizzare mai dalle pagine auth/onboarding
     if (path.startsWith('/onboarding') || path.startsWith('/login') || path.startsWith('/signup')) return
-    const pen = pending && pending !== '1' ? `?pen=${encodeURIComponent(pending)}` : ''
-    window.location.replace(`/onboarding${pen}`)
+
+    // 1) Pending author → flusso autore
+    if (!profile.is_author) {
+      let pending: string | null = null
+      try {
+        pending = window.localStorage.getItem('libra_pending_author')
+      } catch {
+        /* ignore */
+      }
+      if (pending) {
+        const pen = pending !== '1' ? `?pen=${encodeURIComponent(pending)}` : ''
+        window.location.replace(`/onboarding${pen}`)
+        return
+      }
+    }
+
+    // 2) Lettore senza onboarding completato → seleziona generi
+    if (!profile.completed_onboarding && (!profile.preferred_genres || profile.preferred_genres.length === 0)) {
+      window.location.replace('/onboarding/generi')
+    }
   }, [user, profile])
 
   const totalTokens = (profile?.bonus_tokens ?? 0) + (profile?.premium_tokens ?? 0)

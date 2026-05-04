@@ -18,6 +18,7 @@ export default function SignupPage() {
 
 function SignupPageInner() {
   const [name, setName] = useState('')
+  const [surname, setSurname] = useState('')
   const [pseudonym, setPseudonym] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -49,6 +50,10 @@ function SignupPageInner() {
       toast.error('La password non soddisfa i requisiti')
       return
     }
+    if (!name.trim() || !surname.trim()) {
+      toast.error('Inserisci nome e cognome')
+      return
+    }
     if (isAuthorMode && !pseudonym.trim()) {
       toast.error('Inserisci il tuo nome d\'autore o pseudonimo')
       return
@@ -58,7 +63,8 @@ function SignupPageInner() {
     const { error } = await signUp(
       email,
       password,
-      name,
+      name.trim(),
+      surname.trim(),
       isAuthorMode ? { isAuthor: true, pseudonym: pseudonym.trim() } : undefined
     )
 
@@ -135,17 +141,30 @@ function SignupPageInner() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-8">
           <form onSubmit={handleSignup} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-sage-800 mb-1.5">Nome</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">Nome</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Il tuo nome"
+                    required
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">Cognome</label>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Il tuo nome"
+                  value={surname}
+                  onChange={(e) => setSurname(e.target.value)}
+                  placeholder="Il tuo cognome"
                   required
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm"
+                  className="w-full px-4 py-3 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm"
                 />
               </div>
             </div>

@@ -78,6 +78,7 @@ function AuthorOnboardingInner() {
           author_pseudonym: pseudonym.trim(),
           author_bio: bio.trim() || null,
           preferred_genres: selectedGenres,
+          completed_onboarding: true,
         })
         .eq('id', user.id)
 
