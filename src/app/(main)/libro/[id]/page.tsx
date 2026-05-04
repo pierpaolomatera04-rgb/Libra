@@ -999,12 +999,15 @@ export default function BookDetailPage() {
                 Il libro sar&agrave; tuo <strong>per sempre</strong> — anche se cancelli l&rsquo;abbonamento.
               </p>
 
-              {/* Banner sconto se abbonato */}
+              {/* Banner conferma sconto se abbonato Silver/Gold */}
               {tierDiscount > 0 && (
                 <div className="px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50">
                   <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-snug">
-                    <span className="mr-1" aria-hidden>🎉</span>
-                    Il tuo piano <strong>{userTier === 'gold' ? 'Gold' : 'Silver'}</strong> ti d&agrave; il <strong>{Math.round(tierDiscount * 100)}% di sconto</strong> — risparmi <strong>{fullBookSavings} token</strong>.
+                    <span className="mr-1" aria-hidden>✅</span>
+                    Il tuo piano <strong>{userTier === 'gold' ? 'Gold' : 'Silver'}</strong> ti d&agrave; il{' '}
+                    <strong>{Math.round(tierDiscount * 100)}% di sconto</strong> — paghi{' '}
+                    <strong>{fullBookFinalPrice} token</strong> invece di{' '}
+                    <span className="line-through opacity-70">{fullBookBasePrice}</span>.
                   </p>
                 </div>
               )}
@@ -1019,6 +1022,31 @@ export default function BookDetailPage() {
                   <span>{fullBookFinalPrice} token</span>
                 </span>
               </div>
+
+              {/* Banner upsell — solo per utenti Free, tra prezzo e saldo token */}
+              {userTier === 'free' && fullBookBasePrice > 0 && (
+                <div className="px-3 py-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-900/15 border border-emerald-200/80 dark:border-emerald-800/40">
+                  <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-snug">
+                    <span className="mr-1" aria-hidden>💡</span>
+                    Abbonati a Silver o Gold e risparmia il <strong>15%</strong> o il <strong>30%</strong> su questo acquisto.
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                    <Link
+                      href="/wallet"
+                      className="font-semibold text-emerald-700 dark:text-emerald-300 hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Silver — 4,99€/mese (-15%)
+                    </Link>
+                    <span className="text-emerald-400/60 dark:text-emerald-700/60">·</span>
+                    <Link
+                      href="/wallet"
+                      className="font-semibold text-emerald-700 dark:text-emerald-300 hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Gold — 9,99€/mese (-30%)
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               {/* Saldo token reali */}
               <div className="flex items-center justify-between px-3 py-2 text-xs text-bark-500 dark:text-sage-400">
