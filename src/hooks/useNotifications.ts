@@ -3,6 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 
+export interface NotificationActor {
+  id: string
+  name: string | null
+  username: string | null
+  avatar_url: string | null
+  author_pseudonym: string | null
+}
+
 export interface Notification {
   id: string
   user_id: string
@@ -13,6 +21,7 @@ export interface Notification {
   data: Record<string, any>
   read: boolean
   created_at: string
+  actor?: NotificationActor | null
 }
 
 export function useNotifications(userId: string | undefined) {
@@ -25,7 +34,10 @@ export function useNotifications(userId: string | undefined) {
     if (!userId) return
     const { data } = await supabase
       .from('notifications')
-      .select('*')
+      .select(`
+        *,
+        actor:profiles!notifications_actor_id_fkey(id, name, username, avatar_url, author_pseudonym)
+      `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20)

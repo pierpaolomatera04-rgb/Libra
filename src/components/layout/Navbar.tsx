@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useNotifications } from '@/hooks/useNotifications'
+import NotificationItem from '@/components/notifications/NotificationItem'
 import { getXpLevel } from '@/lib/badges'
 import { toast } from 'sonner'
 
@@ -412,60 +413,14 @@ export default function Navbar() {
                                 <p className="text-xs text-bark-400">Nessuna notifica</p>
                               </div>
                             ) : (
-                              notifications.slice(0, 10).map((notif) => {
-                                const icon = notif.type === 'follow' ? UserPlus
-                                  : notif.type === 'like' ? Heart
-                                  : notif.type === 'save' ? Bookmark
-                                  : notif.type === 'comment' ? MessageCircle
-                                  : notif.type === 'unlock' ? Lock
-                                  : Coins
-                                const iconColor = notif.type === 'follow' ? 'text-purple-500'
-                                  : notif.type === 'like' ? 'text-red-500'
-                                  : notif.type === 'save' ? 'text-sage-600'
-                                  : notif.type === 'comment' ? 'text-amber-500'
-                                  : notif.type === 'unlock' ? 'text-blue-500'
-                                  : 'text-yellow-500'
-                                const isTip = notif.type === 'tip'
-                                const timeAgo = getTimeAgo(notif.created_at)
-                                const notifLink = notif.data?.book_id
-                                  ? notif.type === 'comment'
-                                    ? `/reader/${notif.data.book_id}/${notif.data.block_number || 1}`
-                                    : `/libro/${notif.data.book_id}`
-                                  : notif.type === 'follow'
-                                    ? notif.data?.follower_username
-                                      ? `/profile/${notif.data.follower_username}`
-                                      : notif.actor_id ? `/autore/${notif.actor_id}` : null
-                                    : null
-                                const handleNotifClick = () => {
-                                  if (!notif.read) markAsRead(notif.id)
-                                  setNotifMenuOpen(false)
-                                  if (notifLink) window.location.href = notifLink
-                                }
-                                return (
-                                  <div
-                                    key={notif.id}
-                                    onClick={handleNotifClick}
-                                    className={`flex items-start gap-3 px-4 py-3 hover:bg-sage-50 dark:hover:bg-sage-800/50 transition-colors cursor-pointer ${
-                                      !notif.read ? 'bg-sage-50/50 dark:bg-sage-800/30' : ''
-                                    } ${isTip ? 'border-l-2 border-yellow-400' : ''}`}
-                                  >
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                      isTip ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-sage-50 dark:bg-sage-800'
-                                    }`}>
-                                      {(() => { const Icon = icon; return <Icon className={`w-4 h-4 ${iconColor}`} /> })()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className={`text-xs leading-relaxed ${!notif.read ? 'text-sage-900 dark:text-sage-100 font-medium' : 'text-bark-500 dark:text-sage-400'}`}>
-                                        {notif.message}
-                                      </p>
-                                      <p className="text-[10px] text-bark-400 mt-0.5">{timeAgo}</p>
-                                    </div>
-                                    {!notif.read && (
-                                      <div className="w-2 h-2 rounded-full bg-sage-500 flex-shrink-0 mt-1.5" />
-                                    )}
-                                  </div>
-                                )
-                              })
+                              notifications.slice(0, 10).map((notif) => (
+                                <NotificationItem
+                                  key={notif.id}
+                                  notification={notif}
+                                  onRead={markAsRead}
+                                  onAfterClick={() => setNotifMenuOpen(false)}
+                                />
+                              ))
                             )}
                           </div>
                           {notifications.length > 0 && (
@@ -596,30 +551,26 @@ export default function Navbar() {
                   <p className="text-xs text-bark-400">Nessuna notifica</p>
                 </div>
               ) : (
-                notifications.slice(0, 15).map((notif) => {
-                  const icon = notif.type === 'follow' ? UserPlus : notif.type === 'like' ? Heart : notif.type === 'save' ? Bookmark : notif.type === 'comment' ? MessageCircle : notif.type === 'unlock' ? Lock : Coins
-                  const iconColor = notif.type === 'follow' ? 'text-purple-500' : notif.type === 'like' ? 'text-red-500' : notif.type === 'save' ? 'text-sage-600' : notif.type === 'comment' ? 'text-amber-500' : notif.type === 'unlock' ? 'text-blue-500' : 'text-yellow-500'
-                  const isTip = notif.type === 'tip'
-                  const timeAgo = getTimeAgo(notif.created_at)
-                  const notifLink = notif.data?.book_id
-                    ? notif.type === 'comment' ? `/reader/${notif.data.book_id}/${notif.data.block_number || 1}` : `/libro/${notif.data.book_id}`
-                    : notif.type === 'follow' ? (notif.data?.follower_username ? `/profile/${notif.data.follower_username}` : notif.actor_id ? `/autore/${notif.actor_id}` : null) : null
-                  return (
-                    <div key={notif.id} onClick={() => { if (!notif.read) markAsRead(notif.id); setNotifMenuOpen(false); if (notifLink) window.location.href = notifLink }}
-                      className={`flex items-start gap-3 px-4 py-3 hover:bg-sage-50 dark:hover:bg-sage-800/50 cursor-pointer ${!notif.read ? 'bg-sage-50/50' : ''} ${isTip ? 'border-l-2 border-yellow-400' : ''}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isTip ? 'bg-yellow-50' : 'bg-sage-50 dark:bg-sage-800'}`}>
-                        {(() => { const Icon = icon; return <Icon className={`w-4 h-4 ${iconColor}`} /> })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs leading-relaxed ${!notif.read ? 'text-sage-900 font-medium' : 'text-bark-500'}`}>{notif.message}</p>
-                        <p className="text-[10px] text-bark-400 mt-0.5">{timeAgo}</p>
-                      </div>
-                      {!notif.read && <div className="w-2 h-2 rounded-full bg-sage-500 flex-shrink-0 mt-1.5" />}
-                    </div>
-                  )
-                })
+                notifications.slice(0, 15).map((notif) => (
+                  <NotificationItem
+                    key={notif.id}
+                    notification={notif}
+                    onRead={markAsRead}
+                    onAfterClick={() => setNotifMenuOpen(false)}
+                    compact
+                  />
+                ))
               )}
             </div>
+            {notifications.length > 0 && (
+              <Link
+                href="/dashboard"
+                onClick={() => setNotifMenuOpen(false)}
+                className="block text-center py-2.5 text-xs font-medium text-sage-500 hover:text-sage-700 dark:hover:text-sage-300 border-t border-sage-50 dark:border-sage-800 shrink-0"
+              >
+                Vedi tutte nel dashboard
+              </Link>
+            )}
           </div>
         </div>
       )}
