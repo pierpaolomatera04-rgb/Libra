@@ -8,15 +8,58 @@
   --sage: #87A96B;
   --cream: #F5F5DC;
   --bark: #6d5344;
+
+  /* ===== Sistema variabili tematiche =====
+     Usate da .surface-*, .text-primary-dyn, .border-default e dagli
+     override sotto. Sono il punto unico di verita' per il dark mode. */
+  --bg-primary: #F5F5F0;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-popup: #FFFFFF;
+  --text-primary: #1A1A1A;
+  --text-secondary: #666666;
+  --border-color: #E8E8E8;
+  --shadow: rgba(0, 0, 0, 0.08);
 }
 
 .dark {
-  --background: #161a14;
-  --foreground: #e8e6e3;
+  --background: #0F1A0F;
+  --foreground: #F0F0F0;
   --sage: #97a983;
-  --cream: #1e2218;
+  --cream: #1A2A1A;
   --bark: #b09680;
+
+  /* ===== Variabili tematiche dark ===== */
+  --bg-primary: #0F1A0F;
+  --bg-secondary: #1A2A1A;
+  --bg-card: #1E2E1E;
+  --bg-popup: #1E2E1E;
+  --text-primary: #F0F0F0;
+  --text-secondary: #AAAAAA;
+  --border-color: #2A3A2A;
+  --shadow: rgba(0, 0, 0, 0.3);
 }
+
+/* ============================================
+   Utility classi tematiche — preferire queste alle hardcoded
+   bg-white/text-bark-* per popup, card, banner, input.
+   ============================================ */
+.surface-card    { background-color: var(--bg-card);    color: var(--text-primary); border-color: var(--border-color); }
+.surface-popup   { background-color: var(--bg-popup);   color: var(--text-primary); border-color: var(--border-color); }
+.surface-secondary { background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color); }
+.surface-primary { background-color: var(--bg-primary); color: var(--text-primary); }
+.text-primary-dyn   { color: var(--text-primary); }
+.text-secondary-dyn { color: var(--text-secondary); }
+.border-default     { border-color: var(--border-color); }
+.shadow-themed      { box-shadow: 0 4px 16px var(--shadow); }
+
+/* Input/textarea/select con stile tematico esplicito (additivo a Tailwind) */
+.input-themed {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+.input-themed::placeholder { color: var(--text-secondary); opacity: 0.8; }
 
 body {
   color: var(--foreground);
@@ -45,10 +88,22 @@ html {
    Tutti i testi, sfondi e bordi usati nell'app
    ============================================ */
 
-/* --- Sfondi --- */
-.dark .bg-white { background-color: #1e221c !important; }
-.dark .bg-cream-50 { background-color: #161a14 !important; }
-.dark .bg-cream-200 { background-color: #2a2a22 !important; }
+/* --- Sfondi ---
+   bg-white viene usato OVUNQUE come superficie chiara (popup, card,
+   navbar, banner). Lo agganciamo direttamente a --bg-card cosi' tutti
+   gli elementi seguono il sistema di variabili. */
+.dark .bg-white { background-color: var(--bg-card) !important; }
+.dark .bg-cream-50 { background-color: var(--bg-primary) !important; }
+.dark .bg-cream-200 { background-color: var(--bg-secondary) !important; }
+/* Allinea i valori arbitrari hardcoded (dark:bg-[#1e221c] / [#161a14] /
+   [#1e2218]) usati nei modali e nelle card prima dell'introduzione
+   delle variabili tematiche. */
+.dark .dark\:bg-\[\#1e221c\] { background-color: var(--bg-popup) !important; }
+.dark .dark\:bg-\[\#161a14\] { background-color: var(--bg-primary) !important; }
+.dark .dark\:bg-\[\#1e2218\] { background-color: var(--bg-secondary) !important; }
+.dark .dark\:bg-\[\#252525\] { background-color: var(--bg-secondary) !important; }
+.dark .dark\:bg-\[\#282828\] { background-color: var(--bg-secondary) !important; }
+.dark .dark\:bg-\[\#1A2A1A\] { background-color: var(--bg-secondary) !important; }
 .dark .bg-sage-50 { background-color: #2a3024 !important; }
 .dark .bg-sage-100 { background-color: #344030 !important; }
 .dark .bg-sage-200 { background-color: #3e4d38 !important; }
@@ -142,13 +197,15 @@ html {
   color: #7a7a7a !important;
 }
 
-/* --- Input/Select --- */
+/* --- Input/Select ---
+   Agganciati alle variabili globali per restare coerenti con popup
+   e card. Mantengo l'!important per battere i preset Tailwind. */
 .dark input,
 .dark textarea,
 .dark select {
-  background-color: #2a2a2a !important;
-  color: #e8e6e3 !important;
-  border-color: #3a4a35 !important;
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
 }
 
 .dark input:focus,
