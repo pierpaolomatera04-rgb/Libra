@@ -607,12 +607,14 @@ export default function BookDetailPage() {
             </span>
           </div>
 
-          {/* Action buttons — compatti 40px h, 14px font, px-3 */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Action buttons
+              - Mobile: 'Inizia a leggere' full-width sopra, gli altri 4 (Like / Salva / Acquista / Boost) su un'unica riga sotto
+              - Desktop: tutti su una sola riga */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             {user ? (
               <Link
                 href={`/reader/${book.id}/1`}
-                className="flex items-center gap-2 h-10 px-3 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
+                className="flex items-center justify-center gap-2 h-10 px-3 sm:px-3.5 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap w-full sm:w-auto"
               >
                 <Play className="w-4 h-4" />
                 Inizia a leggere
@@ -620,91 +622,99 @@ export default function BookDetailPage() {
             ) : (
               <Link
                 href={`/signup?redirect=${encodeURIComponent(`/reader/${book.id}/1`)}`}
-                className="flex items-center gap-2 h-10 px-3 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
+                className="flex items-center justify-center gap-2 h-10 px-3 sm:px-3.5 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap w-full sm:w-auto"
               >
                 <Play className="w-4 h-4" />
                 Registrati per leggere
               </Link>
             )}
-            <button
-              onClick={handleLike}
-              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border ${
-                liked
-                  ? 'bg-red-50 border-red-200 text-red-600'
-                  : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
-              {likeCount}
-            </button>
-            <button
-              onClick={handleSave}
-              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border ${
-                saved
-                  ? 'bg-sage-50 border-sage-300 text-sage-700'
-                  : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
-              }`}
-            >
-              <Bookmark className={`w-4 h-4 ${saved ? 'fill-sage-500 text-sage-500' : ''}`} />
-              <span className="hidden sm:inline">{saved ? 'Salvato' : 'Salva'}</span>
-            </button>
-            {/* Acquista libro intero con token reali */}
-            <button
-              onClick={handlePurchaseBook}
-              disabled={owned || purchasing || !book?.token_price_per_block || !book?.total_blocks}
-              title={
-                owned
-                  ? 'Hai gia acquistato questo libro — e tuo per sempre'
-                  : `Acquista il libro completo per ${fullBookFinalPrice} token reali`
-              }
-              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border whitespace-nowrap shrink-0 ${
-                owned
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'
-                  : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-              }`}
-            >
-              {purchasing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : owned ? (
-                <Check className="w-4 h-4" />
-              ) : (
-                <Coins className="w-4 h-4" />
-              )}
-              {owned ? (
-                <span className="whitespace-nowrap">Tuo per sempre</span>
-              ) : (
-                <span className="whitespace-nowrap inline-flex items-center gap-1">
-                  Acquista
-                  {tierDiscount > 0 && fullBookBasePrice > 0 ? (
-                    <>
-                      <span className="text-bark-400 line-through text-[11px]">{fullBookBasePrice}</span>
-                      <span className="font-bold">{fullBookFinalPrice} tk</span>
-                    </>
-                  ) : (
-                    <span className="font-bold">— {fullBookFinalPrice} tk</span>
-                  )}
+
+            {/* Gruppo bottoni secondari — su mobile in unica riga affiancati,
+                su desktop continuano la riga primaria. min-w-0 sui figli evita
+                che vadano a capo grazie al wrap del container padre. */}
+            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleLike}
+                className={`flex items-center justify-center gap-1 h-10 px-2 sm:px-3 rounded-xl text-sm font-medium transition-colors border shrink-0 ${
+                  liked
+                    ? 'bg-red-50 border-red-200 text-red-600'
+                    : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
+                <span className="tabular-nums">{likeCount}</span>
+              </button>
+              <button
+                onClick={handleSave}
+                className={`flex items-center justify-center gap-1.5 h-10 px-2 sm:px-3 rounded-xl text-sm font-medium transition-colors border shrink-0 ${
+                  saved
+                    ? 'bg-sage-50 border-sage-300 text-sage-700'
+                    : 'bg-white dark:bg-[#1e221c] border-sage-200 dark:border-sage-700 text-bark-500 hover:bg-sage-50 dark:hover:bg-sage-800'
+                }`}
+              >
+                <Bookmark className={`w-4 h-4 ${saved ? 'fill-sage-500 text-sage-500' : ''}`} />
+                <span className="hidden xs:inline sm:inline">{saved ? 'Salvato' : 'Salva'}</span>
+              </button>
+
+              {/* Acquista — su mobile mostriamo solo il prezzo finale (no strike) per stare in riga */}
+              <button
+                onClick={handlePurchaseBook}
+                disabled={owned || purchasing || !book?.token_price_per_block || !book?.total_blocks}
+                title={
+                  owned
+                    ? 'Hai gia acquistato questo libro — e tuo per sempre'
+                    : `Acquista il libro completo per ${fullBookFinalPrice} token reali`
+                }
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 h-10 px-2 sm:px-3 rounded-xl text-sm font-medium transition-colors border whitespace-nowrap min-w-0 ${
+                  owned
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                }`}
+              >
+                {purchasing ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : owned ? (
+                  <Check className="w-4 h-4 shrink-0" />
+                ) : (
+                  <Coins className="w-4 h-4 shrink-0" />
+                )}
+                {owned ? (
+                  <span className="whitespace-nowrap truncate">Tuo per sempre</span>
+                ) : (
+                  <span className="whitespace-nowrap inline-flex items-center gap-1">
+                    Acquista
+                    {tierDiscount > 0 && fullBookBasePrice > 0 ? (
+                      <>
+                        <span className="hidden sm:inline text-bark-400 line-through text-[11px]">{fullBookBasePrice}</span>
+                        <span className="font-bold">{fullBookFinalPrice}<span className="hidden sm:inline"> tk</span></span>
+                      </>
+                    ) : (
+                      <span className="font-bold">{fullBookFinalPrice}<span className="hidden sm:inline"> tk</span></span>
+                    )}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={handleBoost}
+                disabled={!canBoost || boosting}
+                title={canBoost ? 'Spendi 10 token per dare visibilita al libro' : `Hai gia boostato. Riprova tra ${hoursUntilBoost ?? 24}h`}
+                className={`flex items-center justify-center gap-1.5 h-10 px-2 sm:px-3 rounded-xl text-sm font-medium transition-colors border whitespace-nowrap shrink-0 ${
+                  canBoost && !boosting
+                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                    : 'bg-bark-50 border-bark-200 text-bark-400 cursor-not-allowed'
+                }`}
+              >
+                {boosting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className={`w-4 h-4 ${canBoost ? 'fill-amber-300 text-amber-600' : ''}`} />
+                )}
+                <span className="hidden sm:inline whitespace-nowrap">
+                  {canBoost ? 'Boost (10 tk)' : `Tra ${hoursUntilBoost ?? 24}h`}
                 </span>
-              )}
-            </button>
-            <button
-              onClick={handleBoost}
-              disabled={!canBoost || boosting}
-              title={canBoost ? 'Spendi 10 token per dare visibilita al libro' : `Hai gia boostato. Riprova tra ${hoursUntilBoost ?? 24}h`}
-              className={`flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-colors border whitespace-nowrap shrink-0 ${
-                canBoost && !boosting
-                  ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
-                  : 'bg-bark-50 border-bark-200 text-bark-400 cursor-not-allowed'
-              }`}
-            >
-              {boosting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Zap className={`w-4 h-4 ${canBoost ? 'fill-amber-300 text-amber-600' : ''}`} />
-              )}
-              <span className="hidden sm:inline whitespace-nowrap">
-                {canBoost ? 'Boost (10 tk)' : `Tra ${hoursUntilBoost ?? 24}h`}
-              </span>
-            </button>
+              </button>
+            </div>
           </div>
 
           {/* Messaggio promozionale sotto la riga azioni — sempre visibile */}
