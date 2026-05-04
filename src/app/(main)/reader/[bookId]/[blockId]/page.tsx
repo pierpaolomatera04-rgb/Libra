@@ -11,7 +11,7 @@ import {
   ChevronLeft, ChevronRight, Heart, Bookmark, MessageCircle,
   Lock, Coins, Sun, Moon, Loader2,
   ArrowLeft, Send, Flame, Sparkles, CheckCircle2, Trophy,
-  Highlighter, Save, Share, X, Zap
+  Highlighter, Save, Share, X, Zap, BookOpen
 } from 'lucide-react'
 import { getBadgeById, XP_VALUES } from '@/lib/badges'
 import { getMacroAreaByGenre } from '@/lib/genres'
@@ -220,6 +220,20 @@ export default function ReaderPage() {
     const raw = window.localStorage.getItem(`reader:words:${bookId}`)
     wordsAccumulatedRef.current = raw ? Math.max(0, Number(raw) || 0) : 0
   }, [bookId])
+
+  // ── Resume reading: posizione salvata nel db per il blocco corrente ──
+  // savedProgress = ultima posizione salvata (page/scroll). Mostriamo un
+  // banner "Riprendi" se l'utente era arrivato oltre la prima pagina.
+  const [savedProgress, setSavedProgress] = useState<
+    { page_number: number; scroll_top: number; progress_fraction: number } | null
+  >(null)
+  const [showResumeBanner, setShowResumeBanner] = useState(false)
+  // Mantiene l'ultima posizione conosciuta per i salvataggi periodici/su unload
+  const lastProgressRef = useRef<{ page: number; scrollTop: number; frac: number }>({
+    page: 1,
+    scrollTop: 0,
+    frac: 0,
+  })
 
   // Open book = free for everyone (still gated UI, but no token cost)
   const isOpenBook = book?.access_level === 'open' || book?.tier === 'free'
@@ -492,7 +506,131 @@ export default function ReaderPage() {
   // Reset tracker scroll quando cambia blocco (nuova sessione di lettura)
   useEffect(() => {
     maxScrollFractionRef.current = 0
+    setSavedProgress(null)
+    setShowResumeBanner(false)
+    lastProgressRef.current = { page: 1, scrollTop: 0, frac: 0 }
   }, [block?.id])
+
+  // ── Resume reading: fetch posizione salvata per (user, block) ──
+  // Se page_number > 1 mostriamo il banner "Riprendi da dove ti eri fermato".
+  useEffect(() => {
+    if (!user || !block?.id || isLocked) return
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('block_reading_progress')
+        .select('page_number, scroll_top, progress_fraction')
+        .eq('user_id', user.id)
+        .eq('block_id', block.id)
+        .maybeSingle()
+      if (cancelled) return
+      if (error) return
+      if (data && (data.page_number > 1 || (data.progress_fraction ?? 0) > 0.05)) {
+        setSavedProgress({
+          page_number: data.page_number,
+          scroll_top: data.scroll_top || 0,
+          progress_fraction: Number(data.progress_fraction) || 0,
+        })
+        setShowResumeBanner(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [user, block?.id, isLocked, supabase])
+
+  // ── Autosave posizione di lettura ──
+  // Calcola page_number visivo (floor(scrollY / vh) + 1), salva ogni 10s
+  // e su pagehide/beforeunload (sendBeacon su unload non e' necessario:
+  // un upsert standard e' abbastanza veloce e abbiamo gia' la sessione).
+  useEffect(() => {
+    if (!user || !block?.id || isLocked) return
+    if (typeof window === 'undefined') return
+
+    const computeProgress = () => {
+      const vh = Math.max(1, window.innerHeight)
+      const el = pagerRef.current
+      const scrollTop = window.scrollY || window.pageYOffset || 0
+      const page = Math.floor(scrollTop / vh) + 1
+      let frac = 0
+      if (el) {
+        const rect = el.getBoundingClientRect()
+        const total = Math.max(1, rect.height)
+        const visibleEnd = Math.min(rect.bottom, vh) - rect.top
+        frac = Math.max(0, Math.min(1, visibleEnd / total))
+      }
+      lastProgressRef.current = { page, scrollTop, frac }
+      return { page, scrollTop, frac }
+    }
+
+    const onScroll = () => { computeProgress() }
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    const persist = async () => {
+      const { page, scrollTop, frac } = lastProgressRef.current
+      // Evita di salvare progressi triviali a inizio sessione
+      if (page <= 1 && frac < 0.02) return
+      await supabase
+        .from('block_reading_progress')
+        .upsert(
+          {
+            user_id: user.id,
+            block_id: block.id,
+            book_id: bookId,
+            page_number: page,
+            scroll_top: Math.round(scrollTop),
+            progress_fraction: Number(frac.toFixed(4)),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,block_id' }
+        )
+    }
+
+    // Salvataggio periodico ogni 10s
+    const interval = window.setInterval(() => { void persist() }, 10_000)
+
+    // Salvataggio su unload / pagehide / visibilitychange (mobile-safe)
+    const flush = () => { void persist() }
+    window.addEventListener('beforeunload', flush)
+    window.addEventListener('pagehide', flush)
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('beforeunload', flush)
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.clearInterval(interval)
+      // Salvataggio finale quando il componente si smonta o cambia blocco
+      void persist()
+    }
+  }, [user, block?.id, isLocked, bookId, supabase])
+
+  // Handlers banner Riprendi / Ricomincia
+  const resumeReading = useCallback(() => {
+    if (!savedProgress) { setShowResumeBanner(false); return }
+    const top = savedProgress.scroll_top
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top, behavior: 'smooth' })
+    }
+    setShowResumeBanner(false)
+  }, [savedProgress])
+
+  const restartReading = useCallback(async () => {
+    setShowResumeBanner(false)
+    setSavedProgress(null)
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    if (user && block?.id) {
+      await supabase
+        .from('block_reading_progress')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('block_id', block.id)
+    }
+  }, [user, block?.id, supabase])
 
   // ── Tracker pagine lette basato sullo scroll della finestra ──
   // Monitora quanto l'utente ha scrollato attraverso il contenuto del blocco.
@@ -1565,6 +1703,34 @@ export default function ReaderPage() {
           </div>
         ) : (
           <>
+            {/* Resume banner: ripristino posizione di lettura */}
+            {showResumeBanner && savedProgress && (
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl border border-sage-200 dark:border-sage-700 bg-sage-50/80 dark:bg-sage-900/30 animate-fade-in">
+                <div className="flex items-center gap-2 min-w-0">
+                  <BookOpen className="w-4 h-4 text-sage-600 dark:text-sage-300 flex-shrink-0" />
+                  <p className="text-sm text-sage-800 dark:text-sage-200 truncate">
+                    Riprendi da dove ti eri fermato — <strong>Pagina {savedProgress.page_number}</strong>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={resumeReading}
+                    className="px-3 py-1.5 rounded-lg bg-sage-500 hover:bg-sage-600 text-white text-sm font-medium transition-colors"
+                  >
+                    Riprendi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={restartReading}
+                    className="text-xs text-bark-500 dark:text-sage-400 hover:text-sage-700 dark:hover:text-sage-200 underline underline-offset-2"
+                  >
+                    Ricomincia dall&apos;inizio
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Block title */}
             {block?.title && (
               <h2 className="text-xl font-bold text-sage-900 mb-6 text-center">{block.title}</h2>
