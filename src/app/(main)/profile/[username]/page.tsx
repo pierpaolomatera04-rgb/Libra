@@ -1077,8 +1077,7 @@ export default function UnifiedProfilePage() {
             </div>
 
             <p className="text-sm text-bark-400 dark:text-sage-500 mb-5">
-              Invia una mancia in token. L&apos;autore riceve il 90% del valore.
-              I Welcome Token non possono essere usati.
+              Invia una mancia in token. I Welcome Token non possono essere usati.
             </p>
 
             <div className="mb-4">
@@ -1126,10 +1125,6 @@ export default function UnifiedProfilePage() {
               <div className="flex justify-between text-xs text-bark-400 dark:text-sage-500">
                 <span>Token disponibili</span>
                 <span className={`font-semibold ${tipAmount > spendableTokens ? 'text-red-500' : 'text-sage-700 dark:text-sage-300'}`}>{spendableTokens} tk</span>
-              </div>
-              <div className="flex justify-between text-xs text-bark-400 dark:text-sage-500 mt-1">
-                <span>L&apos;autore riceve</span>
-                <span className="font-semibold text-sage-700 dark:text-sage-300">&euro;{(tipAmount * 0.10 * 0.90).toFixed(2)}</span>
               </div>
               {tipAmount > spendableTokens && (
                 <Link href="/wallet" className="block text-xs text-red-500 mt-2 font-medium hover:text-red-600 underline">
