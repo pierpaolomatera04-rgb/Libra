@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check, PenTool } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function SignupPage() {
@@ -18,6 +18,7 @@ export default function SignupPage() {
 
 function SignupPageInner() {
   const [name, setName] = useState('')
+  const [pseudonym, setPseudonym] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -26,6 +27,7 @@ function SignupPageInner() {
   const { signUp } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const isAuthorMode = searchParams.get('author') === '1'
 
   // Preserva il parametro ?redirect=... per ricondurre l'utente al contenuto
   // da cui è arrivato (es. pagina libro, reader). Validato lato client:
@@ -47,9 +49,18 @@ function SignupPageInner() {
       toast.error('La password non soddisfa i requisiti')
       return
     }
+    if (isAuthorMode && !pseudonym.trim()) {
+      toast.error('Inserisci il tuo nome d\'autore o pseudonimo')
+      return
+    }
 
     setLoading(true)
-    const { error } = await signUp(email, password, name)
+    const { error } = await signUp(
+      email,
+      password,
+      name,
+      isAuthorMode ? { isAuthor: true, pseudonym: pseudonym.trim() } : undefined
+    )
 
     if (error) {
       if (error.includes('già registrata')) {
@@ -105,8 +116,21 @@ function SignupPageInner() {
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
             <img src="/logo.png" alt="Libra" className="h-12" />
           </Link>
-          <h1 className="text-2xl font-bold text-sage-900">Crea il tuo account</h1>
-          <p className="text-bark-400 mt-2">Unisciti alla community di lettori e autori</p>
+          {isAuthorMode ? (
+            <>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 mb-3 rounded-full bg-sage-100 text-sage-700 text-xs font-semibold">
+                <PenTool className="w-3.5 h-3.5" />
+                Modalità autore
+              </div>
+              <h1 className="text-2xl font-bold text-sage-900">Crea il tuo account autore</h1>
+              <p className="text-bark-400 mt-2">Pubblica la tua storia e guadagna per ogni pagina letta.</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-sage-900">Crea il tuo account</h1>
+              <p className="text-bark-400 mt-2">Unisciti alla community di lettori e autori</p>
+            </>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-8">
@@ -125,6 +149,28 @@ function SignupPageInner() {
                 />
               </div>
             </div>
+
+            {isAuthorMode && (
+              <div>
+                <label className="block text-sm font-medium text-sage-800 mb-1.5">
+                  Nome d&apos;autore o pseudonimo
+                </label>
+                <div className="relative">
+                  <PenTool className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bark-300" />
+                  <input
+                    type="text"
+                    value={pseudonym}
+                    onChange={(e) => setPseudonym(e.target.value)}
+                    placeholder="Come vuoi essere conosciuto dai lettori?"
+                    required
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-sage-200 focus:border-sage-400 focus:ring-2 focus:ring-sage-200 outline-none transition-all text-sm"
+                  />
+                </div>
+                <p className="text-xs text-bark-400 mt-1">
+                  Sarà il nome visibile sui tuoi libri. Potrai cambiarlo in seguito.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-sage-800 mb-1.5">Email</label>
@@ -188,7 +234,7 @@ function SignupPageInner() {
                 'Registrazione in corso...'
               ) : (
                 <>
-                  Crea account
+                  {isAuthorMode ? 'Crea account autore' : 'Crea account'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

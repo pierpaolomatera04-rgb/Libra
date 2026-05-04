@@ -7,6 +7,21 @@ import {
   ArrowRight, Check, Minus, X, ChevronDown,
   Coins, Users, BarChart3, Heart, PenTool, Sparkles, Layers, Settings2, Send,
 } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+
+/**
+ * CTA "diventa autore" smart-routed:
+ *  - non loggato            → /signup?author=1
+ *  - loggato, non autore    → /onboarding (compila pseudonimo + generi)
+ *  - loggato, già autore    → /dashboard
+ */
+function useAuthorCtaHref() {
+  const { user, profile, loading } = useAuth()
+  if (loading) return '/signup?author=1'
+  if (!user) return '/signup?author=1'
+  if (profile?.is_author) return '/dashboard'
+  return '/onboarding'
+}
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -18,6 +33,7 @@ const stagger: Variants = {
 }
 
 export default function DiventaAutorePage() {
+  const ctaHref = useAuthorCtaHref()
   return (
     <div className="min-h-screen bg-cream-50">
       {/* Navbar */}
@@ -30,7 +46,7 @@ export default function DiventaAutorePage() {
             <Link href="/login" className="px-4 py-2 text-sm font-medium text-sage-700 hover:text-sage-800">
               Accedi
             </Link>
-            <Link href="/signup?author=1" className="px-4 py-2 text-sm font-medium bg-sage-500 text-white rounded-lg hover:bg-sage-600 transition-colors">
+            <Link href={ctaHref} className="px-4 py-2 text-sm font-medium bg-sage-500 text-white rounded-lg hover:bg-sage-600 transition-colors">
               Inizia gratis
             </Link>
           </div>
@@ -80,7 +96,7 @@ export default function DiventaAutorePage() {
 
           <motion.div variants={fadeUp} className="mt-10">
             <Link
-              href="/signup?author=1"
+              href={ctaHref}
               className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 bg-sage-500 text-white rounded-xl font-bold hover:bg-sage-600 transition-colors text-base sm:text-lg shadow-xl"
             >
               <PenTool className="w-5 h-5" />
@@ -430,7 +446,7 @@ export default function DiventaAutorePage() {
               <h2 className="text-3xl sm:text-4xl font-bold mb-4">Pronti a iniziare?</h2>
               <p className="text-sage-100 text-lg mb-8">Il tuo primo lettore ti sta aspettando.</p>
               <Link
-                href="/signup?author=1"
+                href={ctaHref}
                 className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 bg-white text-sage-700 rounded-xl font-bold hover:bg-cream-50 hover:scale-[1.02] transition-all text-base sm:text-lg shadow-lg"
               >
                 <Send className="w-5 h-5" />

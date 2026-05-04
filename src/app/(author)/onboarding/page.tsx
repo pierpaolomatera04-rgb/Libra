@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import { PenTool, ArrowRight, Loader2, BookOpen } from 'lucide-react'
@@ -14,7 +14,17 @@ const GENRES = [
 ]
 
 export default function AuthorOnboardingPage() {
-  const [pseudonym, setPseudonym] = useState('')
+  return (
+    <Suspense fallback={null}>
+      <AuthorOnboardingInner />
+    </Suspense>
+  )
+}
+
+function AuthorOnboardingInner() {
+  const searchParams = useSearchParams()
+  const prefilledPen = searchParams.get('pen') || ''
+  const [pseudonym, setPseudonym] = useState(prefilledPen)
   const [bio, setBio] = useState('')
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -76,6 +86,13 @@ export default function AuthorOnboardingPage() {
         alert('Errore durante la registrazione: ' + error.message)
         setLoading(false)
         return
+      }
+
+      // Pulisci il flag pending author (settato durante /signup?author=1)
+      try {
+        window.localStorage.removeItem('libra_pending_author')
+      } catch {
+        /* ignore */
       }
 
       // Redirect immediato - il profilo si aggiornerà al caricamento della dashboard

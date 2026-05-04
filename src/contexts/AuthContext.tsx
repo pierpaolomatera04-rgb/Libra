@@ -35,7 +35,12 @@ interface AuthContextType {
   profile: UserProfile | null
   session: Session | null
   loading: boolean
-  signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    authorMeta?: { isAuthor?: boolean; pseudonym?: string }
+  ) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null; emailExists?: boolean }>
@@ -136,7 +141,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchProfile])
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    name: string,
+    authorMeta?: { isAuthor?: boolean; pseudonym?: string }
+  ) => {
     // Prima controlla se l'email esiste già
     const { data: existingUser } = await supabase
       .from('profiles')
@@ -148,13 +158,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'Questa email è già registrata. Vuoi accedere invece?' }
     }
 
+    const isAuthor = !!authorMeta?.isAuthor
+    const pseudonym = authorMeta?.pseudonym?.trim() || ''
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name },
+        data: {
+          name,
+          ...(isAuthor ? { is_author_intent: true, author_pseudonym: pseudonym } : {}),
+        },
       },
     })
+
+    // Persisti il pending author flag per essere ridiretti a /onboarding
+    // dopo la conferma email + login
+    if (!error && isAuthor && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('libra_pending_author', pseudonym || '1')
+      } catch {
+        /* ignore quota errors */
+      }
+    }
 
     if (error) {
       if (error.message.includes('already registered')) {
@@ -241,6 +267,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshProfile()
     return { error: null }
   }
+
+  // Redirect a /onboarding se l'utente si è appena registrato come autore
+  // (conferma email + primo login). Il flag viene settato in signUp e
+  // rimosso da /onboarding dopo il completamento.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!user || !profile) return
+    if (profile.is_author) return
+    let pending: string | null = null
+    try {
+      pending = window.localStorage.getItem('libra_pending_author')
+    } catch {
+      return
+    }
+    if (!pending) return
+    const path = window.location.pathname
+    // Non reindirizzare se siamo già su onboarding o su pagine auth
+    if (path.startsWith('/onboarding') || path.startsWith('/login') || path.startsWith('/signup')) return
+    const pen = pending && pending !== '1' ? `?pen=${encodeURIComponent(pending)}` : ''
+    window.location.replace(`/onboarding${pen}`)
+  }, [user, profile])
 
   const totalTokens = (profile?.bonus_tokens ?? 0) + (profile?.premium_tokens ?? 0)
 
